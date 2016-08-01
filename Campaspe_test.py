@@ -5,9 +5,9 @@ import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
 
-from GW_module import GWModelBuilder
-from GISInterface.GDALInterface.GDALInterface import GDALInterface
-from ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.GW_module import GWModelBuilder
+from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
+from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 from CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverGauges
 
 """

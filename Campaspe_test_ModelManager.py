@@ -1,5 +1,5 @@
-import Groundwater
-from ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.Groundwater import GWModelManager
+from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # MM is short for model manager
 
 def run_GW_model(testMM, river_stages, rainfall, data_folder):
@@ -52,8 +52,8 @@ if __name__ == "__main__":
     river_stages = 1
     rainfall = 1
 
-    testMM = Groundwater.GWModelManager()
-    testMM.load_GW_model(r"C:\Workspace\part0075\MDB modelling\HydroModelBuilder\Campaspe_packaged.pkl")
+    testMM = GWModelManager()
+    testMM.load_GW_model(r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\Campaspe_packaged.pkl")
     # modify data folder
     testMM.GW_build['Campaspe'].data_folder
     #modify output folder
