@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
 
-from HydroModelBuilder.GW_module import GWModelBuilder
+from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 from CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverGauges
@@ -36,8 +36,6 @@ STEPS IN THE GROUNDWATER MODEL BUILDING PROCESS:
    define pumping wells and observation bores from points.     
 
 """
-
-print 'Test'
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()

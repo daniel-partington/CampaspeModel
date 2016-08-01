@@ -1,4 +1,4 @@
-from HydroModelBuilder.Groundwater import GWModelManager
+from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # MM is short for model manager
 
