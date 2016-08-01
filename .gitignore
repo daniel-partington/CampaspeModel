@@ -4,6 +4,9 @@ dont_git/*
 
 CustomScripts/still_to_be_implemented/*
 
+# Images
+*.png
+
 # PYTHON
 *.pyc
 
