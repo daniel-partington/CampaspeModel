@@ -1,8 +1,17 @@
-from HydroModelBuilder.GWModelManager import GWModelManager
-from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
+from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # MM is short for model manager
 
 def run_GW_model(testMM, river_stages, rainfall, data_folder):
+
+    # Load in the new parameters based on parameters.txt or dictionary of new parameters
+    testMM.updateParameters('Campaspe', 'paramters.txt')
+
+    print "************************************************************************"
+    print " Updating HGU parameters "
+    
+
+
     print "************************************************************************"
     print " Updating recharge boundary "
     
@@ -23,11 +32,13 @@ def run_GW_model(testMM, river_stages, rainfall, data_folder):
     
     
     
-    
     print "************************************************************************"
     print " Build and run MODFLOW model "
     
-    
+    ###########################################################################
+    ###########################################################################
+    ###########################################################################
+    ## Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(testMM.GW_build['Campaspe'], data_folder=data_folder)
     
     modflow_model.runMODFLOW()

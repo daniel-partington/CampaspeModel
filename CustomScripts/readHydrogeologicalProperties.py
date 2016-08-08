@@ -11,8 +11,8 @@ def getHGUproperties(fname):
 
     def two_col_avg(row, a ,b):
         if row[a] == '-' and row[b] == '-':
-            new = '-'
-            unknown = {'T':, 'Kh':, 'Kz':, 'Sy':, 'SS':}
+            unknown = {'T ':100, 'Kh':1, 'Kz':0.1, 'Sy':0.25, 'SS':0.00001}
+            new = unknown[a[0:2]] #'-'
             return new
         elif row[a] == '-' and row[b] != '-':   
             new = row[b]

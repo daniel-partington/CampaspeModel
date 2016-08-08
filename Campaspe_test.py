@@ -5,9 +5,9 @@ import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
 
-from HydroModelBuilder.GWModelBuilder import GWModelBuilder
-from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.HydroModelBuilder.GWModelBuilder import GWModelBuilder
+from HydroModelBuilder.HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
+from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 from CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverGauges
 
 """
@@ -405,27 +405,21 @@ test_model.package_model()
 # AFTER data input pass data to model
 #
 #******************************************************************************
-print '########################################################################'
-print '########################################################################'
-print '## Model specific setup and running'
-print '########################################################################'
-print '########################################################################'
-
-print "************************************************************************"
-print " Set up Modflow and RUN"
-
-
-modflow_model = flopyInterface.ModflowModel(test_model, data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\\")
-
-modflow_model.runMODFLOW()
-
-modflow_model.viewHeads()
+#print '########################################################################'
+#print '########################################################################'
+#print '## Model specific setup and running'
+#print '########################################################################'
+#print '########################################################################'
+#
+#print "************************************************************************"
+#print " Set up Modflow and RUN"
+#
+# THIS CAN BE DONE FROM THE GWModelManager MODULE
+#
 
 
-# CLEANUP
-test_model = None
-Interface = None
-#test_model.model_mesh = None
-model_mesh = None
-hu_rasters = None
-hu_gridded_rasters = None
+#modflow_model = flopyInterface.ModflowModel(test_model, data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\\")
+#
+#modflow_model.runMODFLOW()
+#
+#modflow_model.viewHeads()

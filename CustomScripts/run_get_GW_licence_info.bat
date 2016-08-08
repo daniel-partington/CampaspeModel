@@ -1,1 +1,0 @@
-"C:\Program Files\Anaconda\python.exe" get_GW_licence_info.py
