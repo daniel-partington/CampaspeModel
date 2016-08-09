@@ -24,6 +24,23 @@ data_folder = r"C:\Workspace\part0075\MDB modelling\testbox\\"
 print "************************************************************************"
 print " Updating HGU parameters "
 
+# This needs to be automatically generated from with the map_raster2mesh routine ...
+zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
+
+Kh = MM.GW_build[name].model_mesh3D[1].astype(float)
+Kv = MM.GW_build[name].model_mesh3D[1].astype(float)
+Sy = MM.GW_build[name].model_mesh3D[1].astype(float)
+SS = MM.GW_build[name].model_mesh3D[1].astype(float)
+for key in zone_map.keys():
+    Kh[Kh == key] = MM.GW_build[name].parameters.param['Kh_' + zone_map[key]]['PARVAL1']
+    Kv[Kv == key] = MM.GW_build[name].parameters.param['Kv_' + zone_map[key]]['PARVAL1']
+    Sy[Sy == key] = MM.GW_build[name].parameters.param['Sy_' + zone_map[key]]['PARVAL1']
+    SS[SS == key] = MM.GW_build[name].parameters.param['SS_' + zone_map[key]]['PARVAL1']
+
+MM.GW_build[name].properties.assign_model_properties('Kh', Kh)
+MM.GW_build[name].properties.assign_model_properties('Kv', Kv)
+MM.GW_build[name].properties.assign_model_properties('Sy', Sy)
+MM.GW_build[name].properties.assign_model_properties('SS', SS)
 
 print "************************************************************************"
 print " Updating river parameters "
@@ -40,8 +57,8 @@ for riv_cell in mapped_river: #MM.GW_build[name].polyline_mapped['Campaspe_Riv_m
         continue
     #print test_model.model_mesh3D
     stage = MM.GW_build[name].model_mesh3D[0][0][row][col]
-    bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - MM.GW_build[name].parameters.param['bed_depress']
-    cond = riv_cell[1] * riv_width_avg * MM.GW_build[name].parameters.param['Kv_riv'] / riv_bed_thickness
+    bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {}
@@ -53,7 +70,7 @@ MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
 print "************************************************************************"
 print " Updating recharge boundary "
 
-interp_rain = MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'] * MM.GW_build[name].parameters.param['magic_rain']
+interp_rain = MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'] * MM.GW_build[name].parameters.param['magic_rain']['PARVAL1']
 
 rch = {}
 rch[0] = interp_rain

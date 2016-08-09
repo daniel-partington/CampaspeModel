@@ -167,8 +167,38 @@ print "************************************************************************"
 print " Assign properties to mesh based on zonal information"
 
 # create list of HGU's from hu_raster_files
-HGU = [x.split('_')[0] for x in hu_raster_files]
+HGU = list(set([x.split('_')[0] for x in hu_raster_files]))
 
+# NOTE *** utam is mapping to Shepparton Sands but it represetnts the 
+# Loxton-Parilla Sand ... the HGU database needs updating to include this.
+HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts', 
+           'utaf':'Calivil', 'lta':'Renmark', 
+           'qa':'Coonambidgal Sands', 'utqa':'Shepparton Sands',
+           'utam':'Shepparton Sands'}
+
+for unit in HGU:
+    SS_model.parameters.create_model_parameter('Kh_' + unit, value=HGU_props['Kh mean'][HGU_map[unit]])
+    SS_model.parameters.create_model_parameter('Kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
+    SS_model.parameters.create_model_parameter('Sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
+    SS_model.parameters.create_model_parameter('SS_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
+
+# This needs to be automatically generated from with the map_raster2mesh routine ...
+zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
+
+Kh = SS_model.model_mesh3D[1].astype(float)
+Kv = SS_model.model_mesh3D[1].astype(float)
+Sy = SS_model.model_mesh3D[1].astype(float)
+SS = SS_model.model_mesh3D[1].astype(float)
+for key in zone_map.keys():
+    Kh[Kh == key] = SS_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
+    Kv[Kv == key] = SS_model.parameters.param['Kv_' + zone_map[key]]['PARVAL1']
+    Sy[Sy == key] = SS_model.parameters.param['Sy_' + zone_map[key]]['PARVAL1']
+    SS[SS == key] = SS_model.parameters.param['SS_' + zone_map[key]]['PARVAL1']
+
+SS_model.properties.assign_model_properties('Kh', Kh)
+SS_model.properties.assign_model_properties('Kv', Kv)
+SS_model.properties.assign_model_properties('Sy', Sy)
+SS_model.properties.assign_model_properties('SS', SS)
 
 print "************************************************************************"
 print " Interpolating rainfall data to grid "
@@ -181,9 +211,9 @@ interp_rain = interp_rain/1000.0/365.0
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
-SS_model.parameters.create_model_parameter('magic_rain', 0.1)
+SS_model.parameters.create_model_parameter('magic_rain', value=0.1)
 
-interp_rain = interp_rain * SS_model.parameters.param['magic_rain']
+interp_rain = interp_rain * SS_model.parameters.param['magic_rain']['PARVAL1']
 
 rch = {}
 rch[0] = interp_rain
@@ -270,8 +300,8 @@ print " Mapping Campaspe river to grid"
 
 river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
 SS_model.map_polyline_to_grid(river_poly)
-SS_model.parameters.create_model_parameter('bed_depress', 0.01)
-SS_model.parameters.create_model_parameter('Kv_riv', 5E-3)
+SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
+SS_model.parameters.create_model_parameter('Kv_riv', value=5E-3)
 
 simple_river = []
 riv_width_avg = 10.0 #m
@@ -283,8 +313,8 @@ for riv_cell in SS_model.polyline_mapped['Campaspe_Riv_model.shp']:
         continue
     #print SS_model.model_mesh3D
     stage = SS_model.model_mesh3D[0][0][row][col]
-    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']
-    cond = riv_cell[1] * riv_width_avg * SS_model.parameters.param['Kv_riv'] / riv_bed_thickness
+    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * SS_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {}
@@ -316,8 +346,8 @@ for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
         continue
     #print SS_model.model_mesh3D
     stage = SS_model.model_mesh3D[0][0][row][col]
-    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']
-    cond = riv_cell[1]*riv_width_avg*Kv_riv/riv_bed_thickness
+    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * Kv_riv / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {}
