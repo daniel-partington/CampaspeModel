@@ -8,7 +8,7 @@ import numpy as np
 from HydroModelBuilder.HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
 from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
-from CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverGauges
+from CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverGauges, readHydrogeologicalProperties
 
 """
 STEPS IN THE GROUNDWATER MODEL BUILDING PROCESS:
@@ -142,6 +142,12 @@ print " Executing custom script: get_GW_licence_info "
 pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
 pumps_points = test_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\pumping wells.shp")
 
+print "************************************************************************"
+print " Executing custom script: readHydrogeologicalProperties "
+
+file_location = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
+HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
+
 
 print '########################################################################'
 print '########################################################################'
@@ -188,6 +194,68 @@ print " Assign properties to mesh based on zonal information"
 # create list of HGU's from hu_raster_files
 HGU = [x.split('_')[0] for x in hu_raster_files]
 
+# NOTE *** utam is mapping to Shepparton Sands but it represents the 
+# Loxton-Parilla Sand ... the HGU database needs updating to include this.
+HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts', 
+           'utaf':'Calivil', 'lta':'Renmark', 
+           'qa':'Coonambidgal Sands', 'utqa':'Shepparton Sands',
+           'utam':'Shepparton Sands'}
+
+for unit in HGU:
+    test_model.parameters.create_model_parameter('Kh_' + unit, value=HGU_props['Kh mean'][HGU_map[unit]])
+    test_model.parameters.parameter_options('Kh_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                          PARGP='cond', 
+                                          SCALE=1, 
+                                          OFFSET=0)
+    test_model.parameters.create_model_parameter('Kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
+    test_model.parameters.parameter_options('Kv_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10., 
+                                          PARGP='cond', 
+                                          SCALE=1, 
+                                          OFFSET=0)
+    test_model.parameters.create_model_parameter('Sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
+    test_model.parameters.parameter_options('Sy_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=0., 
+                                          PARUBND=0.8, 
+                                          PARGP='spec_yield', 
+                                          SCALE=1, 
+                                          OFFSET=0)
+    test_model.parameters.create_model_parameter('SS_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
+    test_model.parameters.parameter_options('SS_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
+                                          PARGP='spec_stor', 
+                                          SCALE=1, 
+                                          OFFSET=0)
+
+# This needs to be automatically generated from with the map_raster2mesh routine ...
+zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
+
+Kh = test_model.model_mesh3D[1].astype(float)
+Kv = test_model.model_mesh3D[1].astype(float)
+Sy = test_model.model_mesh3D[1].astype(float)
+SS = test_model.model_mesh3D[1].astype(float)
+for key in zone_map.keys():
+    Kh[Kh == key] = test_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
+    Kv[Kv == key] = test_model.parameters.param['Kv_' + zone_map[key]]['PARVAL1']
+    Sy[Sy == key] = test_model.parameters.param['Sy_' + zone_map[key]]['PARVAL1']
+    SS[SS == key] = test_model.parameters.param['SS_' + zone_map[key]]['PARVAL1']
+
+test_model.properties.assign_model_properties('Kh', Kh)
+test_model.properties.assign_model_properties('Kv', Kv)
+test_model.properties.assign_model_properties('Sy', Sy)
+test_model.properties.assign_model_properties('SS', SS)
 
 print "************************************************************************"
 print " Interpolating rainfall data to grid "
