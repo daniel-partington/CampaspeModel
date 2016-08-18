@@ -1,7 +1,7 @@
 import pandas as pd
 import dbf2df
 
-def getBoreData(): 
+def getBoreData(get='transient'): 
     VIC_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\level_VIC.csv"
     VIC_salinity_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\salinity_VIC.csv"
     #NSW_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\level_NSW.csv"
@@ -59,8 +59,8 @@ def getBoreData():
     dfVIC_level_summary['mean level'] = dfVIC_level.groupby('bore_id').mean()
    
     print 'Total number of unique bores with level readings: ', dfVIC_level_summary.shape[0]
-    # Filter out bores with less than 10 records
-    obs_num_min = 10
+    # Filter out bores with less than obs_num_min records
+    obs_num_min = 1
     dfVIC_level_summary = dfVIC_level_summary[dfVIC_level_summary['result'] > obs_num_min]
 
     print 'Total number of unique bores with at least %i readings: ' %(obs_num_min), dfVIC_level_summary.shape[0]
@@ -101,17 +101,12 @@ def getBoreData():
     
     #df_bores['HGUNumber'] = df_bores.lookup(df_BoreholeLog_VIC["BoreID"], df_BoreholeLog_VIC['HGUNumber'])
 
-        
-    return df_level_ordered, df_bores_clear #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity    
+    #if get == 'transient':
+    #    return dfVIC_level[df_level['HydroCode'].isin()]
+    #else:
+    #    return df_level_ordered, df_bores_clear #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity    
 
-    #wellslist = ['82999']
-    
-    #def getWells(df, wellslist):
-    #    wells = df.loc[df['bore_id'].isin(wellslist)]
-    #    return wells    
-        
-    #def plotWells(well):    
-    #    return well.result.plot(marker ='o', linestyle="None")
+    return df_level_ordered, df_bores_clear #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity    
 
     #filter_wells = getWells(df_level, wellslist)
     #date_sorted_wells = filter_wells.sort_values('bore_date')
@@ -121,5 +116,5 @@ def getBoreData():
     #ax.plot(title="Bore @" + wellslist[0])
 
 if __name__ == "__main__":
-    df_level, df_bores = getBoreData()    
+    df_level, df_bores = getBoreData(get='transient')    
     

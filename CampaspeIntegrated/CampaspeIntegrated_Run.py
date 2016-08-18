@@ -5,7 +5,7 @@ from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import fl
 def run_GW_model(testMM, river_stages, rainfall, data_folder):
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
-    testMM.updateParameters('Campaspe', 'paramters.txt')
+    #testMM.updateParameters('Campaspe', 'paramaters.txt')
 
     print "************************************************************************"
     print " Updating HGU parameters "
@@ -15,7 +15,7 @@ def run_GW_model(testMM, river_stages, rainfall, data_folder):
     print "************************************************************************"
     print " Updating recharge boundary "
     
-    old_val = testMM.GW_build['Campaspe'].parameters.param['magic_rain']
+    old_val = testMM.GW_build['Campaspe'].parameters.param['magic_rain']['PARVAL1']
     new_val = 0.05
     
     rch = {}

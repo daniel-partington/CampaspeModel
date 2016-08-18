@@ -125,6 +125,15 @@ HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 
 
 
+#******************************************************************************
+#******************************************************************************
+#******************************************************************************
+#******************************************************************************
+#******************************************************************************
+#******************************************************************************
+#******************************************************************************
+#******************************************************************************
+
 print '########################################################################'
 print '########################################################################'
 print '## Mesh specific model building '
@@ -134,7 +143,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-SS_model.define_structured_mesh(10000, 10000) #10000,10000)
+SS_model.define_structured_mesh(1000, 1000) #10000,10000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
 #hu_raster_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Hydrogeological_Unit_Layers\\"
@@ -169,7 +178,7 @@ print " Assign properties to mesh based on zonal information"
 # create list of HGU's from hu_raster_files
 HGU = list(set([x.split('_')[0] for x in hu_raster_files]))
 
-# NOTE *** utam is mapping to Shepparton Sands but it represetnts the 
+# NOTE *** utam is mapping to Shepparton Sands but it represents the 
 # Loxton-Parilla Sand ... the HGU database needs updating to include this.
 HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts', 
            'utaf':'Calivil', 'lta':'Renmark', 
@@ -178,9 +187,41 @@ HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts',
 
 for unit in HGU:
     SS_model.parameters.create_model_parameter('Kh_' + unit, value=HGU_props['Kh mean'][HGU_map[unit]])
+    SS_model.parameters.parameter_options('Kh_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                          PARGP='cond', 
+                                          SCALE=1, 
+                                          OFFSET=0)
     SS_model.parameters.create_model_parameter('Kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
+    SS_model.parameters.parameter_options('Kv_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10., 
+                                          PARGP='cond', 
+                                          SCALE=1, 
+                                          OFFSET=0)
     SS_model.parameters.create_model_parameter('Sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
+    SS_model.parameters.parameter_options('Sy_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=0., 
+                                          PARUBND=0.8, 
+                                          PARGP='spec_yield', 
+                                          SCALE=1, 
+                                          OFFSET=0)
     SS_model.parameters.create_model_parameter('SS_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
+    SS_model.parameters.parameter_options('SS_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
+                                          PARGP='spec_stor', 
+                                          SCALE=1, 
+                                          OFFSET=0)
 
 # This needs to be automatically generated from with the map_raster2mesh routine ...
 zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
@@ -212,6 +253,14 @@ SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_s
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
 SS_model.parameters.create_model_parameter('magic_rain', value=0.1)
+SS_model.parameters.parameter_options('magic_rain', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0., 
+                                      PARUBND=0.9, 
+                                      PARGP='rech_mult', 
+                                      SCALE=1, 
+                                      OFFSET=0)
 
 interp_rain = interp_rain * SS_model.parameters.param['magic_rain']['PARVAL1']
 
@@ -239,7 +288,7 @@ bores_obs_time_series = bores_obs_time_series.rename(columns={'HydroCode':'name'
 
 SS_model.observations.set_as_observations('head', bores_obs_time_series, bore_points3D, domain='porous', obs_type='head', units='mAHD')
 
-SS_model.map_obs_loc2mesh3D()
+SS_model.map_obs_loc2mesh3D(method='nearest')
 
 bores_in_layers = SS_model.map_points_to_raster_layers(bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
 
@@ -301,7 +350,23 @@ print " Mapping Campaspe river to grid"
 river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
 SS_model.map_polyline_to_grid(river_poly)
 SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
+SS_model.parameters.parameter_options('bed_depress', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='spec_stor', 
+                                      SCALE=1, 
+                                      OFFSET=0)
 SS_model.parameters.create_model_parameter('Kv_riv', value=5E-3)
+SS_model.parameters.parameter_options('Kv_riv', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='spec_stor', 
+                                      SCALE=1, 
+                                      OFFSET=0)
 
 simple_river = []
 riv_width_avg = 10.0 #m

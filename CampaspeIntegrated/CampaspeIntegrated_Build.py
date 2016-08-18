@@ -198,7 +198,7 @@ interp_rain = interp_rain/1000.0/365.0
 # Adjust rainfall to recharge using 10% magic number
 test_model.parameters.create_model_parameter('magic_rain', 0.1)
 
-interp_rain = interp_rain * test_model.parameters.param['magic_rain']
+interp_rain = interp_rain * test_model.parameters.param['magic_rain']['PARVAL1']
 
 rch = {}
 rch[0] = interp_rain
@@ -219,10 +219,12 @@ bore_points3D = bore_points3D.set_index("HydroCode")
 
 bores_obs_time_series = final_bores[["HydroCode", "mean level"]]
 
+# Modify into standard format for the GWModelBuilder class
+bores_obs_time_series = bores_obs_time_series.rename(columns={'HydroCode':'name', 'mean level':'value'})
 
 test_model.observations.set_as_observations('average head', bores_obs_time_series, bore_points3D, domain='porous', obs_type='head', units='mAHD')
 
-test_model.map_obs_loc2mesh3D()
+test_model.map_obs_loc2mesh3D(method='nearest')
 
 bores_in_layers = test_model.map_points_to_raster_layers(bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
 
@@ -347,7 +349,7 @@ for riv_cell in test_model.polyline_mapped['Campaspe_Riv_model.shp']:
         continue
     #print test_model.model_mesh3D
     stage = test_model.model_mesh3D[0][0][row][col]
-    bed = test_model.model_mesh3D[0][0][row][col] - test_model.parameters.param['bed_depression']
+    bed = test_model.model_mesh3D[0][0][row][col] - test_model.parameters.param['bed_depression']['PARVAL1']
     cond = riv_cell[1]*riv_width_avg*Kv_riv/riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
@@ -380,7 +382,7 @@ for riv_cell in test_model.polyline_mapped['River_Murray_model.shp']:
         continue
     #print test_model.model_mesh3D
     stage = test_model.model_mesh3D[0][0][row][col]
-    bed = test_model.model_mesh3D[0][0][row][col] - test_model.parameters.param['bed_depression']
+    bed = test_model.model_mesh3D[0][0][row][col] - test_model.parameters.param['bed_depression']['PARVAL1']
     cond = riv_cell[1]*riv_width_avg*Kv_riv/riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 

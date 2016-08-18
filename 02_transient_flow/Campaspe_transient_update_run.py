@@ -9,7 +9,7 @@ from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import fl
 grid_resolution = '1000'
 
 MM = GWModelManager()
-MM.load_GW_model(r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state\structured_model_grid_" + grid_resolution + r"m\01_steady_state_packaged.pkl")
+MM.load_GW_model(r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\02_transient_flow_packaged.pkl")
 
 name = MM.GW_build.keys()[0]
 # modify data folder
@@ -30,6 +30,10 @@ with open(r"C:\Workspace\part0075\MDB modelling\testbox\PEST\parameters.txt", 'r
     for line in text:
         param_name, value = line.strip('\n').split('\t')
         value = value.lstrip()
+        if param_name == 'bed_depress':
+            continue
+        if param_name == 'Kv_riv':
+            continue
         MM.GW_build[name].parameters.param[param_name]['PARVAL1'] = float(value)
        
 
@@ -54,38 +58,37 @@ MM.GW_build[name].properties.assign_model_properties('Kv', Kv)
 MM.GW_build[name].properties.assign_model_properties('Sy', Sy)
 MM.GW_build[name].properties.assign_model_properties('SS', SS)
 
-print "************************************************************************"
-print " Updating river parameters "
-
-mapped_river = MM.GW_build[name].load_obj(r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state\structured_model_grid_" + grid_resolution + r"m\Campaspe_Riv_model.shp_mapped.pkl")
-
-simple_river = []
-riv_width_avg = 10.0 #m
-riv_bed_thickness = 0.10 #m
-for riv_cell in mapped_river: #MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']:
-    row = riv_cell[0][0]
-    col = riv_cell[0][1]
-    if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
-        continue
-    #print test_model.model_mesh3D
-    stage = MM.GW_build[name].model_mesh3D[0][0][row][col]
-    bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
-    cond = riv_cell[1] * riv_width_avg * MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
-    simple_river += [[0, row, col, stage, cond, bed]]
-
-riv = {}
-riv[0] = simple_river
-#MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
-MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
+#print "************************************************************************"
+#print " Updating river parameters "
+#
+#mapped_river = MM.GW_build[name].load_obj(r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state\structured_model_grid_" + grid_resolution + r"m\Campaspe_Riv_model.shp_mapped.pkl")
+#
+#simple_river = []
+#riv_width_avg = 10.0 #m
+#riv_bed_thickness = 0.10 #m
+#for riv_cell in mapped_river: #MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']:
+#    row = riv_cell[0][0]
+#    col = riv_cell[0][1]
+#    if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
+#        continue
+#    #print test_model.model_mesh3D
+#    stage = MM.GW_build[name].model_mesh3D[0][0][row][col]
+#    bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
+#    cond = riv_cell[1] * riv_width_avg * MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
+#    simple_river += [[0, row, col, stage, cond, bed]]
+#
+#riv = {}
+#riv[0] = simple_river
+##MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
+#MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
 
 
 print "************************************************************************"
 print " Updating recharge boundary "
 
-interp_rain = MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'] * MM.GW_build[name].parameters.param['magic_rain']['PARVAL1']
-
 rch = {}
-rch[0] = interp_rain
+for key in MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'].keys():
+    rch[key]= MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'][key] * MM.GW_build[name].parameters.param['magic_rain']['PARVAL1']
 
 #MM.GW_build[name].boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=True)
 MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
@@ -117,9 +120,9 @@ modflow_model.runMODFLOW()
 #AvgDepthToGWTable = 1   
 #DepthToGWTable = [1]
 
-modflow_model.writeObservations()
+#modflow_model.writeObservations()
 
-modflow_model.viewHeadsByZone()
+modflow_model.viewHeadsByZone(nper=40)
 
 #modflow_model.viewHeads()
 #modflow_model.viewHeads2()    

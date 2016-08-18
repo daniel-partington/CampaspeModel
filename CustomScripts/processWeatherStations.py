@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 #import matplotlib.colors as colors
 import re
 
-def processWeatherStations(weather_stations, path=''):
+def processWeatherStations(weather_stations, path='', frequency='A'):
     
     weather_station_details = {}
     weather_dfs = {}
@@ -104,9 +104,11 @@ def processWeatherStations(weather_stations, path=''):
     #annual_rain_df.plot(kind='box')
     #plt.ylabel("Annual Rainfall [mm]")
     
-    #monthly_rain_df = pd.DataFrame() 
-    #for station in weather_stations:
-    #    monthly_rain_df[station]= weather_dfs[station]['Rain'].resample("M", how='sum')
+    monthly_rain_df = pd.DataFrame() 
+    for station in weather_stations:
+        monthly_rain_df[station]= weather_dfs[station]['Rain'].resample("M", how='sum')
+
+    monthly_rain_df[other_station]= weather_dfs[other_station]['Rainfall amount (millimetres)'].resample("M", how='sum')    
     
     #Months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     #month_avg = pd.groupby(monthly_rain_df,by=[monthly_rain_df.index.month]).mean()
@@ -118,10 +120,13 @@ def processWeatherStations(weather_stations, path=''):
     #plt.xlabel("")
     #plt.tight_layout()
     #plt.legend(bbox_to_anchor=(0, 1), loc='upper left', ncol=1)
-    
-    return annual_rain_df.mean()
+
+    if frequency == 'A':
+        return annual_rain_df.mean()
+    if frequency == 'M':
+        return monthly_rain_df
     
 if __name__ == "__main__":
     
     weather_stations = ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
-    weather = processWeatherStations(weather_stations, path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\")
+    weather = processWeatherStations(weather_stations, path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\", frequency='M')
