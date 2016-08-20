@@ -143,7 +143,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-SS_model.define_structured_mesh(1000, 1000) #10000,10000)
+SS_model.define_structured_mesh(5000, 5000) #10000,10000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
 #hu_raster_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Hydrogeological_Unit_Layers\\"
@@ -351,7 +351,7 @@ river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part
 SS_model.map_polyline_to_grid(river_poly)
 SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
 SS_model.parameters.parameter_options('bed_depress', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
@@ -398,10 +398,27 @@ print " Mapping Murray River to grid"
 river_poly = SS_model.read_polyline("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
 SS_model.map_polyline_to_grid(river_poly)
 
-#SS_model.parameters.create_model_parameter('bed_depress', 0.01)
+SS_model.parameters.create_model_parameter('RMstage', value=0.01)
+SS_model.parameters.parameter_options('RMstage', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='spec_stor', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+SS_model.parameters.create_model_parameter('Kv_RM', value=5E-3)
+SS_model.parameters.parameter_options('Kv_RM', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='spec_stor', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
 
 simple_river = []
-Kv_riv = 5E-3 #m/day
 riv_width_avg = 10.0 #m
 riv_bed_thickness = 0.10 #m
 for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
@@ -411,8 +428,8 @@ for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
         continue
     #print SS_model.model_mesh3D
     stage = SS_model.model_mesh3D[0][0][row][col]
-    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']['PARVAL1']
-    cond = riv_cell[1] * riv_width_avg * Kv_riv / riv_bed_thickness
+    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['RMstage']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * SS_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {}
@@ -430,10 +447,10 @@ print " Setting up Murray River GHB boundary"
 
 SS_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
 SS_model.parameters.parameter_options('MGHB_stage', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=0.1, 
+                                      PARLBND=0.0, 
+                                      PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
@@ -442,14 +459,13 @@ SS_model.parameters.parameter_options('MGHBcond',
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
-                                      PARUBND=20, 
+                                      PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
 
 
 MurrayGHB = []
-MGHBcond = 5E-3 #m/day
 for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
@@ -457,8 +473,10 @@ for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][0][row][col] == -1:
             continue
-        MurrayGHBstage = SS_model.model_mesh3D[0][lay][row][col] + SS_model.parameters.param['MGHB_stage']['PARVAL1']
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBcond]]
+        MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
+        dx = SS_model.model_mesh3D[0][0][0][1] - SS_model.model_mesh3D[0][0][0][0]
+        MGHBconductance = dx * SS_model.parameters.param['MGHBcond']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
 ghb = {}
 ghb[0] = MurrayGHB
@@ -474,10 +492,10 @@ print " Setting up Western GHB boundary"
 
 SS_model.parameters.create_model_parameter('WGHB_stage', value=0.01)
 SS_model.parameters.parameter_options('WGHB_stage', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=0.1, 
+                                      PARLBND=0.0, 
+                                      PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
@@ -486,7 +504,7 @@ SS_model.parameters.parameter_options('WGHBcond',
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
-                                      PARUBND=20, 
+                                      PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
@@ -500,8 +518,10 @@ for WestGHB_cell in SS_model.polyline_mapped['western_head_model.shp']:
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][lay][row][col] == -1:
             continue
-        WestGHBstage = SS_model.model_mesh3D[0][lay][row][col] + SS_model.parameters.param['WGHB_stage']['PARVAL1']
-        WestGHB += [[lay, row, col, WestGHBstage, SS_model.parameters.param['WGHBcond']['PARVAL1']]]
+        WestGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['WGHB_stage']['PARVAL1']
+        dx = SS_model.model_mesh3D[0][0][0][1] - SS_model.model_mesh3D[0][0][0][0]
+        WGHBconductance = dx * SS_model.parameters.param['WGHBcond']['PARVAL1']
+        WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
 
 ghb[0] += WestGHB
 
@@ -517,10 +537,10 @@ print " Setting up Western GHB boundary"
 
 SS_model.parameters.create_model_parameter('EGHB_stage', value=0.01)
 SS_model.parameters.parameter_options('EGHB_stage', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=0.1, 
+                                      PARLBND=0.0, 
+                                      PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
@@ -529,7 +549,7 @@ SS_model.parameters.parameter_options('EGHBcond',
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
-                                      PARUBND=20, 
+                                      PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
@@ -543,8 +563,10 @@ for EastGHB_cell in SS_model.polyline_mapped['eastern_head_model.shp']:
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][lay][row][col] == -1:
             continue
-        EastGHBstage = SS_model.model_mesh3D[0][lay][row][col] + SS_model.parameters.param['EGHB_stage']['PARVAL1']
-        EastGHB += [[lay, row, col, EastGHBstage, SS_model.parameters.param['EGHBcond']['PARVAL1']]]
+        EastGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['EGHB_stage']['PARVAL1']
+        dx = SS_model.model_mesh3D[0][0][0][1] - SS_model.model_mesh3D[0][0][0][0]
+        EGHBconductance = dx * SS_model.parameters.param['EGHBcond']['PARVAL1']
+        EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
 
 ghb[0] += EastGHB
 

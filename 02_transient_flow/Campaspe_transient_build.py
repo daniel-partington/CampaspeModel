@@ -156,7 +156,7 @@ tr_model.model_time.set_temporal_components(steady_state=False, start_time=start
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-tr_model.define_structured_mesh(1000, 1000) #10000,10000)
+tr_model.define_structured_mesh(5000, 5000) #10000,10000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
 #hu_raster_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Hydrogeological_Unit_Layers\\"
@@ -294,6 +294,8 @@ tr_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 print "************************************************************************"
 print " Mapping bores to grid "
 
+
+
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
 
 bore_points3D = final_bores[["HydroCode", "Easting", "Northing", "depth"]] # [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"], final_bores.loc[x, "depth"]] for x in final_bores.index]
@@ -374,7 +376,7 @@ tr_model.map_points_to_grid(pumps_points, feature_id = 'OLD ID')
 
 tr_model.parameters.create_model_parameter('pump_use', value=0.6)
 tr_model.parameters.parameter_options('pump_use', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.2, 
                                       PARUBND=1., 
@@ -485,7 +487,7 @@ river_poly = tr_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part
 tr_model.map_polyline_to_grid(river_poly)
 tr_model.parameters.create_model_parameter('bed_depress', value=0.01)
 tr_model.parameters.parameter_options('bed_depress', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
@@ -532,10 +534,27 @@ print " Mapping Murray River to grid"
 river_poly = tr_model.read_polyline("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
 tr_model.map_polyline_to_grid(river_poly)
 
-#tr_model.parameters.create_model_parameter('bed_depress', 0.01)
+tr_model.parameters.create_model_parameter('RMstage', value=0.01)
+tr_model.parameters.parameter_options('RMstage', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='spec_stor', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+tr_model.parameters.create_model_parameter('Kv_RM', value=5E-3)
+tr_model.parameters.parameter_options('Kv_RM', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='spec_stor', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
 
 simple_river = []
-Kv_riv = 5E-3 #m/day
 riv_width_avg = 10.0 #m
 riv_bed_thickness = 0.10 #m
 for riv_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
@@ -545,8 +564,8 @@ for riv_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
         continue
     #print tr_model.model_mesh3D
     stage = tr_model.model_mesh3D[0][0][row][col]
-    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['bed_depress']['PARVAL1']
-    cond = riv_cell[1] * riv_width_avg * Kv_riv / riv_bed_thickness
+    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['RMstage']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * tr_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {}
@@ -564,7 +583,7 @@ print " Setting up Murray River GHB boundary"
 
 tr_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
 tr_model.parameters.parameter_options('MGHB_stage', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
@@ -608,7 +627,7 @@ print " Setting up Western GHB boundary"
 
 tr_model.parameters.create_model_parameter('WGHB_stage', value=0.01)
 tr_model.parameters.parameter_options('WGHB_stage', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
@@ -651,7 +670,7 @@ print " Setting up Western GHB boundary"
 
 tr_model.parameters.create_model_parameter('EGHB_stage', value=0.01)
 tr_model.parameters.parameter_options('EGHB_stage', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
@@ -696,7 +715,7 @@ tr_model.map_polyline_to_grid(drain_poly)
 
 tr_model.parameters.create_model_parameter('drain_drop', value=0.01)
 tr_model.parameters.parameter_options('drain_drop', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
@@ -745,7 +764,7 @@ tr_model.map_polyline_to_grid(channel_poly)
 
 tr_model.parameters.create_model_parameter('chan_drop', value=0.01)
 tr_model.parameters.parameter_options('chan_drop', 
-                                      PARTRANS='fixed', 
+                                      PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
