@@ -2,9 +2,10 @@ from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
 
 # MM is short for model manager
 
+grid_resolution = '1000'
 
 MM = GWModelManager()
-MM.load_GW_model(r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state\structured_model_grid_1000m\01_steady_state_packaged.pkl")
+MM.load_GW_model(r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\02_transient_flow_packaged.pkl")
 
 name = MM.GW_build.keys()[0]
 

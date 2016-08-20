@@ -30,7 +30,8 @@ with open(r"C:\Workspace\part0075\MDB modelling\testbox\PEST\parameters.txt", 'r
     for line in text:
         param_name, value = line.strip('\n').split('\t')
         value = value.lstrip()
-        MM.GW_build[name].parameters.param[param_name]['PARVAL1'] = float(value)
+        if param_name in MM.GW_build[name].parameters.param.keys():        
+            MM.GW_build[name].parameters.param[param_name]['PARVAL1'] = float(value)
        
 
 print "************************************************************************"
@@ -96,6 +97,67 @@ MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
 #print MM.GW_build[name].observations.obs_group['head']['mapped_observations']
 
 print "************************************************************************"
+print " Updating Murray River GHB boundary"
+
+mapped_river = MM.GW_build[name].load_obj(r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\River_Murray_model.shp_mapped.pkl")
+
+MurrayGHB = []
+MGHBcond = 5E-3 #m/day
+for MurrayGHB_cell in mapped_river:
+    row = MurrayGHB_cell[0][0]
+    col = MurrayGHB_cell[0][1]
+    #print MM.GW_build[name].model_mesh3D
+    for lay in range(MM.GW_build[name].model_mesh3D[1].shape[0]):    
+        if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
+            continue
+        MurrayGHBstage = MM.GW_build[name].model_mesh3D[0][lay][row][col] + MM.GW_build[name].parameters.param['MGHB_stage']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBcond]]
+
+ghb = {}
+ghb[0] = MurrayGHB
+
+print "************************************************************************"
+print " Updating Western GHB boundary"
+
+mapped_west = MM.GW_build[name].load_obj(r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\western_head_model.shp_mapped.pkl")
+
+WestGHB = []
+for WestGHB_cell in mapped_west:
+    row = WestGHB_cell[0][0]
+    col = WestGHB_cell[0][1]
+    #print MM.GW_build[name].model_mesh3D
+    for lay in range(MM.GW_build[name].model_mesh3D[1].shape[0]):    
+        if MM.GW_build[name].model_mesh3D[1][lay][row][col] == -1:
+            continue
+        WestGHBstage = MM.GW_build[name].model_mesh3D[0][lay][row][col] + MM.GW_build[name].parameters.param['WGHB_stage']['PARVAL1']
+        WestGHB += [[lay, row, col, WestGHBstage, MM.GW_build[name].parameters.param['WGHBcond']['PARVAL1']]]
+
+ghb[0] += WestGHB
+
+print "************************************************************************"
+print " Updating Western GHB boundary"
+
+mapped_east = MM.GW_build[name].load_obj(r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\eastern_head_model.shp_mapped.pkl")
+
+EastGHB = []
+for EastGHB_cell in mapped_east:
+    row = EastGHB_cell[0][0]
+    col = EastGHB_cell[0][1]
+    #print MM.GW_build[name].model_mesh3D
+    for lay in range(MM.GW_build[name].model_mesh3D[1].shape[0]):    
+        if MM.GW_build[name].model_mesh3D[1][lay][row][col] == -1:
+            continue
+        EastGHBstage = MM.GW_build[name].model_mesh3D[0][lay][row][col] + MM.GW_build[name].parameters.param['EGHB_stage']['PARVAL1']
+        EastGHB += [[lay, row, col, EastGHBstage, MM.GW_build[name].parameters.param['EGHBcond']['PARVAL1']]]
+
+ghb[0] += EastGHB
+
+print "************************************************************************"
+print " Updating GHB boundary"
+
+MM.GW_build[name].boundaries.assign_boundary_array('GHB', ghb)
+
+print "************************************************************************"
 print " Build and run MODFLOW model "
 
 ###########################################################################
@@ -117,9 +179,11 @@ modflow_model.runMODFLOW()
 #AvgDepthToGWTable = 1   
 #DepthToGWTable = [1]
 
-modflow_model.writeObservations()
+#modflow_model.writeObservations()
 
-modflow_model.viewHeadsByZone()
+#modflow_model.viewHeadsByZone()
+
+
 
 #modflow_model.viewHeads()
 #modflow_model.viewHeads2()    

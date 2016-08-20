@@ -120,6 +120,8 @@ print " Executing custom script: get_GW_licence_info "
 pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
 pumps_points = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\pumping wells.shp")
 
+
+
 print "************************************************************************"
 print " Executing custom script: readHydrogeologicalProperties "
 
@@ -146,7 +148,8 @@ print '########################################################################'
 print "************************************************************************"
 print " Defining temporal aspects of the model"
 
-start = datetime.date(1980, 01, 01)
+#start = datetime.date(1966, 01, 01)
+start = datetime.date(2014, 01, 01)
 end = datetime.date(2015, 01, 01)
 tr_model.model_time.set_temporal_components(steady_state=False, start_time=start, end_time=end, time_step='M')
 
@@ -258,15 +261,16 @@ long_term_historic_rainfall = long_term_historic_rainfall.ix[start:end]
 
 interp_rain = {}
 for step, month in enumerate(long_term_historic_rainfall.iterrows()):
+    print step    
     interp_rain[step] = tr_model.interpolate_points2mesh(rain_gauges, month[1], feature_id='Name')
-    # Adjust rainfall to m from mm and from year to days
-    interp_rain[step] = interp_rain[step]/1000.0/365.0
+    # Adjust rainfall to m from mm 
+    interp_rain[step] = interp_rain[step]/1000.0
 
 # Adjust rainfall to recharge using 10% magic number
 tr_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=False)
 tr_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
-tr_model.parameters.create_model_parameter('magic_rain', value=0.09)
+tr_model.parameters.create_model_parameter('magic_rain', value=0.2)
 tr_model.parameters.parameter_options('magic_rain', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
@@ -295,10 +299,12 @@ bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] f
 bore_points3D = final_bores[["HydroCode", "Easting", "Northing", "depth"]] # [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"], final_bores.loc[x, "depth"]] for x in final_bores.index]
 bore_points3D = bore_points3D.set_index("HydroCode")
 
-bores_obs_time_series = final_bores[["HydroCode", "mean level"]]
+bores_obs_time_series = bore_data_levels[bore_data_levels["HydroCode"].isin(final_bores["HydroCode"])]
 
 # Modify into standard format for the GWModelBuilder class
-bores_obs_time_series = bores_obs_time_series.rename(columns={'HydroCode':'name', 'mean level':'value'})
+bores_obs_time_series = bores_obs_time_series.rename(columns={'HydroCode':'name', 'bore_date':'datetime', 'result':'value'})
+
+bores_obs_time_series['datetime'] = pd.to_datetime(bores_obs_time_series['datetime'])
 
 tr_model.observations.set_as_observations('head', bores_obs_time_series, bore_points3D, domain='porous', obs_type='head', units='mAHD')
 
@@ -359,89 +365,426 @@ tr_model.initial_conditions.set_as_initial_condition("Head", initial_heads_tr)#i
 #
 #tr_model.initial_conditions.set_as_initial_condition("OldHead", initial_heads_tr)#interp_heads[hu_raster_files[0]])
 #
+
+print "************************************************************************"
+print " Mapping pumping wells to grid "
+
+tr_model.map_points_to_grid(pumps_points, feature_id = 'OLD ID')
+
+
+tr_model.parameters.create_model_parameter('pump_use', value=0.6)
+tr_model.parameters.parameter_options('pump_use', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.2, 
+                                      PARUBND=1., 
+                                      PARGP='pumping', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+# Convert pumping_data to time series
+
+#pumping_data_ts = pd.DataFrame(cols=['Works ID', 'datetime'])
+
+# Existing data is only for 10 years from 2005 to 2015
+pump_date_index = pd.date_range(start=datetime.datetime(2005,07,01), end=datetime.datetime(2015,06,30), freq='AS-JUL')
+
+wel = {}
+
+for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
+    row = pump_cell[0][0]
+    col = pump_cell[0][1]
+    layers = [0]
+    for pump in pump_cell[1]: 
+        #HydroCode = pumping_data.loc[pump, 'Works ID']
+        #if HydroCode not in bore_data_info.index:
+        #    print HydroCode, ' not in index of bore_data_info'            
+        #    continue
+        #pump_depth = bore_data_info.loc[HydroCode, 'depth'] #[bore_data_info["HydroCode"] == HydroCode]['depth']        
+        if pumping_data.loc[pump, 'Top screen depth (m)'] == 0.: 
+            #print 'No data to place pump at depth ... ignoring ', pump            
+            continue
+        pump_depth = tr_model.model_mesh3D[0][0][row][col] - pumping_data.loc[pump, 'Top screen depth (m)']        
+        active = False
+        for i in range(tr_model.model_mesh3D[0].shape[0]-1):
+            if pump_depth < tr_model.model_mesh3D[0][i][row][col] and pump_depth > tr_model.model_mesh3D[0][i+1][row][col]:
+                active_layer = i
+                active = True
+                break
+        if active == False: 
+            #print 'Well not placed: ', pump            
+            continue
+        #Get top of screen layer and calculate length of screen in layer
+        
+        p05_06 = pumping_data.loc[pump, 'Use 2005/06'] / 365. * 1000.
+        p06_07 = pumping_data.loc[pump, 'Use 2006/07'] / 365. * 1000.
+        p07_08 = pumping_data.loc[pump, 'Use 2007/08'] / 365. * 1000.
+        p08_09 = pumping_data.loc[pump, 'Use 2008/09'] / 365. * 1000.
+        p09_10 = pumping_data.loc[pump, 'Use 2009/10'] / 365. * 1000.
+        p10_11 = pumping_data.loc[pump, 'Use 2010/11'] / 365. * 1000.
+        p11_12 = pumping_data.loc[pump, 'Use 2011/12'] / 365. * 1000.
+        p12_13 = pumping_data.loc[pump, 'Use 2012/13'] / 365. * 1000.
+        p13_14 = pumping_data.loc[pump, 'Use 2013/14'] / 365. * 1000.
+        p14_15 = pumping_data.loc[pump, 'Use 2014/15'] / 365. * 1000.
+        pump_rates = [p05_06, p06_07, p07_08, p08_09, p09_10, p10_11, p11_12, p12_13, p13_14, p14_15]        
+        pumping_data_ts = pd.DataFrame(pump_rates, columns=[pump], index=pump_date_index)
+        pump_install = pumping_data.loc[pump, 'Construction date']
+        if isinstance(pump_install, datetime.time):
+            pump_install = datetime.date(1950,01,01)    
+        pump_date_index2 = pd.date_range(start=pump_install, end=datetime.datetime(2004,06,30), freq='AS-JUL')
+
+        #pump_allocation = pumping_data.loc[pump, 'Annual Volume'] / 365. * 1000.
+
+        # Assume historical pumping is a percentage of lowest non-zero use for well        
+        non_zero_pumping = [x for x in pump_rates if x > 0.]         
+        if non_zero_pumping == []:
+            pumping_rate_old = 0.
+        else:
+            pumping_rate_old = np.min(non_zero_pumping)
+
+        old_pumping_ts = pd.DataFrame(index=pump_date_index2)
+        old_pumping_ts[pump] = pumping_rate_old * tr_model.parameters.param['pump_use']['PARVAL1']
+
+        # Merge the old and measured data
+
+        pumping_data_ts = pd.concat([pumping_data_ts, old_pumping_ts])
+
+        # Now let's resample the data on a monthly basis, and we will take the mean    
+        pumping_data_ts = pumping_data_ts.resample(tr_model.model_time.t['time_step'], how='mean')
+
+        # Let's also get rid of NaN data and replace with backfilling
+        pumping_data_ts = pumping_data_ts.fillna(method='bfill')
+
+        # Let's only consider times in our date range though
+        date_index = pd.date_range(start=tr_model.model_time.t['start_time'], end=tr_model.model_time.t['end_time'], freq=tr_model.model_time.t['time_step'])
+        pumping_data_ts = pumping_data_ts.reindex(date_index)    
+        pumping_data_ts = pumping_data_ts.ix[tr_model.model_time.t['start_time']:tr_model.model_time.t['end_time']]
+        pumping_data_ts = pumping_data_ts.fillna(0.0)
+
+        # Now fill in the well dictionary with the values of pumping at relevant stress periods where Q is not 0.0
+        for index, time in enumerate(pumping_data_ts.iterrows()):
+            if index >= tr_model.model_time.t['steps']: 
+                continue
+            #if time[1]['m3/day used'] != 0.0 :
+            try:
+                wel[index] += [[active_layer, row, col, -time[1][pump]]]
+            except:
+                wel[index] = [[active_layer, row, col, -time[1][pump]]]
+                
+print "************************************************************************"
+print " Creating pumping boundary "
+
+tr_model.boundaries.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
+tr_model.boundaries.assign_boundary_array('licenced_wells', wel)
+
 ## Map river polyline feature to grid including length of river in cell
-#print "************************************************************************"
-#print " Mapping Campaspe river to grid"
-#
-#river_poly = tr_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
-#tr_model.map_polyline_to_grid(river_poly)
-#tr_model.parameters.create_model_parameter('bed_depress', value=0.01)
-#tr_model.parameters.parameter_options('bed_depress', 
-#                                      PARTRANS='fixed', 
-#                                      PARCHGLIM='factor', 
-#                                      PARLBND=0.001, 
-#                                      PARUBND=0.1, 
-#                                      PARGP='spec_stor', 
-#                                      SCALE=1, 
-#                                      OFFSET=0)
-#tr_model.parameters.create_model_parameter('Kv_riv', value=5E-3)
-#tr_model.parameters.parameter_options('Kv_riv', 
-#                                      PARTRANS='log', 
-#                                      PARCHGLIM='factor', 
-#                                      PARLBND=1E-8, 
-#                                      PARUBND=20, 
-#                                      PARGP='spec_stor', 
-#                                      SCALE=1, 
-#                                      OFFSET=0)
-#
-#simple_river = []
-#riv_width_avg = 10.0 #m
-#riv_bed_thickness = 0.10 #m
-#for riv_cell in tr_model.polyline_mapped['Campaspe_Riv_model.shp']:
-#    row = riv_cell[0][0]
-#    col = riv_cell[0][1]
-#    if tr_model.model_mesh3D[1][0][row][col] == -1:
-#        continue
-#    #print tr_model.model_mesh3D
-#    stage = tr_model.model_mesh3D[0][0][row][col]
-#    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['bed_depress']['PARVAL1']
-#    cond = riv_cell[1] * riv_width_avg * tr_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
-#    simple_river += [[0, row, col, stage, cond, bed]]
-#
-#riv = {}
-#riv[0] = simple_river
-#
-##print tr_model.polyline_mapped
-#print "************************************************************************"
-#print " Creating Campaspe river boundary"
-#
-#tr_model.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
-#tr_model.boundaries.assign_boundary_array('Campaspe River', riv)
-#
-#print "************************************************************************"
-#print " Mapping Murray River to grid"
-#
-#river_poly = tr_model.read_polyline("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
-#tr_model.map_polyline_to_grid(river_poly)
-#
-##tr_model.parameters.create_model_parameter('bed_depress', 0.01)
-#
-#simple_river = []
-#Kv_riv = 5E-3 #m/day
-#riv_width_avg = 10.0 #m
-#riv_bed_thickness = 0.10 #m
-#for riv_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
-#    row = riv_cell[0][0]
-#    col = riv_cell[0][1]
-#    if tr_model.model_mesh3D[1][0][row][col] == -1:
-#        continue
-#    #print tr_model.model_mesh3D
-#    stage = tr_model.model_mesh3D[0][0][row][col]
-#    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['bed_depress']['PARVAL1']
-#    cond = riv_cell[1] * riv_width_avg * Kv_riv / riv_bed_thickness
-#    simple_river += [[0, row, col, stage, cond, bed]]
-#
-#riv = {}
-#riv[0] = simple_river
-#
-##print tr_model.polyline_mapped
-#print "************************************************************************"
-#print " Creating Murray River boundary"
-#
-#tr_model.boundaries.create_model_boundary_condition('Murray River', 'river', bc_static=True)
-#tr_model.boundaries.assign_boundary_array('Murray River', riv)
-#
-#
+print "************************************************************************"
+print " Mapping Campaspe river to grid"
+
+river_poly = tr_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
+tr_model.map_polyline_to_grid(river_poly)
+tr_model.parameters.create_model_parameter('bed_depress', value=0.01)
+tr_model.parameters.parameter_options('bed_depress', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='river', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+tr_model.parameters.create_model_parameter('Kv_riv', value=5E-3)
+tr_model.parameters.parameter_options('Kv_riv', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='river', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+simple_river = []
+riv_width_avg = 10.0 #m
+riv_bed_thickness = 0.10 #m
+for riv_cell in tr_model.polyline_mapped['Campaspe_Riv_model.shp']:
+    row = riv_cell[0][0]
+    col = riv_cell[0][1]
+    if tr_model.model_mesh3D[1][0][row][col] == -1:
+        continue
+    #print tr_model.model_mesh3D
+    stage = tr_model.model_mesh3D[0][0][row][col]
+    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['bed_depress']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * tr_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
+    simple_river += [[0, row, col, stage, cond, bed]]
+
+riv = {}
+riv[0] = simple_river
+
+#print tr_model.polyline_mapped
+print "************************************************************************"
+print " Creating Campaspe river boundary"
+
+tr_model.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
+tr_model.boundaries.assign_boundary_array('Campaspe River', riv)
+
+print "************************************************************************"
+print " Mapping Murray River to grid"
+
+river_poly = tr_model.read_polyline("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
+tr_model.map_polyline_to_grid(river_poly)
+
+#tr_model.parameters.create_model_parameter('bed_depress', 0.01)
+
+simple_river = []
+Kv_riv = 5E-3 #m/day
+riv_width_avg = 10.0 #m
+riv_bed_thickness = 0.10 #m
+for riv_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
+    row = riv_cell[0][0]
+    col = riv_cell[0][1]
+    if tr_model.model_mesh3D[1][0][row][col] == -1:
+        continue
+    #print tr_model.model_mesh3D
+    stage = tr_model.model_mesh3D[0][0][row][col]
+    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['bed_depress']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * Kv_riv / riv_bed_thickness
+    simple_river += [[0, row, col, stage, cond, bed]]
+
+riv = {}
+riv[0] = simple_river
+
+#print tr_model.polyline_mapped
+print "************************************************************************"
+print " Creating Murray River boundary"
+
+tr_model.boundaries.create_model_boundary_condition('Murray River', 'river', bc_static=True)
+tr_model.boundaries.assign_boundary_array('Murray River', riv)
+
+print "************************************************************************"
+print " Setting up Murray River GHB boundary"
+
+tr_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
+tr_model.parameters.parameter_options('MGHB_stage', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+tr_model.parameters.create_model_parameter('MGHBcond', value=5E-3)
+tr_model.parameters.parameter_options('MGHBcond', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+
+MurrayGHB = []
+MGHBcond = 5E-3 #m/day
+for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
+    row = MurrayGHB_cell[0][0]
+    col = MurrayGHB_cell[0][1]
+    #print tr_model.model_mesh3D
+    for lay in range(tr_model.model_mesh3D[1].shape[0]):    
+        if tr_model.model_mesh3D[1][0][row][col] == -1:
+            continue
+        MurrayGHBstage = tr_model.model_mesh3D[0][lay][row][col] + tr_model.parameters.param['MGHB_stage']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, tr_model.parameters.param['MGHBcond']['PARVAL1']]]
+
+ghb = {}
+ghb[0] = MurrayGHB
+
+print "************************************************************************"
+print " Mapping Western GW boundary to grid"
+
+WGWbound_poly = tr_model.read_polyline("western_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
+tr_model.map_polyline_to_grid(WGWbound_poly)
+
+print "************************************************************************"
+print " Setting up Western GHB boundary"
+
+tr_model.parameters.create_model_parameter('WGHB_stage', value=0.01)
+tr_model.parameters.parameter_options('WGHB_stage', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+tr_model.parameters.create_model_parameter('WGHBcond', value=5E-3)
+tr_model.parameters.parameter_options('WGHBcond', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+
+WestGHB = []
+for WestGHB_cell in tr_model.polyline_mapped['western_head_model.shp']:
+    row = WestGHB_cell[0][0]
+    col = WestGHB_cell[0][1]
+    #print tr_model.model_mesh3D
+    for lay in range(tr_model.model_mesh3D[1].shape[0]):    
+        if tr_model.model_mesh3D[1][lay][row][col] == -1:
+            continue
+        WestGHBstage = tr_model.model_mesh3D[0][lay][row][col] + tr_model.parameters.param['WGHB_stage']['PARVAL1']
+        WestGHB += [[lay, row, col, WestGHBstage, tr_model.parameters.param['WGHBcond']['PARVAL1']]]
+
+ghb[0] += WestGHB
+
+
+print "************************************************************************"
+print " Mapping Eastern GW boundary to grid"
+
+EGWbound_poly = tr_model.read_polyline("eastern_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
+tr_model.map_polyline_to_grid(EGWbound_poly)
+
+print "************************************************************************"
+print " Setting up Western GHB boundary"
+
+tr_model.parameters.create_model_parameter('EGHB_stage', value=0.01)
+tr_model.parameters.parameter_options('EGHB_stage', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+tr_model.parameters.create_model_parameter('EGHBcond', value=5E-3)
+tr_model.parameters.parameter_options('EGHBcond', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+
+EastGHB = []
+for EastGHB_cell in tr_model.polyline_mapped['eastern_head_model.shp']:
+    row = EastGHB_cell[0][0]
+    col = EastGHB_cell[0][1]
+    #print tr_model.model_mesh3D
+    for lay in range(tr_model.model_mesh3D[1].shape[0]):    
+        if tr_model.model_mesh3D[1][lay][row][col] == -1:
+            continue
+        EastGHBstage = tr_model.model_mesh3D[0][lay][row][col] + tr_model.parameters.param['EGHB_stage']['PARVAL1']
+        EastGHB += [[lay, row, col, EastGHBstage, tr_model.parameters.param['EGHBcond']['PARVAL1']]]
+
+ghb[0] += EastGHB
+
+print "************************************************************************"
+print " Creating GHB boundary"
+
+tr_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
+tr_model.boundaries.assign_boundary_array('GHB', ghb)
+
+print "************************************************************************"
+print " Mapping Drains to grid"
+
+drain_poly = tr_model.read_polyline("Drain_Clip.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\SW\\") 
+tr_model.map_polyline_to_grid(drain_poly)
+
+tr_model.parameters.create_model_parameter('drain_drop', value=0.01)
+tr_model.parameters.parameter_options('drain_drop', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='drain', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+tr_model.parameters.create_model_parameter('Kv_drain', value=5E-3)
+tr_model.parameters.parameter_options('Kv_drain', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='drain', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+simple_drain = []
+Kv_drain = 5E-3 #m/day
+drain_width_avg = 3.0 #m
+drain_bed_thickness = 0.10 #m
+for drain_cell in tr_model.polyline_mapped['Drain_Clip_model.shp']:
+    row = drain_cell[0][0]
+    col = drain_cell[0][1]
+    if tr_model.model_mesh3D[1][0][row][col] == -1:
+        continue
+    #print tr_model.model_mesh3D
+    drain_bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['drain_drop']['PARVAL1']
+    drain_cond = drain_cell[1] * drain_width_avg * tr_model.parameters.param['Kv_drain']['PARVAL1'] / drain_bed_thickness
+    simple_drain += [[0, row, col, drain_bed, drain_cond]]
+
+drain = {}
+drain[0] = simple_drain
+
+print "************************************************************************"
+print " Creating Drains boundary"
+
+tr_model.boundaries.create_model_boundary_condition('Drain', 'drain', bc_static=True)
+tr_model.boundaries.assign_boundary_array('Drain', drain)
+
+
+print "************************************************************************"
+print " Mapping Channels to grid"
+
+channel_poly = tr_model.read_polyline("Channel_Clip.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\SW\\") 
+tr_model.map_polyline_to_grid(channel_poly)
+
+tr_model.parameters.create_model_parameter('chan_drop', value=0.01)
+tr_model.parameters.parameter_options('chan_drop', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='channel', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+tr_model.parameters.create_model_parameter('Kv_chan', value=5E-3)
+tr_model.parameters.parameter_options('Kv_chan', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='channel', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+simple_channel = []
+channel_width_avg = 10.0 #m
+channel_bed_thickness = 0.10 #m
+for channel_cell in tr_model.polyline_mapped['Channel_Clip_model.shp']:
+    row = channel_cell[0][0]
+    col = channel_cell[0][1]
+    if tr_model.model_mesh3D[1][0][row][col] == -1:
+        continue
+    #print tr_model.model_mesh3D
+    channel_stage = tr_model.model_mesh3D[0][0][row][col]
+    channel_bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['chan_drop']['PARVAL1']
+    channel_cond = channel_cell[1] * channel_width_avg * tr_model.parameters.param['Kv_chan']['PARVAL1'] / channel_bed_thickness
+    simple_channel += [[0, row, col, channel_stage, channel_cond, channel_bed]]
+
+channel = {}
+channel[0] = simple_channel
+
+print "************************************************************************"
+print " Creating Channel boundary"
+
+tr_model.boundaries.create_model_boundary_condition('Channel', 'channel', bc_static=True)
+tr_model.boundaries.assign_boundary_array('Channel', channel)
+
 print "************************************************************************"
 print " Collate observations"
 

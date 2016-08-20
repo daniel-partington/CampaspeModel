@@ -425,6 +425,134 @@ print " Creating Murray River boundary"
 SS_model.boundaries.create_model_boundary_condition('Murray River', 'river', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Murray River', riv)
 
+print "************************************************************************"
+print " Setting up Murray River GHB boundary"
+
+SS_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
+SS_model.parameters.parameter_options('MGHB_stage', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+SS_model.parameters.create_model_parameter('MGHBcond', value=5E-3)
+SS_model.parameters.parameter_options('MGHBcond', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+
+MurrayGHB = []
+MGHBcond = 5E-3 #m/day
+for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
+    row = MurrayGHB_cell[0][0]
+    col = MurrayGHB_cell[0][1]
+    #print SS_model.model_mesh3D
+    for lay in range(SS_model.model_mesh3D[1].shape[0]):    
+        if SS_model.model_mesh3D[1][0][row][col] == -1:
+            continue
+        MurrayGHBstage = SS_model.model_mesh3D[0][lay][row][col] + SS_model.parameters.param['MGHB_stage']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBcond]]
+
+ghb = {}
+ghb[0] = MurrayGHB
+
+print "************************************************************************"
+print " Mapping Western GW boundary to grid"
+
+WGWbound_poly = SS_model.read_polyline("western_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
+SS_model.map_polyline_to_grid(WGWbound_poly)
+
+print "************************************************************************"
+print " Setting up Western GHB boundary"
+
+SS_model.parameters.create_model_parameter('WGHB_stage', value=0.01)
+SS_model.parameters.parameter_options('WGHB_stage', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+SS_model.parameters.create_model_parameter('WGHBcond', value=5E-3)
+SS_model.parameters.parameter_options('WGHBcond', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+
+WestGHB = []
+for WestGHB_cell in SS_model.polyline_mapped['western_head_model.shp']:
+    row = WestGHB_cell[0][0]
+    col = WestGHB_cell[0][1]
+    #print SS_model.model_mesh3D
+    for lay in range(SS_model.model_mesh3D[1].shape[0]):    
+        if SS_model.model_mesh3D[1][lay][row][col] == -1:
+            continue
+        WestGHBstage = SS_model.model_mesh3D[0][lay][row][col] + SS_model.parameters.param['WGHB_stage']['PARVAL1']
+        WestGHB += [[lay, row, col, WestGHBstage, SS_model.parameters.param['WGHBcond']['PARVAL1']]]
+
+ghb[0] += WestGHB
+
+
+print "************************************************************************"
+print " Mapping Eastern GW boundary to grid"
+
+EGWbound_poly = SS_model.read_polyline("eastern_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
+SS_model.map_polyline_to_grid(EGWbound_poly)
+
+print "************************************************************************"
+print " Setting up Western GHB boundary"
+
+SS_model.parameters.create_model_parameter('EGHB_stage', value=0.01)
+SS_model.parameters.parameter_options('EGHB_stage', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+SS_model.parameters.create_model_parameter('EGHBcond', value=5E-3)
+SS_model.parameters.parameter_options('EGHBcond', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+
+EastGHB = []
+for EastGHB_cell in SS_model.polyline_mapped['eastern_head_model.shp']:
+    row = EastGHB_cell[0][0]
+    col = EastGHB_cell[0][1]
+    #print SS_model.model_mesh3D
+    for lay in range(SS_model.model_mesh3D[1].shape[0]):    
+        if SS_model.model_mesh3D[1][lay][row][col] == -1:
+            continue
+        EastGHBstage = SS_model.model_mesh3D[0][lay][row][col] + SS_model.parameters.param['EGHB_stage']['PARVAL1']
+        EastGHB += [[lay, row, col, EastGHBstage, SS_model.parameters.param['EGHBcond']['PARVAL1']]]
+
+ghb[0] += EastGHB
+
+print "************************************************************************"
+print " Creating GHB boundary"
+
+SS_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
+SS_model.boundaries.assign_boundary_array('GHB', ghb)
 
 print "************************************************************************"
 print " Collate observations"
