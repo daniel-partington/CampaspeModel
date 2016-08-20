@@ -1,20 +1,29 @@
+import sys
+import os
+sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
 
 # MM is short for model manager
+def run(model_folder, pest_folder):
+    
+    MM = GWModelManager()
+    MM.load_GW_model(os.path.join(model_folder,"02_transient_flow_packaged.pkl"))
+    
+    name = MM.GW_build.keys()[0]
+    
+    
+    MM.setupPEST(name, 
+                 directory=pest_folder, 
+                 csv_copy=True, models_ID=[name]) 
+           
+    MM.PEST.genParameters(method='csv')
+    MM.PEST.genPESTpgp()
+    MM.PEST.genPestfiles(models_ID=[name])       
 
-grid_resolution = '1000'
+if __name__ ==  "__main__":
 
-MM = GWModelManager()
-MM.load_GW_model(r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\02_transient_flow_packaged.pkl")
-
-name = MM.GW_build.keys()[0]
-
-pest_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST"    
-
-MM.setupPEST(name, 
-             directory=pest_folder, 
-             csv_copy=True, models_ID=[name]) 
-       
-MM.PEST.genParameters(method='csv')
-MM.PEST.genPESTpgp()
-MM.PEST.genPestfiles(models_ID=[name])       
+    grid_resolution = '1000'
+    model_folder = r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\\" 
+    pest_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST"    
+    
+    run(model_folder, pest_folder)
