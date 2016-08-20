@@ -1,7 +1,7 @@
 import os
 
 import pandas
-from osgeo import gdal, ogr, osr
+from osgeo import ogr, osr
 
 def get_GW_licence_info(filename, path=None, out_file=None, out_path=None):
     
@@ -93,7 +93,7 @@ def get_GW_licence_info(filename, path=None, out_file=None, out_path=None):
     # Destroy the data source to free resources
     data_source = None
 
-    df = df[['Annual Volume', 'OLD ID', 'Works ID','Top screen depth (m)']]
+    #df = df[['Annual Volume', 'OLD ID', 'Works ID','Top screen depth (m)']]
     df['OLD ID'] = df['OLD ID'].astype(str)    
     df['Works ID'] = df['Works ID'].astype(str)    
     df = df.set_index('OLD ID')
@@ -107,4 +107,5 @@ if __name__ == "__main__":
     path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"    
     out_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"
     out_file = "pumping wells.shp"
-    Original, GW_pumping_bores = get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)    
+    #Original, GW_pumping_bores = get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
+    df = get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)    
