@@ -106,9 +106,9 @@ def processWeatherStations(weather_stations, path='', frequency='A'):
     
     monthly_rain_df = pd.DataFrame() 
     for station in weather_stations:
-        monthly_rain_df[station]= weather_dfs[station]['Rain'].resample("M", how='sum')
+        monthly_rain_df[station]= weather_dfs[station]['Rain'].resample("M", how='mean')
 
-    monthly_rain_df[other_station]= weather_dfs[other_station]['Rainfall amount (millimetres)'].resample("M", how='sum')    
+    monthly_rain_df[other_station]= weather_dfs[other_station]['Rainfall amount (millimetres)'].resample("M", how='mean')    
     
     #Months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     #month_avg = pd.groupby(monthly_rain_df,by=[monthly_rain_df.index.month]).mean()
