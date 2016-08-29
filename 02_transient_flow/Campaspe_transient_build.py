@@ -6,64 +6,69 @@ import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
 
-from HydroModelBuilder.HydroModelBuilder.GWModelBuilder import GWModelBuilder
-from HydroModelBuilder.HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverGauges, readHydrogeologicalProperties
+from CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, readHydrogeologicalProperties
+# TODO processRiverGauges
+from minimal_HydroModelBuilder import create_buffer, GDALInterface, reproject
 
-"""
+name="02_transient_flow"
 
-"""
+# TODO data provenance - you have to say where it all came from
+# data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\"
+# out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\\"
+data_folder = "/Users/masher/Desktop/phd/data_campaspe"
+out_data_folder = "/Users/masher/Desktop/phd/data_campaspe/out"
+
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
 Proj_CS.ImportFromEPSG(28355) # 28355 is the code for gda94 mga zone 55; http://spatialreference.org/ref/epsg/gda94-mga-zone-55/
-
-Interface = GDALInterface()
-Interface.projected_coordinate_system = Proj_CS 
-Interface.pcs_EPSG = "EPSG:28355"
-
-tr_model = GWModelBuilder(name="02_transient_flow", 
-                          data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\",
-                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\\",
-                          GISInterface=Interface,
-                          model_type='Modflow',
-                          mesh_type='structured')
-
-# Cleanup
-#tr_model.flush()
-
-# Define the units for the project for consistency and to allow converions on input data
-# tr_model.length = 'm'
-# tr_model.time = 'd'
+Proj_CS_wkt = Proj_CS.ExportToWkt()
 
 # Set the model boundary using a polygon shapefile:
 print "************************************************************************"
 print " Setting model boundary "
 
-tr_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp", 
-                                                      shapefile_path=tr_model.data_folder)
+boundary_poly_file = os.path.join(out_data_folder, "GW_model_area_model.shp")
+# TODO do we need to return this, boundary_poly_file is the name
+# TODO used?
+model_boundary = GDALInterface.set_model_boundary_from_polygon_shapefile(shapefile_name=os.path.join(data_folder, "GW_model_area", "GW_model_area.shp"),
+                                            boundary_poly_file=boundary_poly_file,
+                                            projected_coordinate_system=Proj_CS)
 
 # Set data boundary for model data
 print "************************************************************************"
 print " Setting spatial data boundary "
-tr_model.set_data_boundary_from_polygon_shapefile(tr_model.boundary_poly_file, 
-                                                  buffer_dist=20000)
+# TODO rounding to nearest cell edge
+buffered_boundary_file = os.path.join(out_data_folder, "GW_model_area_model_buffered.shp")
+buff = create_buffer.create_buffer4poly(shpfile=boundary_poly_file,
+                                        buffile=buffered_boundary_file, 
+                                        buffer_distance=20000.0)
+# tr_model.set_data_boundary_from_polygon_shapefile(boundary_poly_file=os.path.join(out_data_folder, "GW_model_area_model.shp") buffer_dist=20000)
+
 
 # Setup recharge:
 # ... read in climate data using Custom_Scripts
 weather_stations = ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
+other_stations = [{
+        "name": "Rainfall at Eppalock",
+        "meta_file": 'IDCJAC0009_081083_1800_Note.txt',
+        "data_file": 'IDCJAC0009_081083_1800_Data.csv',
+}]
 print "************************************************************************"
 print " Executing custom script: processWeatherStations "
 
-rain_info_file = "rain_processed"
-if os.path.exists(tr_model.out_data_folder + rain_info_file + '.h5'):
-    long_term_historic_rainfall = tr_model.load_dataframe(tr_model.out_data_folder + rain_info_file + '.h5')
-else:
-    long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations, 
-                                                                                path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\", 
-                                                                                frequency='M')
-    tr_model.save_dataframe(tr_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
+# rain_info_file = "rain_processed"
+long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations,
+                                                                            other_stations=other_stations,
+                                                                              path=os.path.join(data_folder, 'Climate'), 
+                                                                              frequency='M')
+# TODO use save_dataframe/ load_dataframe in cache
+# tr_model.save_dataframe(tr_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
 
-rain_gauges = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\Rain_gauges.shp")
+rain_gauges = GDALInterface.reproject_clip_read(src_datasource_name=os.path.join(data_folder, "Rain_gauges", "Rain_gauges.shp"), 
+                                dst_datasource_name=os.path.join(out_data_folder, "Rain_gauges_model.shp"), 
+                                t_srs=Proj_CS_wkt, 
+                                clipdst=buffered_boundary_file)
+
 #points_dict = tr_model.getXYpairs(rain_gauges, feature_id='Name')
 
 # $%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%
@@ -73,31 +78,33 @@ rain_gauges = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Ca
 print "************************************************************************"
 print " Executing custom script: getBoreData "
 
-bore_levels_file = "bore_levels"
-bore_info_file = "bore_info"
-if os.path.exists(tr_model.out_data_folder + bore_levels_file + ".h5") & os.path.exists(tr_model.out_data_folder + bore_info_file + ".h5"):
-    bore_data_levels = tr_model.load_dataframe(tr_model.out_data_folder + bore_levels_file + ".h5")
-    bore_data_info = tr_model.load_dataframe(tr_model.out_data_folder + bore_info_file + ".h5")
-else:
-    bore_data_levels, bore_data_info = getBoreData.getBoreData()
-    tr_model.save_dataframe(tr_model.out_data_folder + bore_levels_file, bore_data_levels)
-    tr_model.save_dataframe(tr_model.out_data_folder + bore_info_file, bore_data_info)
-# end if
+"""
+from http://www.bom.gov.au/water/groundwater/explorer/map.shtml
+what about http://data.water.vic.gov.au/monitoring.htm?
+"""
+bore_data_levels, bore_data_info = getBoreData.getBoreData(
+    level_file=os.path.join(data_folder, "ngis_shp_VIC", "level_VIC.csv"),
+    # TODO just use csv you download from http://www.bom.gov.au/water/groundwater/explorer/map.shtml ?
+    construction_file=os.path.join(data_folder, "NGIS_ConstructionLog.dbf")
+    )
 
+# TODO get this into the bore file
 # getBoreDepth ... assuming that midpoint of screen interval is representative location and assign to layer accordingly
 bore_data_info['depth'] = (bore_data_info['TopElev'] + bore_data_info['BottomElev'])/2.0
 
 bore_data_info["HydroCode"] = bore_data_info.index
 
 # For steady state model, only use bore details containing average level, not 
-#observation_bores = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
 
 print "************************************************************************"
 print " Read in and filtering bore spatial data "
 
-bores_shpfile = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
+bores_shpfile = GDALInterface.reproject_clip_read(src_datasource_name=os.path.join(data_folder, "ngis_shp_VIC", "NGIS_Bores.shp"), 
+                                dst_datasource_name=os.path.join(out_data_folder, "NGIS_Bores_model.shp"), 
+                                t_srs=Proj_CS_wkt, 
+                                clipdst=buffered_boundary_file)
 
-bores_filtered_from_shpfile = tr_model.points_shapefile_obj2dataframe(bores_shpfile, feature_id="HydroCode")
+bores_filtered_from_shpfile = GDALInterface.points_shapefile_obj2dataframe(bores_shpfile, feature_id="HydroCode")
 
 # Get the intersection of bores_filtered_from_shpfile with bores_data_info
 
@@ -105,44 +112,33 @@ final_bores = pd.merge(bore_data_info, bores_filtered_from_shpfile, how='inner',
 
 print 'Final number of bores within the data boundary that have level data and screen info: ', final_bores.shape[0]
 
-#final_bores.plot(kind='scatter', x="Easting", y="Northing", c="mean level", cmap="Spectral") # , edgecolor='None'
-
+# final_bores.plot(kind='scatter', x="Easting", y="Northing", c="mean level", cmap="Spectral") # , edgecolor='None'
 
 # Load in the pumping wells data
-filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
-path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"    
-out_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"
-out_file = "pumping wells.shp"
+licence_file = os.path.join(data_folder, "GW", "Bore data", "Groundwater licence information for Dan Partington bc301115.xlsx")
+pumping_file = os.path.join(out_data_folder, "pumping_wells.shp")
 
 print "************************************************************************"
 print " Executing custom script: get_GW_licence_info "
 
-pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
-pumps_points = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\pumping wells.shp")
-
+# TODO naming convention
+pumping_data = get_GW_licence_info.get_GW_licence_info(filename=licence_file, out_file=pumping_file)
+# TODO it is already in EPSG:28355 ???
+pumps_points = GDALInterface.read(dst_datasource_name=pumping_file)
 
 
 print "************************************************************************"
 print " Executing custom script: readHydrogeologicalProperties "
 
-file_location = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
-HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
+HGU_file = os.path.join(data_folder, "GW", "Aquifer properties", "Hydrogeologic_variables.xlsx")
+HGU_props = readHydrogeologicalProperties.getHGUproperties(HGU_file)
 
 
+# TODO FROM HERE
 
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
 
-print '########################################################################'
 print '########################################################################'
 print '## Model specific building '
-print '########################################################################'
 print '########################################################################'
 
 print "************************************************************************"
@@ -151,7 +147,7 @@ print " Defining temporal aspects of the model"
 #start = datetime.date(1966, 01, 01)
 start = datetime.date(2014, 01, 01)
 end = datetime.date(2015, 01, 01)
-tr_model.model_time.set_temporal_components(steady_state=False, start_time=start, end_time=end, time_step='M')
+time_obj = set_temporal_components(steady_state=False, start_time=start, end_time=end, time_step='M')
 
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
@@ -417,18 +413,8 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
             #print 'Well not placed: ', pump            
             continue
         #Get top of screen layer and calculate length of screen in layer
-        
-        p05_06 = pumping_data.loc[pump, 'Use 2005/06'] / 365. * 1000.
-        p06_07 = pumping_data.loc[pump, 'Use 2006/07'] / 365. * 1000.
-        p07_08 = pumping_data.loc[pump, 'Use 2007/08'] / 365. * 1000.
-        p08_09 = pumping_data.loc[pump, 'Use 2008/09'] / 365. * 1000.
-        p09_10 = pumping_data.loc[pump, 'Use 2009/10'] / 365. * 1000.
-        p10_11 = pumping_data.loc[pump, 'Use 2010/11'] / 365. * 1000.
-        p11_12 = pumping_data.loc[pump, 'Use 2011/12'] / 365. * 1000.
-        p12_13 = pumping_data.loc[pump, 'Use 2012/13'] / 365. * 1000.
-        p13_14 = pumping_data.loc[pump, 'Use 2013/14'] / 365. * 1000.
-        p14_15 = pumping_data.loc[pump, 'Use 2014/15'] / 365. * 1000.
-        pump_rates = [p05_06, p06_07, p07_08, p08_09, p09_10, p10_11, p11_12, p12_13, p13_14, p14_15]        
+              
+        pump_rates = [pumping_data.loc[pump, 'Use 20%02d/%02d' %(year, year + 1)] / 365. * 1000. for year in range(5, 15)]
         pumping_data_ts = pd.DataFrame(pump_rates, columns=[pump], index=pump_date_index)
         pump_install = pumping_data.loc[pump, 'Construction date']
         if isinstance(pump_install, datetime.time):
@@ -814,3 +800,6 @@ print "************************************************************************"
 print " Package up groundwater model builder object"
 
 tr_model.package_model()
+
+
+

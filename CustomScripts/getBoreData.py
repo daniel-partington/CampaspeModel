@@ -1,49 +1,20 @@
 import pandas as pd
 import dbf2df
+import utils.cache
 
-def getBoreData(get='transient'): 
-    VIC_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\level_VIC.csv"
-    VIC_salinity_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\salinity_VIC.csv"
-    #NSW_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\level_NSW.csv"
-    #NSW_salinity_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\salinity_NSW.csv"
-    
+@utils.cache.money()
+def getBoreData(level_file, construction_file): 
+    # TODO ngis_shp_NSW\salinity_NSW.csv, fields_salinity = ['bore_id', 'bore_date', 'uom', 'result']
+    # TODO NGIS_HydrogeologicUnit.dbf, cols=["HGUNumber", "HGCCode"]
+    # TODO NGIS_BoreholeLog.dbf", cols=["HydroCode", "HGUNumber"]
+
     fields_level = ['bore_id', 'bore_date', 'obs_point_datum', 'result', 'hydroid']
-    fields_salinity = ['bore_id', 'bore_date', 'uom', 'result']
-    
-    dfVIC_level = pd.read_csv(VIC_level_data, sep=r',', usecols=fields_level, dtype={fields_level[0]:str, fields_level[4]:str})
-    #dfNSW_level = pd.read_csv(NSW_level_data, sep=r',', usecols=fields_level, dtype={fields_level[0]:str})
-    dfVIC_salinity = pd.read_csv(VIC_salinity_data, sep=r',', usecols=fields_salinity, dtype={fields_salinity[0]:str})
-    #dfNSW_salinity = pd.read_csv(NSW_salinity_data, sep=r',', usecols=fields_salinity, dtype={fields_salinity[0]:str})
-    
-    #df_level = pd.concat([dfVIC_level, dfNSW_level])
-    #df_salinity = pd.concat([dfVIC_salinity,dfNSW_salinity])
-    
-    #del dfVIC_level
-    #del dfNSW_level
-    #del dfVIC_salinity
-    #del dfNSW_salinity
 
-    df_ConstructionLog_VIC = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\ngis_shp_VIC\NGIS_ConstructionLog.dbf", cols=["BoreID", "HydroCode", "TopElev", "BottomElev", "Constructi"])
-    df_HydrogeologicUnit_VIC = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\ngis_shp_VIC\NGIS_HydrogeologicUnit.dbf", cols=["HGUNumber", "HGCCode"])
-    df_BoreholeLog_VIC = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\ngis_shp_VIC\NGIS_BoreholeLog.dbf", cols=["HydroCode", "HGUNumber"])
+    dfVIC_level = pd.read_csv(level_file, sep=r',', usecols=fields_level, dtype={fields_level[0]:str, fields_level[4]:str})
+    
+    df_ConstructionLog_VIC = dbf2df.dbf2df(construction_file, cols=["BoreID", "HydroCode", "TopElev", "BottomElev", "Constructi"])
 
     df_ConstructionLog_VIC["BoreID"] = df_ConstructionLog_VIC["BoreID"].astype(str)
-    df_BoreholeLog_VIC["HydroCode"] = df_BoreholeLog_VIC["HydroCode"].astype(str) 
-    
-    #df_ConstructionLog_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_ConstructionLog.dbf", cols=["BoreID","TopElev", "BottomElev", "Constructi"])
-    #df_HydrogeologicUnit_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_HydrogeologicUnit.dbf", cols=["HGUNumber", "HGCCode"])
-    #df_BoreholeLog_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_BoreholeLog.dbf", cols=["BoreID", "HGUNumber"])
-
-    #df_ConstructionLog = pd.concat([df_ConstructionLog_VIC, df_ConstructionLog_NSW])
-    #df_HydrogeologicUnit = pd.concat([df_HydrogeologicUnit_VIC, df_HydrogeologicUnit_NSW])
-    #df_BoreholeLog = pd.concat([df_BoreholeLog_VIC, df_BoreholeLog_NSW])
-
-    #del df_ConstructionLog_VIC
-    #del df_HydrogeologicUnit_VIC
-    #del df_BoreholeLog_VIC
-    #del df_ConstructionLog_NSW
-    #del df_HydrogeologicUnit_NSW
-    #del df_BoreholeLog_NSW
     
     # Only use reading in AHD ... would be nice to later convert the other ones
     print 'Total level records: ', dfVIC_level.shape[0]
@@ -98,23 +69,4 @@ def getBoreData(get='transient'):
  
     df_level_ordered = dfVIC_level.sort_values(['HydroCode', 'bore_date']) 
 
-    
-    #df_bores['HGUNumber'] = df_bores.lookup(df_BoreholeLog_VIC["BoreID"], df_BoreholeLog_VIC['HGUNumber'])
-
-    #if get == 'transient':
-    #    return dfVIC_level[df_level['HydroCode'].isin()]
-    #else:
-    #    return df_level_ordered, df_bores_clear #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity    
-
     return df_level_ordered, df_bores_clear #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity    
-
-    #filter_wells = getWells(df_level, wellslist)
-    #date_sorted_wells = filter_wells.sort_values('bore_date')
-    #further_sorting = date_sorted_wells.loc[date_sorted_wells['obs_point_datum']=='RSWL (mAHD)']
-    #ax = further_sorting.plot(marker ='o', x='bore_date', y='result')
-    #ax.set_ylabel('Head (mAHD)')
-    #ax.plot(title="Bore @" + wellslist[0])
-
-if __name__ == "__main__":
-    df_level, df_bores = getBoreData(get='transient')    
-    
