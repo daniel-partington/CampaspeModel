@@ -3,12 +3,7 @@ import os
 import pandas
 from osgeo import ogr, osr
 
-def get_GW_licence_info(filename, path=None, out_file=None, out_path=None):
-    
-    if path == None:
-        filename = filename
-    else:
-        filename = path + filename
+def get_GW_licence_info(filename, out_file):
     
     df = pandas.read_excel(filename, skiprows=10)
     
@@ -27,11 +22,6 @@ def get_GW_licence_info(filename, path=None, out_file=None, out_path=None):
     driver = ogr.GetDriverByName("ESRI Shapefile")
     
     # create the data source
-    if out_path == None:
-        out_file = out_file
-    else:
-        out_file = out_path + out_file
-
     if os.path.exists(out_file):
         os.remove(out_file)
 
