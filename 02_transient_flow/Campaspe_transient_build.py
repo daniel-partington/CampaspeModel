@@ -21,9 +21,9 @@ Interface = GDALInterface()
 Interface.projected_coordinate_system = Proj_CS 
 Interface.pcs_EPSG = "EPSG:28355"
 
-tr_model = GWModelBuilder(name="02_transient_flow", 
+tr_model = GWModelBuilder(name="02_transient_flow_1966_2015", 
                           data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\",
-                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\\",
+                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow_1966_2015\\",
                           GISInterface=Interface,
                           model_type='Modflow',
                           mesh_type='structured')
@@ -103,6 +103,9 @@ bores_filtered_from_shpfile = tr_model.points_shapefile_obj2dataframe(bores_shpf
 
 final_bores = pd.merge(bore_data_info, bores_filtered_from_shpfile, how='inner', on="HydroCode")
 
+# Only consider bores whereby the measured values are above the bottom of screen
+final_bores = final_bores[final_bores['mean level'] > final_bores['BottomElev']]
+
 print 'Final number of bores within the data boundary that have level data and screen info: ', final_bores.shape[0]
 
 #final_bores.plot(kind='scatter', x="Easting", y="Northing", c="mean level", cmap="Spectral") # , edgecolor='None'
@@ -148,8 +151,8 @@ print '########################################################################'
 print "************************************************************************"
 print " Defining temporal aspects of the model"
 
-#start = datetime.date(1966, 01, 01)
-start = datetime.date(2014, 01, 01)
+start = datetime.date(1966, 01, 01)
+#start = datetime.date(2014, 01, 01)
 end = datetime.date(2015, 01, 01)
 tr_model.model_time.set_temporal_components(steady_state=False, start_time=start, end_time=end, time_step='M')
 
@@ -266,23 +269,26 @@ for step, month in enumerate(long_term_historic_rainfall.iterrows()):
     # Adjust rainfall to m from mm 
     interp_rain[step] = interp_rain[step]/1000.0
 
-# Adjust rainfall to recharge using 10% magic number
-tr_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=False)
+tr_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
-tr_model.parameters.create_model_parameter('magic_rain', value=0.2)
-tr_model.parameters.parameter_options('magic_rain', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0., 
-                                      PARUBND=0.9, 
-                                      PARGP='rech_mult', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+# Adjust rainfall to recharge using rainfall reduction
+for i in [1,2,3,7]:
+    tr_model.parameters.create_model_parameter('rch_red_'+zone_map[i], value=0.1)
+    tr_model.parameters.parameter_options('rch_red_'+zone_map[i], 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=0., 
+                                          PARUBND=0.9, 
+                                          PARGP='rech_mult', 
+                                          SCALE=1, 
+                                          OFFSET=0)
+    for key in interp_rain.keys():
+        interp_rain[key][tr_model.model_mesh3D[1][0]==i] = interp_rain[key][tr_model.model_mesh3D[1][0]==i] * tr_model.parameters.param['rch_red_'+zone_map[i]]['PARVAL1']
 
 rch = {}
 for key in interp_rain.keys():
-    rch[key] = interp_rain[key] * tr_model.parameters.param['magic_rain']['PARVAL1']
+    rch[key] = interp_rain[key]
 
 
 print "************************************************************************"
@@ -294,7 +300,30 @@ tr_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 print "************************************************************************"
 print " Mapping bores to grid "
 
+tr_model.map_points_to_grid(bores_shpfile, feature_id = 'HydroCode')
 
+print tr_model.points_mapped.keys()
+
+bores_more_filter = []
+for bores in tr_model.points_mapped["NGIS_Bores_clipped.shp"]:
+    row = bores[0][0]
+    col = bores[0][1]
+    for bore in bores[1]: 
+        try:
+            bore_depth = bore_data_info.loc[bore, 'depth'] #[bore_data_info["HydroCode"] == HydroCode]['depth']        
+        except:
+            continue
+        if bore_depth > tr_model.model_mesh3D[0][0][row][col]:
+            #print 'Bore can't be above surface!!!        
+            continue
+        if bore_depth <= tr_model.model_mesh3D[0][-2][row][col]:
+            #print 'Ignoring bores in bedrock!!!        
+            continue
+        bores_more_filter += [bore]        
+
+print 'Final bores within aquifers: ', len(bores_more_filter)
+
+final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
 
@@ -610,8 +639,9 @@ for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
     for lay in range(tr_model.model_mesh3D[1].shape[0]):    
         if tr_model.model_mesh3D[1][0][row][col] == -1:
             continue
-        MurrayGHBstage = tr_model.model_mesh3D[0][lay][row][col] + tr_model.parameters.param['MGHB_stage']['PARVAL1']
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, tr_model.parameters.param['MGHBcond']['PARVAL1']]]
+        MurrayGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['MGHB_stage']['PARVAL1']
+        dx = tr_model.model_mesh3D[0][0][0][1] - tr_model.model_mesh3D[0][0][0][0]
+        MGHBconductance = dx * tr_model.parameters.param['MGHBcond']['PARVAL1']
 
 ghb = {}
 ghb[0] = MurrayGHB
@@ -653,8 +683,11 @@ for WestGHB_cell in tr_model.polyline_mapped['western_head_model.shp']:
     for lay in range(tr_model.model_mesh3D[1].shape[0]):    
         if tr_model.model_mesh3D[1][lay][row][col] == -1:
             continue
-        WestGHBstage = tr_model.model_mesh3D[0][lay][row][col] + tr_model.parameters.param['WGHB_stage']['PARVAL1']
-        WestGHB += [[lay, row, col, WestGHBstage, tr_model.parameters.param['WGHBcond']['PARVAL1']]]
+        WestGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['WGHB_stage']['PARVAL1']
+        dx = tr_model.model_mesh3D[0][0][0][1] - tr_model.model_mesh3D[0][0][0][0]
+        WGHBconductance = dx * tr_model.parameters.param['WGHBcond']['PARVAL1']
+        WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
+
 
 ghb[0] += WestGHB
 
@@ -692,12 +725,15 @@ EastGHB = []
 for EastGHB_cell in tr_model.polyline_mapped['eastern_head_model.shp']:
     row = EastGHB_cell[0][0]
     col = EastGHB_cell[0][1]
-    #print tr_model.model_mesh3D
+    #print SS_model.model_mesh3D
     for lay in range(tr_model.model_mesh3D[1].shape[0]):    
         if tr_model.model_mesh3D[1][lay][row][col] == -1:
             continue
-        EastGHBstage = tr_model.model_mesh3D[0][lay][row][col] + tr_model.parameters.param['EGHB_stage']['PARVAL1']
-        EastGHB += [[lay, row, col, EastGHBstage, tr_model.parameters.param['EGHBcond']['PARVAL1']]]
+        #EastGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['EGHB_stage']['PARVAL1']
+        EastGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['EGHB_stage']['PARVAL1']
+        dx = tr_model.model_mesh3D[0][0][0][1] - tr_model.model_mesh3D[0][0][0][0]
+        EGHBconductance = dx * tr_model.parameters.param['EGHBcond']['PARVAL1']
+        EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
 
 ghb[0] += EastGHB
 

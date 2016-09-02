@@ -22,8 +22,8 @@ def run(model_folder, pest_folder):
 
 if __name__ ==  "__main__":
 
-    grid_resolution = '1000'
+    grid_resolution = '5000'
     model_folder = r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\\" 
-    pest_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST"    
+    pest_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\new"    
     
     run(model_folder, pest_folder)

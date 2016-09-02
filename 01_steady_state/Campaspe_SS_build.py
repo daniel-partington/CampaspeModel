@@ -54,6 +54,7 @@ print "************************************************************************"
 print " Executing custom script: processWeatherStations "
 
 rain_info_file = "rain_processed"
+# Check if this data has been processed and if not process it
 if os.path.exists(SS_model.out_data_folder + rain_info_file + '.h5'):
     long_term_historic_rainfall = SS_model.load_dataframe(SS_model.out_data_folder + rain_info_file + '.h5')
 else:
@@ -61,7 +62,6 @@ else:
     SS_model.save_dataframe(SS_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
 
 rain_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\Rain_gauges.shp")
-#points_dict = SS_model.getXYpairs(rain_gauges, feature_id='Name')
 
 # $%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%
 # INCLUDE NSW bores in this next part too for better head representation at the border, i.e. Murray River
@@ -100,6 +100,9 @@ bores_filtered_from_shpfile = SS_model.points_shapefile_obj2dataframe(bores_shpf
 
 final_bores = pd.merge(bore_data_info, bores_filtered_from_shpfile, how='inner', on="HydroCode")
 
+# Only consider bores whereby the measured values are above the bottom of screen
+final_bores = final_bores[final_bores['mean level'] > final_bores['BottomElev']]
+
 print 'Final number of bores within the data boundary that have level data and screen info: ', final_bores.shape[0]
 
 #final_bores.plot(kind='scatter', x="Easting", y="Northing", c="mean level", cmap="Spectral") # , edgecolor='None'
@@ -123,6 +126,17 @@ print " Executing custom script: readHydrogeologicalProperties "
 file_location = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 
+print "************************************************************************"
+print "Get the C14 data"
+
+C14_points = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14.shp")    
+
+print C14_points
+
+C14_wells_info_file = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_bore_depth.csv"
+df_C14_info = pd.read_csv(C14_wells_info_file)    
+df_C14_info = df_C14_info.dropna()
+df_C14_info = df_C14_info.set_index('Bore_id')    
 
 
 #******************************************************************************
@@ -143,12 +157,10 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-SS_model.define_structured_mesh(5000, 5000) #10000,10000)
+SS_model.define_structured_mesh(1000, 1000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
-#hu_raster_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Hydrogeological_Unit_Layers\\"
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
-#hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_GRID_raw\ESRI_GRID\\"
 
 # Build basement file ... only need to do this once as it is time consuming so commented out for future runs
 #SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
@@ -252,17 +264,18 @@ interp_rain = interp_rain/1000.0/365.0
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
-SS_model.parameters.create_model_parameter('magic_rain', value=0.1)
-SS_model.parameters.parameter_options('magic_rain', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0., 
-                                      PARUBND=0.9, 
-                                      PARGP='rech_mult', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+for i in [1,2,3,7]:
+    SS_model.parameters.create_model_parameter('rch_red_'+zone_map[i], value=0.1)
+    SS_model.parameters.parameter_options('rch_red_'+zone_map[i], 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=0., 
+                                          PARUBND=0.9, 
+                                          PARGP='rech_mult', 
+                                          SCALE=1, 
+                                          OFFSET=0)
 
-interp_rain = interp_rain * SS_model.parameters.param['magic_rain']['PARVAL1']
+    interp_rain[SS_model.model_mesh3D[1][0]==i] = interp_rain[SS_model.model_mesh3D[1][0]==i] * SS_model.parameters.param['rch_red_'+zone_map[i]]['PARVAL1']
 
 rch = {}
 rch[0] = interp_rain
@@ -275,6 +288,31 @@ SS_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 
 print "************************************************************************"
 print " Mapping bores to grid "
+
+SS_model.map_points_to_grid(bores_shpfile, feature_id = 'HydroCode')
+
+print SS_model.points_mapped.keys()
+
+bores_more_filter = []
+for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
+    row = bores[0][0]
+    col = bores[0][1]
+    for bore in bores[1]: 
+        try:
+            bore_depth = bore_data_info.loc[bore, 'depth'] #[bore_data_info["HydroCode"] == HydroCode]['depth']        
+        except:
+            continue
+        if bore_depth > SS_model.model_mesh3D[0][0][row][col]:
+            #print 'Bore can't be above surface!!!        
+            continue
+        if bore_depth <= SS_model.model_mesh3D[0][-2][row][col]:
+            #print 'Ignoring bores in bedrock!!!        
+            continue
+        bores_more_filter += [bore]        
+
+print 'Final bores within aquifers: ', len(bores_more_filter)
+
+final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
 
@@ -329,21 +367,66 @@ for i in range(len(hu_raster_files_reproj)/2):
     #plt.scatter(x=[x[0] for x in bores_layer], y=[x[1] for x in bores_layer], c=bores_head_layer)
 
 # Initalise model with head from elevations
+#initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
+#
+#for i in range(len(hu_raster_files_reproj)/2):
+#    initial_heads_SS[i] = (SS_model.model_mesh3D[0][i]+SS_model.model_mesh3D[0][i+1])/2
+#
+#SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)#interp_heads[hu_raster_files[0]])
+
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
 
 for i in range(len(hu_raster_files_reproj)/2):
-    initial_heads_SS[i] = (SS_model.model_mesh3D[0][i]+SS_model.model_mesh3D[0][i+1])/2
+    initial_heads_SS[i] = SS_model.model_mesh3D[1][0] #(interp_heads[hu_raster_files[2]]) # 2*i
+
+initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 400.)
 
 SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)#interp_heads[hu_raster_files[0]])
 
-initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
-
-for i in range(len(hu_raster_files_reproj)/2):
-    initial_heads_SS[i] = (interp_heads[hu_raster_files[2*i]])
-
-SS_model.initial_conditions.set_as_initial_condition("OldHead", initial_heads_SS)#interp_heads[hu_raster_files[0]])
-
 # Map river polyline feature to grid including length of river in cell
+print "************************************************************************"
+print "Create observation wells for particle tracking"
+
+SS_model.map_points_to_grid(C14_points, feature_id='Bore_id')
+
+wel = {}
+
+i = 0
+well_name = {}
+for C14wells in SS_model.points_mapped['C14_clipped.shp']:
+    row = C14wells[0][0]
+    col = C14wells[0][1]
+    for well in C14wells[1]: 
+        try:
+            well_depth = df_C14_info.loc[int(well), 'avg_screen(m)']
+        except:
+            print 'Well was excluded due to lack of information: ', int(well)            
+            continue
+        
+        active = False
+        for i in range(SS_model.model_mesh3D[1].shape[0]):
+            if well_depth < SS_model.model_mesh3D[0][i][row][col] and well_depth > SS_model.model_mesh3D[0][i+1][row][col]:
+                active_layer = i
+                active = True
+                break
+        if active == False: 
+            #print 'Well not placed: ', pump            
+            continue
+
+        if SS_model.model_mesh3D[1][active_layer][row][col] == -1:
+            continue
+        # Well sits in the mesh, so assign to well boundary condition
+        well_name[i] = well
+        i=i+1            
+        try:
+            wel[0] += [[active_layer, row, col, 0]]
+        except:
+            wel[0] = [[active_layer, row, col, 0]]
+
+SS_model.boundaries.create_model_boundary_condition('C14_wells', 'wells', bc_static=True)
+SS_model.boundaries.assign_boundary_array('C14_wells', wel)
+
+
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
 
@@ -449,7 +532,7 @@ SS_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
 SS_model.parameters.parameter_options('MGHB_stage', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.0, 
+                                      PARLBND=-20.0, 
                                       PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
@@ -473,9 +556,13 @@ for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][0][row][col] == -1:
             continue
-        MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
-        dx = SS_model.model_mesh3D[0][0][0][1] - SS_model.model_mesh3D[0][0][0][0]
-        MGHBconductance = dx * SS_model.parameters.param['MGHBcond']['PARVAL1']
+        #MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
+        MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['MGHB_stage']['PARVAL1']
+        if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+            continue
+        dx = SS_model.gridHeight
+        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
+        MGHBconductance = dx * dz * SS_model.parameters.param['MGHBcond']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
 ghb = {}
@@ -494,7 +581,7 @@ SS_model.parameters.create_model_parameter('WGHB_stage', value=0.01)
 SS_model.parameters.parameter_options('WGHB_stage', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.0, 
+                                      PARLBND=-20.0, 
                                       PARUBND=50, 
                                       PARGP='ghb', 
                                       SCALE=1, 
@@ -518,9 +605,13 @@ for WestGHB_cell in SS_model.polyline_mapped['western_head_model.shp']:
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][lay][row][col] == -1:
             continue
-        WestGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['WGHB_stage']['PARVAL1']
-        dx = SS_model.model_mesh3D[0][0][0][1] - SS_model.model_mesh3D[0][0][0][0]
-        WGHBconductance = dx * SS_model.parameters.param['WGHBcond']['PARVAL1']
+        #WestGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['WGHB_stage']['PARVAL1']
+        WestGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['WGHB_stage']['PARVAL1']
+        if WestGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+            continue
+        dx = SS_model.gridHeight
+        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
+        WGHBconductance = dx * dz * SS_model.parameters.param['WGHBcond']['PARVAL1']
         WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
 
 ghb[0] += WestGHB
@@ -533,14 +624,14 @@ EGWbound_poly = SS_model.read_polyline("eastern_head.shp", path=r"C:\Workspace\p
 SS_model.map_polyline_to_grid(EGWbound_poly)
 
 print "************************************************************************"
-print " Setting up Western GHB boundary"
+print " Setting up Eastern GHB boundary"
 
 SS_model.parameters.create_model_parameter('EGHB_stage', value=0.01)
 SS_model.parameters.parameter_options('EGHB_stage', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.0, 
-                                      PARUBND=50, 
+                                      PARLBND=-20, 
+                                      PARUBND=20, 
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
@@ -563,9 +654,14 @@ for EastGHB_cell in SS_model.polyline_mapped['eastern_head_model.shp']:
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][lay][row][col] == -1:
             continue
-        EastGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['EGHB_stage']['PARVAL1']
-        dx = SS_model.model_mesh3D[0][0][0][1] - SS_model.model_mesh3D[0][0][0][0]
-        EGHBconductance = dx * SS_model.parameters.param['EGHBcond']['PARVAL1']
+        #EastGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['EGHB_stage']['PARVAL1']
+        EastGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['EGHB_stage']['PARVAL1']
+        if EastGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+            continue
+        
+        dx = SS_model.gridHeight
+        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
+        EGHBconductance = dx * dz * SS_model.parameters.param['EGHBcond']['PARVAL1']
         EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
 
 ghb[0] += EastGHB

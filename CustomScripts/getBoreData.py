@@ -1,5 +1,87 @@
 import pandas as pd
 import dbf2df
+import xlrd
+"""
+NOTES ON NGIS DATA
+The quality codes for water levels are:
+
+Quality code	Description
+quality-A	Best available given the technologies, techniques and monitoring objectives at the time of classification
+quality-B	Compromised in its ability to truly represent the parameter
+quality-C	Estimate
+quality-E	Ability to truly represent the monitored parameter is not known
+quality-F	Not of release quality or contains missing data
+Y	Deemed anomalous by the data provider
+N	Deemed not anomalous by the data provider
+1	Unedited data; no data in the period have been adjusted from sensing system measurement in any way. Maximum discrepancy between the sensor reading and the reference point is +/- 5 mm.
+43	State Observation Bore Network verified data
+44	Data from water corporations, other government agencies or consultants
+45	Data from universities or catchment management authorities
+47	Historic data from the Victorian Groundwater Management System
+100	Data for which quality, accuracy, and/or derivation is not known, or data suspect or data supplied by other authorities
+157	Data unreliable; issue with bore
+165	Suspect or bad data supplied by other authority
+201	Rating not available for this stage
+255	No data exists
+~	Value is approximate
+>	Measured value is approximate; true value is greater than measured
+<	Measured value is approximate; true value is less than measured
+ 	No code; assumed ok
+ 
+
+The quality codes for salinity are:
+
+Quality code	Description
+quality-E	Ability to truly represent the monitored parameter is not known
+Y	Deemed anomalous by the data provider
+N	Deemed not anomalous by the data provider
+32	Good result - imported from Water Quality Branch spreadsheets
+43	State Observation Bore Network verified data
+44	Data from water corporations, other government agencies or consultants
+45	Data from universities or catchment management authorities
+47	Historic data from the Victorian Groundwater Management System
+81	Satisfactory result - uncontrolled sampling, lab results manually entered
+82	Satisfactory result - uncontrolled sampling, lab analysis
+83	Satisfactory result - uncontrolled sampling, lab results rechecked against lab sheets
+85	Satisfactory result - uncontrolled sampling, lab results transferred from Laboratory Information Management System electronically
+100	Discrete data - recorded value represents the true value
+185	Transferred from Laboratory Information Management System electronically
+ 	No code; assumed ok
+"""
+
+def getBoreDataGMW():
+    
+    # Now load in the bore data to pandas dataframes
+    
+    fname = r"Shallow monitoring bores bc301115.xlsx"
+    fname2 = r"State Observation Bores bc271115.xlsx"
+    
+    with xlrd.open_workbook(fname, on_demand=True) as xls:
+        sheets = xls.sheet_names()
+    
+    with xlrd.open_workbook(fname2, on_demand=True) as xls:
+        sheets2 = xls.sheet_names()
+    
+    df_set = {}
+    df_set2 = {}
+    
+    for sheet in sheets:
+        df_set[sheet] = pd.read_excel(fname, sheetname=sheet, parse_dates=True)
+    
+    for sheet in sheets2:
+        df_set2[sheet] = pd.read_excel(fname2, sheetname=sheet, parse_dates=True)
+    
+    for key in df_set:
+        df_set[key] = pd.concat([df_set[key], df_set2[key]])
+    
+    
+    # Filter construction details to get screens:
+    # Index by bore ID for the filter construction drails
+    Screen_info = df_set['Bore Construction'].loc[df_set['Bore Construction']['Component'] == 'Screen']
+    
+    # Filter lab chem sheet to get all of the salinities at bores
+    WaterLevel = df_set['Water Levels']
+    water_level_bores = pd.unique(WaterLevel['Bore ID'])
 
 def getBoreData(get='transient'): 
     VIC_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\level_VIC.csv"
@@ -7,7 +89,7 @@ def getBoreData(get='transient'):
     #NSW_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\level_NSW.csv"
     #NSW_salinity_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\salinity_NSW.csv"
     
-    fields_level = ['bore_id', 'bore_date', 'obs_point_datum', 'result', 'hydroid']
+    fields_level = ['bore_id', 'bore_date', 'obs_point_datum', 'result', 'quality_flag', 'hydroid']
     fields_salinity = ['bore_id', 'bore_date', 'uom', 'result']
     
     dfVIC_level = pd.read_csv(VIC_level_data, sep=r',', usecols=fields_level, dtype={fields_level[0]:str, fields_level[4]:str})
@@ -54,6 +136,9 @@ def getBoreData(get='transient'):
     # Get rid of unnecessary columns:
     dfVIC_level = dfVIC_level.drop(dfVIC_level[['obs_point_datum', 'hydroid']], axis=1)
 
+    # Only use data from the state observation bores:
+    dfVIC_level = dfVIC_level[dfVIC_level['quality_flag'] == '43']
+
     # Group bores by ID and get the mean of the heads
     dfVIC_level_summary = dfVIC_level.groupby('bore_id').count()
     dfVIC_level_summary['mean level'] = dfVIC_level.groupby('bore_id').mean()
@@ -98,6 +183,9 @@ def getBoreData(get='transient'):
  
     df_level_ordered = dfVIC_level.sort_values(['HydroCode', 'bore_date']) 
 
+    # Need to kill bore obs for which the obervation is below the bottom of the screen.
+    
+    
     
     #df_bores['HGUNumber'] = df_bores.lookup(df_BoreholeLog_VIC["BoreID"], df_BoreholeLog_VIC['HGUNumber'])
 
@@ -116,5 +204,5 @@ def getBoreData(get='transient'):
     #ax.plot(title="Bore @" + wellslist[0])
 
 if __name__ == "__main__":
-    df_level, df_bores = getBoreData(get='transient')    
-    
+    #df_level, df_bores = getBoreData(get='transient')    
+    getBoreDataGMW()

@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
+import flopy.utils.binaryfile as bf
 
 from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
@@ -32,18 +33,8 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
                 param_name, value = line.strip('\n').split('\t')
                 value = value.lstrip()
                 MM.GW_build[name].parameters.param[param_name]['PARVAL1'] = float(value)
-           
-    print "************************************************************************"
-    print " Set initial head "
-    
-    modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
-    
-    headobj = modflow_model.importHeads(path=os.path.join(data_folder,"model_01_steady_state\\") , name="01_steady_stateMainProcess")
-    times = headobj.get_times()        
-    head = headobj.get_data(totim=times[0])
-    
-    MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
-    
+
+   
     
     print "************************************************************************"
     print " Updating HGU parameters "
@@ -51,25 +42,27 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     # This needs to be automatically generated from with the map_raster2mesh routine ...
     zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
     
+    Zone = MM.GW_build[name].model_mesh3D[1].astype(float)
     Kh = MM.GW_build[name].model_mesh3D[1].astype(float)
     Kv = MM.GW_build[name].model_mesh3D[1].astype(float)
     Sy = MM.GW_build[name].model_mesh3D[1].astype(float)
     SS = MM.GW_build[name].model_mesh3D[1].astype(float)
     for key in zone_map.keys():
-        Kh[Kh == key] = MM.GW_build[name].parameters.param['Kh_' + zone_map[key]]['PARVAL1']
-        Kv[Kv == key] = MM.GW_build[name].parameters.param['Kv_' + zone_map[key]]['PARVAL1']
-        Sy[Sy == key] = MM.GW_build[name].parameters.param['Sy_' + zone_map[key]]['PARVAL1']
-        SS[SS == key] = MM.GW_build[name].parameters.param['SS_' + zone_map[key]]['PARVAL1']
+        Kh[Zone == key] = MM.GW_build[name].parameters.param['Kh_' + zone_map[key]]['PARVAL1']
+        Kv[Zone == key] = MM.GW_build[name].parameters.param['Kv_' + zone_map[key]]['PARVAL1']
+        Sy[Zone == key] = MM.GW_build[name].parameters.param['Sy_' + zone_map[key]]['PARVAL1']
+        SS[Zone == key] = MM.GW_build[name].parameters.param['SS_' + zone_map[key]]['PARVAL1']
     
     MM.GW_build[name].properties.assign_model_properties('Kh', Kh)
     MM.GW_build[name].properties.assign_model_properties('Kv', Kv)
     MM.GW_build[name].properties.assign_model_properties('Sy', Sy)
     MM.GW_build[name].properties.assign_model_properties('SS', SS)
-    
+
     print "************************************************************************"
     print " Updating river parameters "
     
     mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder,"Campaspe_Riv_model.shp_mapped.pkl"))
+    print mapped_river
     
     simple_river = []
     riv_width_avg = 10.0 #m
@@ -113,10 +106,20 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     
     print "************************************************************************"
     print " Updating recharge boundary "
+
+    interp_rain = MM.GW_build[name].boundaries.bc['Rainfall']['bc_array']
+    # Adjust rainfall to recharge using rainfall reduction
+    for i in [1,2,3,7]:
+        for key in interp_rain.keys():
+            interp_rain[key][MM.GW_build[name].model_mesh3D[1][0]==i] = interp_rain[key][MM.GW_build[name].model_mesh3D[1][0]==i] * MM.GW_build[name].parameters.param['rch_red_'+zone_map[i]]['PARVAL1']
+
+    for i in [4,5,6,]:
+        for key in interp_rain.keys():
+            interp_rain[key][MM.GW_build[name].model_mesh3D[1][0]==i] = interp_rain[key][MM.GW_build[name].model_mesh3D[1][0]==i] * 0.
     
     rch = {}
     for key in MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'].keys():
-        rch[key]= MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'][key] * MM.GW_build[name].parameters.param['magic_rain']['PARVAL1']
+        rch[key] = interp_rain[key] 
     
     MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
     
@@ -125,7 +128,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     print "************************************************************************"
     print " Updating Murray River GHB boundary"
     
-    mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder,"River_Murray_model.shp_mapped.pkl"))
+    mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"River_Murray_model.shp_mapped.pkl"))
     
     MurrayGHB = []
     for MurrayGHB_cell in mapped_river:
@@ -135,9 +138,10 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
         for lay in range(MM.GW_build[name].model_mesh3D[1].shape[0]):    
             if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
                 continue
-            MurrayGHBstage = (MM.GW_build[name].model_mesh3D[0][lay+1][row][col] + MM.GW_build[name].model_mesh3D[0][lay][row][col])/2. + MM.GW_build[name].parameters.param['MGHB_stage']['PARVAL1']
-            dx = MM.GW_build[name].model_mesh3D[0][0][0][1] - MM.GW_build[name].model_mesh3D[0][0][0][0]
-            MGHBconductance = dx * MM.GW_build[name].parameters.param['MGHBcond']['PARVAL1']
+            MurrayGHBstage = MM.GW_build[name].model_mesh3D[0][0][row][col] + MM.GW_build[name].parameters.param['MGHB_stage']['PARVAL1']
+            dx = MM.GW_build[name].gridHeight
+            dz = MM.GW_build[name].model_mesh3D[0][lay][row][col] - MM.GW_build[name].model_mesh3D[0][lay+1][row][col]
+            MGHBconductance = dx * dz * MM.GW_build[name].parameters.param['MGHBcond']['PARVAL1']
             MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     
     ghb = {}
@@ -146,7 +150,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     print "************************************************************************"
     print " Updating Western GHB boundary"
     
-    mapped_west = MM.GW_build[name].load_obj(os.path.join(model_folder,"western_head_model.shp_mapped.pkl"))
+    mapped_west = MM.GW_build[name].load_obj(os.path.join(model_folder, r"western_head_model.shp_mapped.pkl"))
     
     WestGHB = []
     for WestGHB_cell in mapped_west:
@@ -155,9 +159,10 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
         for lay in range(MM.GW_build[name].model_mesh3D[1].shape[0]):    
             if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
                 continue
-            WestGHBstage = (MM.GW_build[name].model_mesh3D[0][lay+1][row][col] + MM.GW_build[name].model_mesh3D[0][lay][row][col])/2. + MM.GW_build[name].parameters.param['WGHB_stage']['PARVAL1']
-            dx = MM.GW_build[name].model_mesh3D[0][0][0][1] - MM.GW_build[name].model_mesh3D[0][0][0][0]
-            WGHBconductance = dx * MM.GW_build[name].parameters.param['WGHBcond']['PARVAL1']
+            WestGHBstage = MM.GW_build[name].model_mesh3D[0][0][row][col] + MM.GW_build[name].parameters.param['WGHB_stage']['PARVAL1']
+            dx = MM.GW_build[name].gridHeight
+            dz = MM.GW_build[name].model_mesh3D[0][lay][row][col] - MM.GW_build[name].model_mesh3D[0][lay+1][row][col]
+            WGHBconductance = dx * dz * MM.GW_build[name].parameters.param['WGHBcond']['PARVAL1']
             WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
     
     ghb[0] += WestGHB
@@ -165,7 +170,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     print "************************************************************************"
     print " Updating Eastern GHB boundary"
     
-    mapped_east = MM.GW_build[name].load_obj(os.path.join(model_folder,"eastern_head_model.shp_mapped.pkl"))
+    mapped_east = MM.GW_build[name].load_obj(os.path.join(model_folder, r"eastern_head_model.shp_mapped.pkl"))
     
     EastGHB = []
     for EastGHB_cell in mapped_east:
@@ -174,9 +179,10 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
         for lay in range(MM.GW_build[name].model_mesh3D[1].shape[0]):    
             if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
                 continue
-            EastGHBstage = (MM.GW_build[name].model_mesh3D[0][lay+1][row][col] + MM.GW_build[name].model_mesh3D[0][lay][row][col])/2. + MM.GW_build[name].parameters.param['EGHB_stage']['PARVAL1']
-            dx = MM.GW_build[name].model_mesh3D[0][0][0][1] - MM.GW_build[name].model_mesh3D[0][0][0][0]
-            EGHBconductance = dx * MM.GW_build[name].parameters.param['EGHBcond']['PARVAL1']
+            EastGHBstage = MM.GW_build[name].model_mesh3D[0][0][row][col] + MM.GW_build[name].parameters.param['EGHB_stage']['PARVAL1']
+            dx = MM.GW_build[name].gridHeight
+            dz = MM.GW_build[name].model_mesh3D[0][lay][row][col] - MM.GW_build[name].model_mesh3D[0][lay+1][row][col]
+            EGHBconductance = dx * dz * MM.GW_build[name].parameters.param['EGHBcond']['PARVAL1']
             EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
     
     ghb[0] += EastGHB
@@ -192,7 +198,6 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     mapped_drains = MM.GW_build[name].load_obj(os.path.join(model_folder,"Drain_Clip_model.shp_mapped.pkl"))
     
     simple_drain = []
-    Kv_drain = 5E-3 #m/day
     drain_width_avg = 3.0 #m
     drain_bed_thickness = 0.10 #m
     for drain_cell in mapped_drains:
@@ -231,7 +236,21 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     channel[0] = simple_channel
     
     MM.GW_build[name].boundaries.assign_boundary_array('Channel', channel)
+
+    print "************************************************************************"
+    print " Updating pumping boundary"
+
     
+    print "************************************************************************"
+    print " Set initial head "
+
+    path=os.path.join(data_folder,"model_01_steady_state\\")
+    fname="01_steady_stateMainProcess"
+    headobj = bf.HeadFile(path + fname +'.hds')
+    times = headobj.get_times()        
+    head = headobj.get_data(totim=times[-1])
+    
+    MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
     
     print "************************************************************************"
     print " Build and run MODFLOW model "
@@ -240,6 +259,8 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     ###########################################################################
     ###########################################################################
     ## Currently using flopyInterface directly rather than running from the ModelManager ...
+
+    modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
     
     modflow_model.executable = mf_exe
     
@@ -253,15 +274,45 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     
     #AvgDepthToGWTable = 1   
     #DepthToGWTable = [1]
+
+    ss_converge = modflow_model.checkCovergence(path=os.path.join(data_folder,"model_01_steady_state") , name="01_steady_stateMainProcess")
+    tr_converge = modflow_model.checkCovergence()
     
-    modflow_model.writeObservations()
+    if ss_converge:
+        if tr_converge:
+            modflow_model.writeObservations()
+
     
     #modflow_model.compareAllObs()
     
-    #modflow_model.viewHeadsByZone(nper=10)
+    #modflow_model.viewHeadsByZone2(nper='all')
+ 
+    #ts = MM.GW_build[name].observations.obs_group['head']['time_series']
+    #wells_of_interest = ['79234', '62589']    
+    #wells = {}
+    #for well in wells_of_interest:    
+    #    wells[well] = ts[ts['name'] == well]
+    #    wells[well] = ts[ts['name'] == well]
+
+    #print modflow_model.getObservation(wells[wells_of_interest[1]]['obs_map'].tolist()[0], 0, 'head')    
+    #obs = []
+    #sim = []
+    #time = []
+    #import matplotlib.pyplot as plt
+    #for well in wells_of_interest:
+    #    for interval in wells[well]['interval']:
+    #        obs += [wells[well][wells[well]['interval'] == interval]['value'].tolist()[0]]
+    #        time += [wells[well][wells[well]['interval'] == interval]['datetime'].tolist()[0]]
+    #        sim += [modflow_model.getObservation(wells_of_interest[1], interval, 'head')[0]]   
     
+    #    plt.figure()
+    #    plt.plot(time, obs)
+    #    plt.plot(time, sim)
+   
     #modflow_model.viewHeads()
     #modflow_model.viewHeads2()    
+    #modflow_model.getRiverFlux('Campaspe River')
+    #return modflow_model
 
 if __name__ == "__main__":
     args = sys.argv
@@ -274,11 +325,11 @@ if __name__ == "__main__":
     else:
         grid_resolution = '5000'
         model_folder = r"C:\Workspace\part0075\MDB modelling\testbox\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\\"
-        data_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST\\"    
+        data_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master\\"    
         mf_exe = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\MODFLOW-NWT_64.exe"
-        param_file = r"C:\Workspace\part0075\MDB modelling\testbox\PEST\parameters.txt"
+        param_file = r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master\parameters.txt"
     
     if param_file:
-        run(model_folder, data_folder, mf_exe, param_file=param_file)
+        modflow_model = run(model_folder, data_folder, mf_exe, param_file=param_file)
     else:
-        run(model_folder, data_folder, mf_exe)
+        modflow_model = run(model_folder, data_folder, mf_exe)
