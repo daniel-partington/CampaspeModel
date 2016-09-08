@@ -53,7 +53,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     print "************************************************************************"
     print " Updating river parameters "
     
-    mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"Campaspe_Riv_model.shp_mapped.pkl"))
+    #mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"Campaspe_Riv_model.shp_mapped.pkl"))
+    mapped_river = MM.GW_build[name].polyline_mapped["Campaspe_Riv_model.shp"]
     
     simple_river = []
     riv_width_avg = 10.0 #m
@@ -74,7 +75,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     #MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
     
-    mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"River_Murray_model.shp_mapped.pkl"))
+    # mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"River_Murray_model.shp_mapped.pkl"))
+    mapped_river = MM.GW_build[name].polyline_mapped["River_Murray_model.shp"]
     
     simple_river = []
     riv_width_avg = 10.0 #m
@@ -123,7 +125,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     print "************************************************************************"
     print " Updating Murray River GHB boundary"
     
-    mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"River_Murray_model.shp_mapped.pkl"))
+    # mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"River_Murray_model.shp_mapped.pkl"))
+    mapped_river = MM.GW_build[name].polyline_mapped["River_Murray_model.shp"]
     
     MurrayGHB = []
     for MurrayGHB_cell in mapped_river:
@@ -145,7 +148,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     print "************************************************************************"
     print " Updating Western GHB boundary"
     
-    mapped_west = MM.GW_build[name].load_obj(os.path.join(model_folder, r"western_head_model.shp_mapped.pkl"))
+    # mapped_west = MM.GW_build[name].load_obj(os.path.join(model_folder, r"western_head_model.shp_mapped.pkl"))
+    mapped_west = MM.GW_build[name].polyline_mapped["western_head_model.shp"]
     
     WestGHB = []
     for WestGHB_cell in mapped_west:
@@ -165,7 +169,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     print "************************************************************************"
     print " Updating Eastern GHB boundary"
     
-    mapped_east = MM.GW_build[name].load_obj(os.path.join(model_folder, r"eastern_head_model.shp_mapped.pkl"))
+    # mapped_east = MM.GW_build[name].load_obj(os.path.join(model_folder, r"eastern_head_model.shp_mapped.pkl"))
+    mapped_east = MM.GW_build[name].polyline_mapped["eastern_head_model.shp"]
     
     EastGHB = []
     for EastGHB_cell in mapped_east:
@@ -259,10 +264,10 @@ if __name__ == "__main__":
             param_file = sys.argv[4]
     else:
         grid_resolution = '1000'
-        model_folder = r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state\structured_model_grid_" + grid_resolution + r"m\\"
-        data_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST2 - PRES\\"    
-        mf_exe_folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\MODFLOW-NWT_64.exe"
-        param_file = r"C:\Workspace\part0075\MDB modelling\testbox\PEST2 - PRES\parameters.txt"
+        model_folder = r"C:\UserData\takuyai\ownCloud\CampaspeModel\testbox\structured_model_grid_" + grid_resolution + r"m\\"
+        data_folder = r"C:\UserData\takuyai\ownCloud\CampaspeModel\testbox\data\\"
+        mf_exe_folder = r"C:\UserData\takuyai\ownCloud\CampaspeModel\MODFLOW-NWT_64.exe"
+        param_file = r"C:\UserData\takuyai\ownCloud\CampaspeModel\testbox\parameters.txt"
     
     if param_file:
         run(model_folder, data_folder, mf_exe_folder, param_file=param_file)
