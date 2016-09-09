@@ -6,6 +6,9 @@ import numpy as np
 
 from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+
+# Configuration Loader
+from HydroModelBuilder.HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
 # import flopy.utils.binaryfile as bf
 
 sys.path.append('C:\Workspace\part0075\GIT_REPOS')
@@ -99,7 +102,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     riv = {}
     riv[0] = simple_river
-    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
+    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
+    # River', 'river', bc_static=True)
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
 
     mapped_river = loadObj(model_folder, name, r"River_Murray_model.shp_mapped.pkl")
@@ -122,7 +126,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     riv = {}
     riv[0] = simple_river
-    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
+    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
+    # River', 'river', bc_static=True)
     MM.GW_build[name].boundaries.assign_boundary_array('Murray River', riv)
 
     print "************************************************************************"
@@ -142,7 +147,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     rch = {}
     rch[0] = interp_rain
 
-    # MM.GW_build[name].boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=True)
+    # MM.GW_build[name].boundaries.create_model_boundary_condition('Rain_reduced',
+    # 'recharge', bc_static=True)
     MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
 
     # print " Include irrigation in the recharge array"
@@ -291,11 +297,11 @@ if __name__ == "__main__":
         if len(args) > 4:
             param_file = sys.argv[4]
     else:
-        grid_resolution = '1000'
-        model_folder = r"C:\UserData\takuyai\ownCloud\CampaspeModel\testbox\structured_model_grid_" + grid_resolution + r"m\\"
-        data_folder = r"C:\UserData\takuyai\ownCloud\CampaspeModel\testbox\data\\"
-        mf_exe_folder = r"C:\UserData\takuyai\ownCloud\CampaspeModel\MODFLOW-NWT_64.exe"
-        param_file = r"C:\UserData\takuyai\ownCloud\CampaspeModel\testbox\parameters.txt"
+        model_config = CONFIG.model_config
+        model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
+        data_folder = model_config['data_folder']
+        mf_exe_folder = model_config['mf_exe_folder']
+        param_file = model_config['param_file']
 
     if param_file:
         run(model_folder, data_folder, mf_exe_folder, param_file=param_file)

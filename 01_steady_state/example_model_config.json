@@ -1,0 +1,8 @@
+{
+  "grid_resolution": "1000m",
+  "data_folder": "C:\/example\/",
+  "model_folder": "C:\/example\/structured_model_grid_",
+  "param_file": "C:\/example\/parameters.txt",
+  "working_dir": "",
+  "mf_exe_folder": "C:\/example\/MODFLOW-NWT_64.exe"
+}
