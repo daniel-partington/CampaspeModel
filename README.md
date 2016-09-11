@@ -19,16 +19,18 @@ source install.sh
 Data
 ------------------
 Email maintainers for a link to download ```data_campaspe.zip```, which contains the required data.
-The model will create intemediary data files```too_big_to_git/clipped_and_projected_folder```.
+The model will create intemediary data files in ```too_big_to_git/clipped_and_projected_folder```.
 
 
 Running the model
 ------------------
-Set the environment variable ```DATA_CAMPASPE``` to the path of the unzipped data directory. Check that ```config.py``` runs.
+Set the environment variable ```DATA_CAMPASPE``` to the path of the unzipped data directory. 
+Check that ```config.py``` runs.
 Then
 ```
 python run.py
 ```
+The first run will take a long time. Slow functions are cached, so subsequent runs should be quicker.
 
 
 Quantities of Interest
@@ -42,5 +44,9 @@ Quantities of Interest
 
 Structure
 ------------------
-* daily timesteps
-* meter horizontal resolution
+* ? years, daily timesteps
+* ? by ? grid covering [Campaspe river catchment](docs/GW_model_area.json)
+* Campaspe and Murray rivers
+* pumping wells
+* general head boundary
+* rainfall interpolated from Kyneton, Elmore, Rochester, Echuca and Eppalock

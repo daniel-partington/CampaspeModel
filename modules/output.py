@@ -18,8 +18,13 @@ def control():
      }
 
 
-
-def read_and_plot(mf, shape, dels, Ls):
+"""
+1. average depth to GW in the farming area
+2. depth to GW at key ecological locations
+3. GW level at key bores with trigger levels (relating to policy)
+4. SW-GW interaction along significant reaches of the river
+"""
+def qoi(mf):
     model_dir = mf.model_ws
     modelname = mf.name
 
@@ -27,6 +32,12 @@ def read_and_plot(mf, shape, dels, Ls):
     headobj = bf.HeadFile(os.path.join(model_dir, modelname+'.hds'))
     # times = headobj.get_times()
     cbb = bf.CellBudgetFile(os.path.join(model_dir, modelname+'.cbc'))
+
+    return headobj, cbb
+
+
+def read_and_plot(mf, shape, dels, Ls):
+    headobj, cbb = qoi(mf)
 
     nlay, nrow, ncol = shape
     delr, delc = dels

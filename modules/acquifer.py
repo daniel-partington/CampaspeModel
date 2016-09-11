@@ -1,6 +1,7 @@
+import numpy as np
 
-def load():
-	hk = 1.
+def load(shape):
+	hk = 1. * np.ones(shape)
 	vka = 1.
 	sy = 0.1
 	ss = 1.e-4

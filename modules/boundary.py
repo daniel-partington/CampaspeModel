@@ -57,7 +57,8 @@ def load(boundary_file, clipped_and_projected_folder, shape):
 		"dels": (delr, delc),
 		"Ls": (Lx, Ly),
 		"mesh_centroids": mesh_centroids,
-		# "model_projection": model_projection,
+		"model_projection": model_projection,
+		"projected_boundary_file": projected_boundary_file,
 	}, {
 		"ibound": ibound,
 		"strt": 10. * np.ones(shape, dtype=np.float32)

@@ -6,6 +6,8 @@ import numpy as np
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
+from utils import cache
+
 from GIS import project
 from GIS import interpolate
 
@@ -20,6 +22,8 @@ bom_stations = [{
 start_date = datetime.datetime(2012, 1, 1)
 end_date = datetime.datetime(2012, 12, 31)
 
+
+@cache.money()
 def load(data_folder, model_projection, mesh_centroids):
     # load in stations
     stations = [read_bom_weather(data_folder, s) for s in bom_stations]\
