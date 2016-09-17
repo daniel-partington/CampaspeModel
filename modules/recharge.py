@@ -3,9 +3,7 @@ import re
 import json
 import datetime
 import numpy as np
-from dateutil.relativedelta import relativedelta
 import pandas as pd
-
 from utils import cache
 
 from GIS import project
@@ -45,24 +43,21 @@ def load(data_folder, model_projection, mesh_centroids):
     # change recharge at the start of each month to that month's mean
     rech = {}
     
-    for month in range(12):
-        first_of_month = start_date + relativedelta(months=month)
-        last_of_month = start_date + relativedelta(months=month + 1, days=-1)
-        
-        monthly_mean = np.array([station['timeseries']['Rain'][first_of_month: last_of_month].mean()
-                                for station in stations])
-        
-        day_of_year = first_of_month.timetuple().tm_yday
-        
-        interp_rain = interpolate.interpolate(points, monthly_mean, mesh_centroids)
-        
+    # resample each stations data
+    station_means = [station['timeseries']['Rain'][start_date: end_date].resample("M", label='left').mean() for station in stations] 
+    
+    for period_start in station_means[0].index:
+        # TODO zero indexing?
+        days_since_start_date = (period_start - start_date).days + 1 + 1
+        period_mean = np.array([station_mean[period_start] for station_mean in station_means])
+        interp_rain = interpolate.interpolate(points, period_mean, mesh_centroids)
+
         # Adjust rainfall to m from mm and from year to days
-        rech[day_of_year] = interp_rain / 1000.0 / 365.0
+        rech[days_since_start_date] = interp_rain / 1000.0 / 365.0
 
     return {
         "rech": rech
     }
-
 
 
 """

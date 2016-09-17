@@ -37,6 +37,7 @@ def load(data_folder, clipped_and_projected_folder,
 
 start_date = datetime.datetime(2012, 1, 1)
 
+
 def by_time(reaches, hk):
 
     """
@@ -54,8 +55,8 @@ def by_time(reaches, hk):
         for reach in reaches:
             lay, row, col =(0, reach['row'], reach['col'])
             
-            width = 10.
             # TODO conductance?
+            width = 10.
             cond = width * reach["length"] * hk[lay, row, col]  # the riverbed hydraulic conductance
             # TODO need elevation and surface water model inputs
             stage = np.abs(6 - month)  # the head in the river
