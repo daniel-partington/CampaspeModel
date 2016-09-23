@@ -45,16 +45,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     MM.load_GW_model(os.path.join(model_folder, r"01_steady_state_packaged.pkl"))
 
     name = MM.GW_build.keys()[0]
-    # modify data folder
-    # MM.GW_build['Campaspe'].data_folder
-    # modify output folder
-    # MM.GW_build['Campaspe'].out_data_folder
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    if param_file:
-        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
-
+    #if param_file:
+    #    MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+    
     print "************************************************************************"
     print " Updating HGU parameters "
 
@@ -249,6 +245,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     modflow_model.executable = mf_exe_folder
 
+    modflow_model.buildMODFLOW()
+
+    modflow_model.checkMODFLOW()
+
     modflow_model.runMODFLOW()
 
     # print " Return the stream-aquifer exchange for reaches as list "
@@ -266,14 +266,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     # modflow_model.viewHeadsByZone()
 
-    # riv_exch = modflow_model.getRiverFlux('Campaspe River')
-    # for key in riv_exch.keys():
-    # print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in
-    # riv_exch[key]]))) + ' m3/d'
+    riv_exch = modflow_model.getRiverFlux('Campaspe River')
+    for key in riv_exch.keys():
+        print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
 
-    # riv_exch = modflow_model.getRiverFlux('Murray River')
-    # for key in riv_exch.keys():
-    #    print 'Murray River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
+    riv_exch = modflow_model.getRiverFlux('Murray River')
+    for key in riv_exch.keys():
+        print 'Murray River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
 
     # ts = MM.GW_build[name].observations.obs_group['head']['time_series']
     # wells_of_interest = ['79234', '62589']
@@ -286,7 +285,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     # print modflow_model.getObservation(wells_of_interest[1], 0, 'head')
 
     # modflow_model.viewHeads()
+    
     modflow_model.viewHeads2()
+
+    modflow_model.waterBalance()
 
 if __name__ == "__main__":
     args = sys.argv

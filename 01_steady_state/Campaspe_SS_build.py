@@ -7,7 +7,7 @@ import numpy as np
 
 from HydroModelBuilder.HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverGauges, readHydrogeologicalProperties
+from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverStations, readHydrogeologicalProperties
 
 """
 
@@ -131,12 +131,43 @@ print "Get the C14 data"
 
 C14_points = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14.shp")    
 
-print C14_points
-
 C14_wells_info_file = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_bore_depth.csv"
 df_C14_info = pd.read_csv(C14_wells_info_file)    
 df_C14_info = df_C14_info.dropna()
 df_C14_info = df_C14_info.set_index('Bore_id')    
+
+print "************************************************************************"
+print " Executing custom script: processRiverGauges "
+
+river_flow_file = "river_flow_processed"
+# Check if this data has been processed and if not process it
+if os.path.exists(SS_model.out_data_folder + river_flow_file + '.h5'):
+    river_flow_data = SS_model.load_dataframe(SS_model.out_data_folder + river_flow_file + '.h5')
+else:
+    river_flow_data = processRiverStations.getFlow(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
+    SS_model.save_dataframe(SS_model.out_data_folder + river_flow_file, river_flow_data)
+
+river_stage_file = "river_stage_processed"
+# Check if this data has been processed and if not process it
+if os.path.exists(SS_model.out_data_folder + river_stage_file + '.h5'):
+    river_stage_data = SS_model.load_dataframe(SS_model.out_data_folder + river_stage_file + '.h5')
+else:
+    river_stage_data = processRiverStations.getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
+    SS_model.save_dataframe(SS_model.out_data_folder + river_stage_file, river_stage_data)
+
+river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\20_gauges\Site_info.shp")
+
+print "************************************************************************"
+print "Load in the river shapefiles"
+
+Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
+Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
+
+print "************************************************************************"
+print "Load in the shapefiles defining groundwater boundaries"
+
+WGWbound_poly = SS_model.read_polyline("western_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
+EGWbound_poly = SS_model.read_polyline("eastern_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
 
 
 #******************************************************************************
@@ -183,6 +214,8 @@ model_grid_raster_files = [x+"_model_grid.bil" for x in hu_raster_files]
 print "************************************************************************"
 print " Building 3D mesh "
 SS_model.build_3D_mesh_from_rasters(model_grid_raster_files, SS_model.out_data_folder_grid, 1.0, 1000.0)
+# Cleanup any isolated cells:
+SS_model.removeIsolatedCells()
 
 print "************************************************************************"
 print " Assign properties to mesh based on zonal information"
@@ -430,8 +463,30 @@ SS_model.boundaries.assign_boundary_array('C14_wells', wel)
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
 
-river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
-SS_model.map_polyline_to_grid(river_poly)
+use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
+              'CAMPASPE RIVER @ DOAKS RESERVE',
+              'CAMPASPE RIVER @ AXEDALE',
+              'CAMPASPE RIVER @ BACKHAUS ROAD',
+              'CAMPASPE RIVER @ BARNADOWN',
+              'CAMPASPE RIVER @ ELMORE',
+              'CAMPASPE RIVER @ CAMPASPE WEIR',
+              'CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)',
+              'CAMPASPE RIVER @ BURNEWANG-BONN ROAD',
+              'CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN',
+              'CAMPASPE RIVER @ FEHRINGS LANE',
+              'CAMPASPE RIVER @ ECHUCA']
+
+inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
+                 'CAMPASPE DR NO 5 @ OUTFALL',
+                 'CAMPASPE DR NO 4 U/S NORTHERN HIGHWAY',
+                 'AXE CREEK @ LONGLEA',
+                 'AXE CREEK @ STRATHFIELDSAYE']
+
+SS_model.map_points_to_grid(river_gauges)
+for riv_gauge in SS_model.points_mapped['Site_info_clipped.shp']:
+    print riv_gauge
+
+SS_model.map_polyline_to_grid(Campaspe_river_poly)
 SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
 SS_model.parameters.parameter_options('bed_depress', 
                                       PARTRANS='log', 
@@ -454,6 +509,73 @@ SS_model.parameters.parameter_options('Kv_riv',
 simple_river = []
 riv_width_avg = 10.0 #m
 riv_bed_thickness = 0.10 #m
+
+# Map river from high to low
+new_riv = SS_model.polyline_mapped['Campaspe_Riv_model.shp']
+for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
+    row = riv_cell[0][0]
+    col = riv_cell[0][1]
+    new_riv[index] += [SS_model.model_mesh3D[0][0][row][col]]
+
+#new_riv = sorted(new_riv, key=lambda x: x[0][1], reverse=True)    
+#new_riv = sorted(new_riv, key=lambda x: (x[0][0], x[2]), reverse=True)    
+new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)    
+new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)    
+
+#print new_riv
+import matplotlib.pyplot as plt
+
+x_riv = []
+y_riv = []
+elev_riv = []
+rank = []
+for index, elem in enumerate(new_riv):
+    x_riv += [elem[0][1]]
+    y_riv += [elem[0][0]]
+    elev_riv += [elem[2]]
+    rank += [index]
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+plt.scatter(x_riv, y_riv, c=elev_riv)
+
+for index, xy in enumerate(zip(x_riv, y_riv)):                                       
+    ax.annotate('%s' % index, xy=xy, textcoords='data') 
+
+plt.grid()
+plt.show()
+
+stages = np.full((len(new_riv)), np.nan, dtype=np.float64)
+bed = np.full((len(new_riv)), np.nan, dtype=np.float64)
+
+# Identify cells that correspond to river gauges
+riv_gauge_logical = np.full((len(new_riv)), False, dtype=np.bool)
+
+# Define river gauges at start of river cell
+
+for index, riv in enumerate(new_riv):
+    # Create logical array to identify those which are gauges and those which are not
+    if riv[0] in riv_gauges:
+        riv_gauge_logical[index] = True
+    # Add chainage to new_riv array:
+    if index == 0:
+        new_riv[index] += [0.0]
+    else:
+        new_riv[index] += [new_riv[index-1][3] + new_riv[index-1][1]]        
+
+# River x in terms of chainage:
+river_x = np.array([x[3] for x in new_riv])
+river_x_unknown = river_x[x][riv_gauge_logical]
+river_x_known = river_x[x][~riv_gauge_logical]
+
+# Now interpolate know values of stage and bed to unknown river locations:
+stages[~riv_gauge_logical] = np.interpolate(river_x_unknown, river_x_known, stages[riv_gauge_logical])
+bed[~riv_gauge_logical] = np.interpolate(river_x_unknown, river_x_known, bed[riv_gauge_logical])
+
+# Create observations for stage or discharge at those locations
+
+
+
 for riv_cell in SS_model.polyline_mapped['Campaspe_Riv_model.shp']:
     row = riv_cell[0][0]
     col = riv_cell[0][1]
@@ -478,8 +600,7 @@ SS_model.boundaries.assign_boundary_array('Campaspe River', riv)
 print "************************************************************************"
 print " Mapping Murray River to grid"
 
-river_poly = SS_model.read_polyline("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
-SS_model.map_polyline_to_grid(river_poly)
+SS_model.map_polyline_to_grid(Murray_river_poly)
 
 SS_model.parameters.create_model_parameter('RMstage', value=0.01)
 SS_model.parameters.parameter_options('RMstage', 
@@ -571,7 +692,6 @@ ghb[0] = MurrayGHB
 print "************************************************************************"
 print " Mapping Western GW boundary to grid"
 
-WGWbound_poly = SS_model.read_polyline("western_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
 SS_model.map_polyline_to_grid(WGWbound_poly)
 
 print "************************************************************************"
@@ -620,7 +740,6 @@ ghb[0] += WestGHB
 print "************************************************************************"
 print " Mapping Eastern GW boundary to grid"
 
-EGWbound_poly = SS_model.read_polyline("eastern_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
 SS_model.map_polyline_to_grid(EGWbound_poly)
 
 print "************************************************************************"
@@ -676,7 +795,6 @@ print "************************************************************************"
 print " Collate observations"
 
 SS_model.observations.collate_observations()
-
 
 print "************************************************************************"
 print " Package up groundwater model builder object"
