@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
 
-from HydroModelBuilder.HydroModelBuilder.GWModelBuilder import GWModelBuilder
-from HydroModelBuilder.HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
+from HydroModelBuilder.GWModelBuilder import GWModelBuilder
+from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
 from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverStations, readHydrogeologicalProperties
 
 """

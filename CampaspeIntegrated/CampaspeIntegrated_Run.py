@@ -1,5 +1,5 @@
-from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
-from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.GWModelManager import GWModelManager
+from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # MM is short for model manager
 
 

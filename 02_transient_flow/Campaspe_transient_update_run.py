@@ -4,8 +4,8 @@ sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
 import flopy.utils.binaryfile as bf
 
-from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
-from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.GWModelManager import GWModelManager
+from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # MM is short for model manager
 
 def run(model_folder, data_folder, mf_exe, param_file=None):
