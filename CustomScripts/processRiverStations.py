@@ -31,13 +31,13 @@ def getFlow(path=None, start_date=None, end_date=None, summary=False):
         #end if
         if flow_file_df.empty:
             continue
-        #end if 
+        #end if
         flow_file_df = flow_file_df.fillna(0)        
         if flow_file_df['Mean'].max() == 0:
             continue
         #end if
         relevant_site_details = site_details[site_details['Site Id']==[flow_stations[index]]]
-    
+
         relevant_data['Site ID'] += [relevant_site_details['Site Id'].values[0]]
         relevant_data['Site Name'] += [relevant_site_details['Site Name'].values[0]]
         relevant_data['Easting'] += [float(relevant_site_details['Easting'])]
@@ -62,7 +62,7 @@ def getStage(path=None, start_date=None, end_date=None, summary=False):
     
     stage_stations = [int(x.split('.')[0]) for x in stage_files]
     
-    relevant_data = {'Site ID':[], 'Site Name':[], 'Easting':[], 'Northing':[], 'Mean stage (m)':[]}
+    relevant_data = {'Site ID':[], 'Site Name':[], 'Easting':[], 'Northing':[], 'Mean stage (m)':[], 'Gauge Zero (Ahd)':[]}
     
     for index, stage_file in enumerate(stage_files):
         stage_file_df = pd.read_csv(os.path.join(path, stage_file), skiprows=2, index_col='Date', parse_dates=True, dayfirst=True)
@@ -79,27 +79,34 @@ def getStage(path=None, start_date=None, end_date=None, summary=False):
             continue
         
         qual_codes_to_ignore = [8, 9]
-        qual_list = stage_file_df['Qual'].tolist()    
-        any_in = [i for i in qual_list if i in qual_codes_to_ignore]
-        if any_in:
-            print 'Quality code indicates poor or incorrect reading for: ', stage_file        
-            continue
-    
+        qual_codes_to_include = [1, 2, 82]
+        stage_file_df.drop(stage_file_df[stage_file_df['Qual'].isin(qual_codes_to_ignore)].index, inplace=True)
+        stage_file_df = stage_file_df[stage_file_df['Qual'].isin(qual_codes_to_include)]
+        
         relevant_site_details = site_details[site_details['Site Id']==[stage_stations[index]]]
+
+        #if float(relevant_site_details['Gauge Zero (Ahd)']) == float(0):
+        #    print 'Gauge zero reading is 0, so ignoring for: ', stage_file
+        #    continue
     
         mean_stage = stage_file_df['Mean'].mean()
         if mean_stage < 10.0:
             if float(relevant_site_details['Gauge Zero (Ahd)']) > 0:
                 mean_stage += float(relevant_site_details['Gauge Zero (Ahd)'])
-    
+            else:
+                print 'Mean value of stage less than 10m and Gauge Zero not known, so ignoring for: ', stage_file
+                continue
+                
         relevant_data['Site ID'] += [relevant_site_details['Site Id'].values[0]]
         relevant_data['Site Name'] += [relevant_site_details['Site Name'].values[0]]
         relevant_data['Easting'] += [float(relevant_site_details['Easting'])]
         relevant_data['Northing'] += [float(relevant_site_details['Northing'])]
         relevant_data['Mean stage (m)'] += [mean_stage]
-    # end for    
-    
+        relevant_data['Gauge Zero (Ahd)'] += [float(relevant_site_details['Gauge Zero (Ahd)'])]
+    # end for
+
     processed_river_sites_stage = pd.DataFrame(relevant_data)
     return processed_river_sites_stage
     #processed_river_sites_stage.to_csv(os.path.join(working_directory,'processed_river_sites_stage.csv'))
+
     
