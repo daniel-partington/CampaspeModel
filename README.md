@@ -42,11 +42,38 @@ Quantities of Interest
 4. SW-GW interaction along significant reaches of the river
 
 
+
+
 Structure
 ------------------
+* model boundary (active cells) [Campaspe river catchment](docs/GW_model_area.json)
+* all geometries projected to EPSG:28355 [gda94 mga zone 55](http://spatialreference.org/ref/epsg/gda94-mga-zone-55)
 * ? years, daily timesteps
-* ? by ? grid covering [Campaspe river catchment](docs/GW_model_area.json)
-* Campaspe and Murray rivers
-* pumping wells
-* general head boundary
-* rainfall interpolated from Kyneton, Elmore, Rochester, Echuca and Eppalock
+* ? by ? horizontal grid
+* recharge
+	- rainfall timeseries from [SILO](https://www.longpaddock.qld.gov.au/silo/) - 'Kyneton',  'Elmore', 'Rochester', 'Echuca'
+	- rainfall timeseries from [BOM](http://www.bom.gov.au/climate/data/) - "Rainfall at Eppalock"
+	- monthly mean
+	- interpolated using cubic spline
+* river
+	- Shapes
+		- "AHGFMappedStream" layer of "SH_Cartography.gdb" - "MURRAY RIVER", "CAMPASPE RIVER"
+		- "AHGFCanalLine" layer of "SH_Cartography.gdb" - "WARANGA WESTERN CHANNEL"
+	- guages
+		- WARANGA WESTERN CHANNEL
+			- discontinued 2007 - 405705 WARANGA WESTERN CHANNEL @ 0 MILE 40 CHAIN STRUCTURE
+			- best proxy ? - D406704 DEAKIN MAIN DRAIN @ OUTFALL (ECHUCA)
+		- MURRAY RIVER
+			- 409200 MURRAY RIVER @ ECHUCA
+		- CAMPASPE RIVER
+			- 406207 CAMPASPE RIVER @ EPPALOCK
+			- 406201 CAMPASPE RIVER @ BARNADOWN
+	
+* wells
+ 	- Bore data\pumping wells.shp
+* irrigation recharge
+* hydraulic properties
+* edges (general head boundary)
+	- Western GW
+	- Eastern GW
+

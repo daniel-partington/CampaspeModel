@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import flopy
 import flopy.utils.binaryfile as bf
 
-def control():
+def load():
     stress_period_data = {(0, 0): ['save head',
                                'save drawdown',
                                'save budget',

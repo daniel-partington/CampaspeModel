@@ -1,10 +1,15 @@
+# TODO
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+
 from dateutil.relativedelta import relativedelta
 import datetime
 import os
+import collections
+import json
 import numpy as np
-
-from GIS import project
-from GIS import raster
+from osgeo import ogr
 
 """
 The river model, given 
@@ -26,24 +31,24 @@ def load(data_folder, clipped_and_projected_folder,
         shape,
         hk):
     
-    length_raster, reaches = rasterize_reaches(data_folder=data_folder, 
-            clipped_and_projected_folder=clipped_and_projected_folder, 
-            model_projection=model_projection, 
-            bbox=bbox,
-            shape=shape)
+    # length_raster, reaches = rasterize_reaches(data_folder=data_folder, 
+    #         clipped_and_projected_folder=clipped_and_projected_folder, 
+    #         model_projection=model_projection, 
+    #         bbox=bbox,
+    #         shape=shape)
+    start_date = datetime.datetime(2012, 1, 1)
 
-    return by_time(reaches, hk)
+    # return by_time(reaches, hk, start_date)
+    return []
 
 
-start_date = datetime.datetime(2012, 1, 1)
 
 
-def by_time(reaches, hk):
+def by_time(reaches, hk, start_date):
 
     """
     set levels by stress period
     """
-
     riv = {}
 
     for month in range(12):
@@ -69,95 +74,131 @@ def by_time(reaches, hk):
     return {"stress_period_data": riv}
 
 
+def closest_hydroID_to_site(site, projected_clipped_river_file):
+    source_ds = ogr.Open(projected_clipped_river_file)
+    source_layer = source_ds.GetLayer()
+    
+    site_geom = ogr.CreateGeometryFromJson(json.dumps({"type": "Point", "coordinates": [site["x"], site["y"]]}))
+    distances = [feature.GetGeometryRef().Distance(site_geom) for feature in source_layer]
+    min_i = np.argmin(distances)
+    
+    return {
+        "closest_HydroID": source_layer.GetFeature(min_i).GetField('HydroID'),
+        "closest_HydroID_distance": distances[min_i]
+    }
 
-"""
-BOM geofabric
-    * Download from the [BOM FTP server](ftp://ftp.bom.gov.au/anon/home/geofabric/).
-    * It can be explored using [BOM WMS connection](http://geofabric.bom.gov.au/documentation/) or the [National Map](http://nationalmap.nicta.com.au/).
 
-"""
+# def downstream(HydroID, reaches):
+#     # note reaches have been cut by model cells so are not unique on HydroId
 
+#     # network = collections.defaultdict(set)
+#     network = {}
+#     for reach in reaches:
+#         # network[reach['HydroID']].add(reach['NextDownID'])
+#         network[reach['HydroID']] = reach['NextDownID']
 
-def rasterize_reaches(data_folder, clipped_and_projected_folder, model_projection, bbox, shape):
+#     print len(network)
 
-    """
-    project and clip BOM geofabric data
-    """
-    river_file = os.path.join(data_folder, "SH_Network_GDB", "SH_Network.gdb")
-    river_layer = "AHGFNetworkStream"
-    projected_clipped_river_file = os.path.join(clipped_and_projected_folder, "projected_clipped_river_file.shp")
+#     start = HydroID
+#     print start, network
+#     new_network = []
+#     while start in network:
+#         new_network.append(start)
+#         start = network[start]
 
-    # clip first so we don't reproject the entire geodatabase, faster than clipdst
-    river_bounding_box = project.get_source_bounding_box(bbox=bbox, bbox_projection=model_projection, 
-                        file_name=river_file, layer_name=river_layer)
-
-    # clipdst=projected_boundary_file removes some parts of the Murray, so better use the bbox
-    project.ogr2ogr(src_datasource_name=river_file, 
-        dst_datasource_name=projected_clipped_river_file,
-        layer_name_list=[river_layer], 
-        clipsrc=river_bounding_box,
-        t_srs=model_projection,
-    )
-
-    """
-    cut reaches by mesh
-    """
-    reaches = []
-    def rasterize_riv(source_layer, clipping_poly, row, col):
-        properties = []
-        for feature in source_layer:
-            geom = feature.GetGeometryRef()
-            if (feature.GetField('Name') == 'MURRAY RIVER' or feature.GetField('Name') == 'CAMPASPE RIVER')\
-                and clipping_poly.Intersects(geom):
-                
-                clipped = clipping_poly.Clone().Intersection(geom)
-                length = clipped.Length()
-
-                reaches.append({
-                    "length": length,
-                    "row": row,
-                    "col": col,
-                    'HydroID': feature.GetField('HydroID'),
-                    'NextDownID': feature.GetField('NextDownID'),
-                    'Name': feature.GetField('Name'),
-                    })
-
-                properties.append(length)
-
-        return sum(properties)
-
-    nlay, nrow, ncol = shape
-
-    length_raster =  raster.ogr_to_raster(
-        projected_clipped_river_file,
-        (nrow, ncol),
-        bbox,
-        rasterize_riv) 
-
-    return length_raster, reaches
-
+#     print len(new_network)
 
 
 if __name__ == '__main__':
     import boundary
     import config
+    
+    import data_water_vic_gov_au
+    import bom_geofabric
 
     shape = (1, 30, 20)  # (nlay, nrow, ncol)
-    boundary_params, boundary_inputs = boundary.load(boundary_file=os.path.join(config.data_folder, "GW_model_area", "GW_model_area.shp"), 
+    boundary_params = boundary.boundary(data_folder=config.data_folder, 
                                     clipped_and_projected_folder=config.clipped_and_projected_folder,
                                     shape=shape)
 
-    length_raster, reaches = rasterize_reaches(data_folder=config.data_folder, 
-            clipped_and_projected_folder=config.clipped_and_projected_folder, 
-            model_projection=boundary.model_projection, 
-            bbox=boundary_params['bbox'],
-            shape=shape)
+    model_start = datetime.date(2015, 1, 1)
+    model_end = datetime.date(2015, 12, 31)
+    
+    # data_folder = config.data_folder
 
-    hk = 1 * np.ones(shape)
-    reaches_by_stress = by_time(reaches, hk)
+    flow_and_level_sites = data_water_vic_gov_au.read_relevant_sites(sites_folder=os.path.join(config.data_folder, "data.water.vic", "download.20160923190321"),
+                            clipped_and_projected_folder=config.clipped_and_projected_folder,
+                            model_projection=boundary_params["model_projection"], 
+                            projected_boundary_file=boundary_params['projected_boundary_file'],
+                            model_start=model_start, model_end=model_end)
+
+    bbox = boundary_params['bbox']
+    model_projection = boundary_params['model_projection']
+
+    # seems to be higher resolution but similar to AHGFNetworkStream from SH_Network_GDB
+    projected_clipped_river_file = bom_geofabric.geofabric(river_file=os.path.join(config.data_folder, "SH_Cartography_GDB", "SH_Cartography.gdb"), 
+                                            river_layer="AHGFMappedStream", 
+                                            clipped_and_projected_folder=config.clipped_and_projected_folder, 
+                                            model_projection=model_projection, bbox=bbox)
+
+    murray_raster, murray_reaches = bom_geofabric.rasterize_reaches(projected_clipped_river_file=projected_clipped_river_file,
+                                                    bbox=bbox, shape=shape, 
+                                                    names=['MURRAY RIVER'])
+    
+    campaspe_raster, campaspe_reaches = bom_geofabric.rasterize_reaches(projected_clipped_river_file=projected_clipped_river_file,
+                                                    bbox=bbox, shape=shape, 
+                                                    names=['CAMPASPE RIVER'])
+
+    projected_clipped_canal_file = bom_geofabric.geofabric(river_file=os.path.join(config.data_folder, "SH_Cartography_GDB", "SH_Cartography.gdb"), 
+                                            river_layer="AHGFCanalLine", 
+                                            clipped_and_projected_folder=config.clipped_and_projected_folder, 
+                                            model_projection=model_projection, bbox=bbox)
+
+    waranga_raster, waranga_reaches = bom_geofabric.rasterize_reaches(projected_clipped_river_file=projected_clipped_canal_file,
+                                                                bbox=bbox, shape=shape,
+                                                                names=["WARANGA WESTERN CHANNEL"])
+
+    print closest_hydroID_to_site(
+        site=[site for site in flow_and_level_sites if site['Site Name'] == "CAMPASPE RIVER @ EPPALOCK"][0], 
+        projected_clipped_river_file=projected_clipped_river_file
+    )
+    print [site for site in flow_and_level_sites if site['Site Name'] == "CAMPASPE RIVER @ EPPALOCK"][0]
+
+    print closest_hydroID_to_site(
+        site=[site for site in flow_and_level_sites if site['Site Name'] == "MURRAY RIVER @ ECHUCA"][0], 
+        projected_clipped_river_file=projected_clipped_river_file
+    )
+    print [site for site in flow_and_level_sites if site['Site Name'] == "MURRAY RIVER @ ECHUCA"][0]
+
+    # TODO use historical average of "WARANGA WESTERN CHANNEL @ 0 MILE 40 CHAIN STRUCTURE"
+    # TODO stage and level?
+    print closest_hydroID_to_site(
+        site=[site for site in flow_and_level_sites if site['Site Name'] == "DEAKIN MAIN DRAIN @ OUTFALL (ECHUCA)"][0], 
+        projected_clipped_river_file=projected_clipped_canal_file
+    )
+    print [site for site in flow_and_level_sites if site['Site Name'] == "DEAKIN MAIN DRAIN @ OUTFALL (ECHUCA)"][0]
+
+
+    # downstream_stages = downstream(campaspe_river[0]['closest_HydroID'], campaspe_reaches)
+    
+    # "CAMPASPE RIVER @ EPPALOCK"
 
     import matplotlib.pylab as plt
-    plt.imshow(length_raster)
+    plt.imshow(campaspe_raster)
     plt.show()
+    
+    plt.imshow(murray_raster)
+    plt.show()
+
+    plt.imshow(waranga_raster)
+    plt.show()
+
+    # for site in flow_and_level_sites:
+        # print site['closest_HydroID_distance'], site['Site Name'], site.get('Mean stage (m)')
+
+    # hk = 1 * np.ones(shape)
+    # reaches_by_stress = by_time(reaches, hk, model_start)
+
+
 
 

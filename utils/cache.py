@@ -4,6 +4,7 @@ import simplejson as json  # import json
 from functools import wraps
 import numpy
 import datetime
+import base64
 
 """
 Create a cache for a function using
@@ -26,10 +27,11 @@ michael.james.asher@gmail.com
 """
 Custom json encoder allows sevearal data types to be saved as json
 """
+
 class DateNumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, numpy.ndarray):
-            return {'type': 'numpy.ndarray', 'data_type': str(obj.dtype), 'data': obj.tolist()}
+            return {'type': 'numpy.ndarray', 'data_type': str(obj.dtype), 'data_shape': obj.shape, 'data': base64.b64encode(obj)}
         elif isinstance(obj, datetime.datetime):
             return {'type': 'datetime.datetime', 'data': obj.strftime("%Y-%m-%dT%H:%M:%S.%fZ")}
         elif isinstance(obj, datetime.date):
@@ -42,7 +44,7 @@ class DateNumpyEncoder(json.JSONEncoder):
 
 def  DateNumpyDecoder(dct):
     if isinstance(dct, dict) and 'type' in dct and dct['type'] == 'numpy.ndarray':
-        return numpy.array(dct['data']).astype(getattr(numpy, dct['data_type']))
+        return numpy.frombuffer(base64.b64decode(dct['data']), dtype=dct['data_type']).reshape(dct['data_shape'])
     elif isinstance(dct, dict) and 'type' in dct and dct['type'] == 'datetime.datetime':
         return datetime.datetime.strptime(dct['data'], "%Y-%m-%dT%H:%M:%S.%fZ")
     elif isinstance(dct, dict) and 'type' in dct and dct['type'] == 'datetime.date':

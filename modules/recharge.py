@@ -1,7 +1,6 @@
 import os
 import re
 import json
-import datetime
 import numpy as np
 import pandas as pd
 from utils import cache
@@ -17,12 +16,9 @@ bom_stations = [{
         "data_file": 'IDCJAC0009_081083_1800_Data.csv',
 }]
 
-start_date = datetime.datetime(2012, 1, 1)
-end_date = datetime.datetime(2012, 12, 31)
-
 
 @cache.money()
-def load(data_folder, model_projection, mesh_centroids):
+def load(data_folder, model_projection, mesh_centroids, start_date, end_date):
     # load in stations
     stations = [read_bom_weather(data_folder, s) for s in bom_stations]\
                  + [read_silo_weather(data_folder, s) for s in silo_stations]
@@ -45,8 +41,9 @@ def load(data_folder, model_projection, mesh_centroids):
     
     # resample each stations data
     station_means = [station['timeseries']['Rain'][start_date: end_date].resample("M", label='left').mean() for station in stations] 
-    
+    print "station_mean", station_means
     for period_start in station_means[0].index:
+        print "period_start", period_start
         # TODO zero indexing?
         days_since_start_date = (period_start - start_date).days + 1 + 1
         period_mean = np.array([station_mean[period_start] for station_mean in station_means])
@@ -147,7 +144,7 @@ if __name__ == '__main__':
     # print read_bom_weather(config.data_folder, bom_stations[0])['timeseries']['Rain']
 
     shape = (1, 30, 20)  # (nlay, nrow, ncol)
-    boundary_params, boundary_inputs = boundary.load(boundary_file=os.path.join(config.data_folder, "GW_model_area", "GW_model_area.shp"), 
+    boundary_params = boundary.boundary(data_folder=config.data_folder, 
                                     clipped_and_projected_folder=config.clipped_and_projected_folder,
                                     shape=shape)
 

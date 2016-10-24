@@ -1,7 +1,9 @@
+import json
+import os
+import subprocess
+import numpy as np
 from osgeo import ogr
 from osgeo import osr
-import subprocess
-
 from utils import cache
 
 """
@@ -9,6 +11,9 @@ see www.gdal.org/ogr2ogr.html
 """
 @cache.money()
 def ogr2ogr(src_datasource_name, dst_datasource_name, layer_name_list=[], **kwargs):
+    if os.path.exists(dst_datasource_name):
+        os.remove(dst_datasource_name)
+
     extras = []
     for key in kwargs.keys():
         extras.append('-' + key)
@@ -54,21 +59,32 @@ def geojson_transformer(src_text, dst_text):
     return transform_geojson
 
 
-"""
-reprojects a bounding box based on the projection system of layer_name of file_name
-"""
+def project_points(xs, ys, projector):
 
-def get_source_bounding_box(bbox, bbox_projection, file_name, layer_name):
-    import json
-    from osgeo import ogr
+    reprojected = json.loads(projector(json.dumps({"type": "MultiPoint", "coordinates": 
+        np.array([xs, ys]).T.tolist()
+    })))
+    return np.array(reprojected['coordinates']).T
 
+
+"""
+gets projection of layer_name of file_name
+"""
+def get_source_projection(file_name, layer_name):
     dataset = ogr.Open(file_name)
     layer = dataset.GetLayer(layer_name)
-    river_projection = layer.GetSpatialRef().ExportToWkt()
+    projection_wkt = layer.GetSpatialRef().ExportToWkt()
+    return projection_wkt
+
+"""
+reprojects a bounding box based 
+"""
+
+def get_source_bounding_box(bbox, bbox_projection, projection_wkt):
 
     min_x, max_x, min_y, max_y = bbox
 
-    model_to_river = geojson_transformer(bbox_projection, river_projection)
+    model_to_river = geojson_transformer(bbox_projection, projection_wkt)
     
     min_x, min_y = json.loads(model_to_river(json.dumps(
         {"type": "Point", "coordinates": [min_x, min_y]}
