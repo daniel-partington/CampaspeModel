@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append('C:\Workspace\part0075\GIT_REPOS')
-from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
+from HydroModelBuilder.GWModelManager import GWModelManager
 
 # MM is short for model manager
 def run(model_folder, pest_folder):

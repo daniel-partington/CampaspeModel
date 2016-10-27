@@ -1,4 +1,4 @@
-from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
+from HydroModelBuilder.GWModelManager import GWModelManager
 
 # MM is short for model manager
 

@@ -4,11 +4,11 @@ import os
 import sys
 import numpy as np
 
-from HydroModelBuilder.HydroModelBuilder.GWModelManager import GWModelManager
-from HydroModelBuilder.HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.GWModelManager import GWModelManager
+from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
 # Configuration Loader
-from HydroModelBuilder.HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
+from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
 # import flopy.utils.binaryfile as bf
 
 sys.path.append('C:\Workspace\part0075\GIT_REPOS')
