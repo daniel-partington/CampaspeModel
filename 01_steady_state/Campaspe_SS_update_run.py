@@ -262,6 +262,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     modflow_model.checkCovergence()
 
+   
     # modflow_model.writeObservations()
 
     # modflow_model.viewHeadsByZone()
@@ -286,9 +287,16 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     # modflow_model.viewHeads()
     
-    modflow_model.viewHeads2()
+    #modflow_model.viewHeads2()
 
-    modflow_model.waterBalance()
+    #modflow_model.waterBalance()
+    
+    #modflow_model.buildMT3D()
+    
+    #modflow_model.runMT3D()
+    
+    #modflow_model.viewConcsByZone()
+   
 
 if __name__ == "__main__":
     args = sys.argv
