@@ -27,6 +27,10 @@ SS_model = GWModelBuilder(name="01_steady_state",
                           model_type='Modflow',
                           mesh_type='structured')
 
+# TODO: Recreate this script for the integrated model.
+    
+
+
 # Cleanup
 #SS_model.flush()
 
@@ -137,7 +141,7 @@ df_C14_info = df_C14_info.dropna()
 df_C14_info = df_C14_info.set_index('Bore_id')    
 
 print "************************************************************************"
-print " Executing custom script: processRiverGauges "
+print " Executing custom script: processRiverStations "
 
 river_flow_file = "river_flow_processed"
 # Check if this data has been processed and if not process it
@@ -155,7 +159,8 @@ else:
     river_stage_data = processRiverStations.getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
     SS_model.save_dataframe(SS_model.out_data_folder + river_stage_file, river_stage_data)
 
-river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\20_gauges\Site_info.shp")
+#river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\20_gauges\Site_info.shp")
+river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\processed_river_sites_stage.shp")
 
 print "************************************************************************"
 print "Load in the river shapefiles"
@@ -418,7 +423,7 @@ SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)#i
 
 # Map river polyline feature to grid including length of river in cell
 print "************************************************************************"
-print "Create observation wells for particle tracking"
+print "Create observation wells for C14"
 
 SS_model.map_points_to_grid(C14_points, feature_id='Bore_id')
 
@@ -436,6 +441,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
             print 'Well was excluded due to lack of information: ', int(well)            
             continue
         
+        well_depth = SS_model.model_mesh3D[0][0][row][col] - well_depth
         active = False
         for i in range(SS_model.model_mesh3D[1].shape[0]):
             if well_depth < SS_model.model_mesh3D[0][i][row][col] and well_depth > SS_model.model_mesh3D[0][i+1][row][col]:
@@ -452,13 +458,14 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
         well_name[i] = well
         i=i+1            
         try:
-            wel[0] += [[active_layer, row, col, 0]]
+            wel[0] += [[active_layer, row, col, 0.]]
         except:
-            wel[0] = [[active_layer, row, col, 0]]
+            wel[0] = [[active_layer, row, col, 0.]]
 
 SS_model.boundaries.create_model_boundary_condition('C14_wells', 'wells', bc_static=True)
 SS_model.boundaries.assign_boundary_array('C14_wells', wel)
 
+#SS_model.observations.set_as_observations('C14', bores_obs_time_series, bore_points3D, domain='porous', obs_type='C14', units='pMC')
 
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
@@ -473,7 +480,7 @@ use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
               'CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)',
               'CAMPASPE RIVER @ BURNEWANG-BONN ROAD',
               'CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN',
-              'CAMPASPE RIVER @ FEHRINGS LANE',
+              #'CAMPASPE RIVER @ FEHRINGS LANE',
               'CAMPASPE RIVER @ ECHUCA']
 
 inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
@@ -482,9 +489,11 @@ inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
                  'AXE CREEK @ LONGLEA',
                  'AXE CREEK @ STRATHFIELDSAYE']
 
-SS_model.map_points_to_grid(river_gauges)
-for riv_gauge in SS_model.points_mapped['Site_info_clipped.shp']:
-    print riv_gauge
+SS_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
+filter_gauges = []
+for riv_gauge in SS_model.points_mapped['processed_river_sites_stage_clipped.shp']:
+    if riv_gauge[1][0] in use_gauges:
+        filter_gauges += [riv_gauge]
 
 SS_model.map_polyline_to_grid(Campaspe_river_poly)
 SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
@@ -517,46 +526,25 @@ for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.sh
     col = riv_cell[0][1]
     new_riv[index] += [SS_model.model_mesh3D[0][0][row][col]]
 
-#new_riv = sorted(new_riv, key=lambda x: x[0][1], reverse=True)    
-#new_riv = sorted(new_riv, key=lambda x: (x[0][0], x[2]), reverse=True)    
 new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)    
 new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)    
 
-#print new_riv
-import matplotlib.pyplot as plt
-
-x_riv = []
-y_riv = []
-elev_riv = []
-rank = []
-for index, elem in enumerate(new_riv):
-    x_riv += [elem[0][1]]
-    y_riv += [elem[0][0]]
-    elev_riv += [elem[2]]
-    rank += [index]
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-plt.scatter(x_riv, y_riv, c=elev_riv)
-
-for index, xy in enumerate(zip(x_riv, y_riv)):                                       
-    ax.annotate('%s' % index, xy=xy, textcoords='data') 
-
-plt.grid()
-plt.show()
-
 stages = np.full((len(new_riv)), np.nan, dtype=np.float64)
-bed = np.full((len(new_riv)), np.nan, dtype=np.float64)
+beds = np.full((len(new_riv)), np.nan, dtype=np.float64)
 
 # Identify cells that correspond to river gauges
 riv_gauge_logical = np.full((len(new_riv)), False, dtype=np.bool)
 
 # Define river gauges at start of river cell
-
+filter_gauge_loc = [x[0] for x in filter_gauges]
 for index, riv in enumerate(new_riv):
     # Create logical array to identify those which are gauges and those which are not
-    if riv[0] in riv_gauges:
+    if riv[0] in filter_gauge_loc:
         riv_gauge_logical[index] = True
+        gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
+        stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site Name"] == filter_gauges[gauge_ind[0]][1][0]]
+        beds[index] = stages[index] - 1.0 #river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
+
     # Add chainage to new_riv array:
     if index == 0:
         new_riv[index] += [0.0]
@@ -565,25 +553,25 @@ for index, riv in enumerate(new_riv):
 
 # River x in terms of chainage:
 river_x = np.array([x[3] for x in new_riv])
-river_x_unknown = river_x[x][riv_gauge_logical]
-river_x_known = river_x[x][~riv_gauge_logical]
+river_x_unknown = river_x[~riv_gauge_logical]
+river_x_known = river_x[riv_gauge_logical]
 
 # Now interpolate know values of stage and bed to unknown river locations:
-stages[~riv_gauge_logical] = np.interpolate(river_x_unknown, river_x_known, stages[riv_gauge_logical])
-bed[~riv_gauge_logical] = np.interpolate(river_x_unknown, river_x_known, bed[riv_gauge_logical])
+stages[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, stages[riv_gauge_logical])
+beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_gauge_logical])
 
 # Create observations for stage or discharge at those locations
 
 
 
-for riv_cell in SS_model.polyline_mapped['Campaspe_Riv_model.shp']:
+for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
     row = riv_cell[0][0]
     col = riv_cell[0][1]
     if SS_model.model_mesh3D[1][0][row][col] == -1:
         continue
     #print SS_model.model_mesh3D
-    stage = SS_model.model_mesh3D[0][0][row][col]
-    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']['PARVAL1']
+    stage = stages[index] #SS_model.model_mesh3D[0][0][row][col]
+    bed = beds[index] #SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']['PARVAL1']
     cond = riv_cell[1] * riv_width_avg * SS_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
