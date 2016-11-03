@@ -28,8 +28,6 @@ SS_model = GWModelBuilder(name="01_steady_state",
                           mesh_type='structured')
 
 # TODO: Recreate this script for the integrated model.
-    
-
 
 # Cleanup
 #SS_model.flush()
@@ -135,10 +133,15 @@ print "Get the C14 data"
 
 C14_points = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14.shp")    
 
-C14_wells_info_file = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_bore_depth.csv"
-df_C14_info = pd.read_csv(C14_wells_info_file)    
-df_C14_info = df_C14_info.dropna()
-df_C14_info = df_C14_info.set_index('Bore_id')    
+#C14_wells_info_file = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_bore_depth.csv"
+#df_C14_info = pd.read_csv(C14_wells_info_file)    
+#df_C14_info = df_C14_info.dropna()
+#df_C14_info = df_C14_info.set_index('Bore_id')    
+
+C14data = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_locs.xlsx"
+df_C14 = pd.read_excel(C14data)
+df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
+df_C14.dropna(inplace=True)
 
 print "************************************************************************"
 print " Executing custom script: processRiverStations "
@@ -364,7 +367,6 @@ bores_obs_time_series = bores_obs_time_series.rename(columns={'HydroCode':'name'
 
 SS_model.observations.set_as_observations('head', bores_obs_time_series, bore_points3D, domain='porous', obs_type='head', units='mAHD')
 
-SS_model.map_obs_loc2mesh3D(method='nearest')
 
 bores_in_layers = SS_model.map_points_to_raster_layers(bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
 
@@ -429,6 +431,12 @@ SS_model.map_points_to_grid(C14_points, feature_id='Bore_id')
 
 wel = {}
 
+# Create another column in the pandas dataframe for the C14 data for the depth
+# at which the sample was taken in mAHD ... which will be calculated in the next
+# for loop
+
+df_C14['z'] = 'null'
+
 i = 0
 well_name = {}
 for C14wells in SS_model.points_mapped['C14_clipped.shp']:
@@ -436,12 +444,16 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
     col = C14wells[0][1]
     for well in C14wells[1]: 
         try:
-            well_depth = df_C14_info.loc[int(well), 'avg_screen(m)']
+            well_depth = df_C14.loc[df_C14[df_C14['Bore_id'] == int(well)].index.tolist()[0], 'avg_screen(m)']
+            #well_depth = df_C14.loc[df_C14['Bore_id'] == int(well), 'avg_screen(m)']
         except:
             print 'Well was excluded due to lack of information: ', int(well)            
             continue
         
         well_depth = SS_model.model_mesh3D[0][0][row][col] - well_depth
+
+        df_C14.set_value(df_C14['Bore_id'] == int(well), 'z', well_depth)
+                
         active = False
         for i in range(SS_model.model_mesh3D[1].shape[0]):
             if well_depth < SS_model.model_mesh3D[0][i][row][col] and well_depth > SS_model.model_mesh3D[0][i+1][row][col]:
@@ -454,6 +466,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
 
         if SS_model.model_mesh3D[1][active_layer][row][col] == -1:
             continue
+
         # Well sits in the mesh, so assign to well boundary condition
         well_name[i] = well
         i=i+1            
@@ -465,7 +478,14 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
 SS_model.boundaries.create_model_boundary_condition('C14_wells', 'wells', bc_static=True)
 SS_model.boundaries.assign_boundary_array('C14_wells', wel)
 
-#SS_model.observations.set_as_observations('C14', bores_obs_time_series, bore_points3D, domain='porous', obs_type='C14', units='pMC')
+C14_obs_time_series = df_C14.copy(deep=True) 
+C14_obs_time_series = C14_obs_time_series[['Bore_id', 'a14C(pMC)']]
+C14_obs_time_series.rename(columns={'Bore_id':'name', 'a14C(pMC)':'value'}, inplace=True)
+C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']]
+C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
+C14_bore_points3D.rename(columns={'zone55_easting':'Easting', 'zone55_northing':'Northing'}, inplace=True)
+
+SS_model.observations.set_as_observations('C14', C14_obs_time_series, C14_bore_points3D, domain='porous', obs_type='concentration', units='pMC')
 
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
@@ -782,6 +802,8 @@ SS_model.boundaries.assign_boundary_array('GHB', ghb)
 print "************************************************************************"
 print " Collate observations"
 
+SS_model.map_obs_loc2mesh3D(method='nearest')
+SS_model.map_obs2model_times()
 SS_model.observations.collate_observations()
 
 print "************************************************************************"

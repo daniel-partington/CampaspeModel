@@ -263,7 +263,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     modflow_model.checkCovergence()
 
    
-    # modflow_model.writeObservations()
+    modflow_model.writeObservations()
 
     # modflow_model.viewHeadsByZone()
 
@@ -285,11 +285,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     # print modflow_model.getObservation(wells[wells_of_interest[1]]['obs_map'].tolist()[0], 0, 'head')
     # print modflow_model.getObservation(wells_of_interest[1], 0, 'head')
 
-    # modflow_model.viewHeads()
+    #modflow_model.viewHeads()
     
+    modflow_model.viewHeadsByZone()
+
     #modflow_model.viewHeads2()
 
-    #modflow_model.waterBalance()
+    modflow_model.waterBalance()
     
     #modflow_model.buildMT3D()
     
