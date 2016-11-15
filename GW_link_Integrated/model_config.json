@@ -1,0 +1,8 @@
+{
+  "grid_resolution": "1000m",
+  "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/integrated",
+  "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/01_steady_state_noGHB/structured_model_grid_",
+  "param_file": "",
+  "working_dir": "",
+  "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
+}
