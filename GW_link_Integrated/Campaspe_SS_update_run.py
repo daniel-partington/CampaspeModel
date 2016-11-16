@@ -6,6 +6,8 @@ import os
 import sys
 import numpy as np
 
+import flopy.utils.binaryfile as bf
+
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
@@ -169,9 +171,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     print "************************************************************************"
     print " Set initial head "
 
-    path=os.path.join(data_folder)
-    fname="01_steady_stateMainProcess"
-    headobj = bf.HeadFile(path + fname +'.hds')
+    fname="initial"
+    headobj = bf.HeadFile(os.path.join(data_folder, fname) +'.hds')
     times = headobj.get_times()
     head = headobj.get_data(totim=times[-1])
 
@@ -190,8 +191,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.nper = 1 # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1 # This is the period of time which is set to 1 day here 
     modflow_model.nstp = 1 # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = True # This is to tell FloPy that is a transient model
-    
+    modflow_model.steady = False # This is to tell FloPy that is a transient model
     
     modflow_model.executable = mf_exe_folder
 
@@ -202,12 +202,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.checkCovergence()
 
     """
-    SW-GW exhcanges:
+    SW-GW exchanges:
     """
 
     sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge in sw_stream_gauges])    
-        
+
     riv_exch = modflow_model.getRiverFlux('Campaspe River')
     for key in riv_exch.keys():
         print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
@@ -216,7 +216,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     for key in riv_exch.keys():
         print 'Murray River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
 
-    
+
     """
     Average depth to GW table:
 
