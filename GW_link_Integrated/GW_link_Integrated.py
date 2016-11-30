@@ -1,6 +1,8 @@
-"""Run Campaspe GW model using inputs from Farm model and SW model and 
+"""
+Run Campaspe GW model using inputs from Farm model and SW model and 
 then return SW/GW exchanges, avg depth to GW, depth to GW at ecology sites and
-head at trigger bores."""
+head at trigger bores.
+"""
 
 import os
 import sys
@@ -13,10 +15,12 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
-# import flopy.utils.binaryfile as bf
 
+#TODO: Set the stream gauges, ecology bores, policy bores at the start in some
+# other class or in here but so they are available in the run function.
 
-def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None, rainfall_irrigation=None, pumping=None):
+def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None, 
+        rainfall_irrigation=None, pumping=None):
 
     """
     GW Model Runner
@@ -76,7 +80,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         col = riv_cell[0][1]
         if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
             continue
-        # print test_model.model_mesh3D
+
+    #TODO: Update stage data with interpolated values based on riv_stages passed in to function
+
         stage = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.01
         bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.1 - \
             MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
@@ -88,8 +94,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     riv[0] = simple_river
     # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
     # River', 'river', bc_static=True)
-    MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
 
+    MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
+    
     mapped_river = loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
 
     simple_river = []
@@ -120,6 +127,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # Adjust rainfall to recharge using 10% magic number
     interp_rain = np.copy(MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'])
 
+    #TODO: Replace interp_rain with input from farm model, i.e. rainfall_irrigation
+    
     for i in [1, 2, 3, 7]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[MM.GW_build[name].model_mesh3D[
             1][0] == i] * 0.1 #MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
@@ -131,14 +140,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     rch = {}
     rch[0] = interp_rain
 
-    # MM.GW_build[name].boundaries.create_model_boundary_condition('Rain_reduced',
-    # 'recharge', bc_static=True)
     MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
 
-    # print " Include irrigation in the recharge array"
-
-    # print MM.GW_build[name].observations.obs_group['head'].keys()
-    # print MM.GW_build[name].observations.obs_group['head']['mapped_observations']
 
     print "************************************************************************"
     print " Updating Murray River GHB boundary"
@@ -171,6 +174,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     print "************************************************************************"
     print " Set initial head "
 
+    #TODO: Update head based on last iteration rather than initial head
     fname="initial"
     headobj = bf.HeadFile(os.path.join(data_folder, fname) +'.hds')
     times = headobj.get_times()
@@ -208,13 +212,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge in sw_stream_gauges])    
 
-    riv_exch = modflow_model.getRiverFlux('Campaspe River')
-    for key in riv_exch.keys():
-        print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
-
-    riv_exch = modflow_model.getRiverFlux('Murray River')
-    for key in riv_exch.keys():
-        print 'Murray River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
+    #TODO: Generate segment subsets of river nodes list for each gauging station
+    # and use the following function already written to grab the flux for the
+    # chosen nodes
+    #riv_exch = modflow_model.getRiverFlux('Campaspe River')
 
 
     """
@@ -225,15 +226,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     farm_zones = [1]
     avg_depth_to_gw = np.recarray((1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])
     
-    # ts = MM.GW_build[name].observations.obs_group['head']['time_series']
-    # wells_of_interest = ['79234', '62589']
-    # wells = {}
-    # for well in wells_of_interest:
-    #    wells[well] = ts[ts['name'] == well]
-    #    wells[well] = ts[ts['name'] == well]
-    # print modflow_model.getObservation(wells[wells_of_interest[1]]['obs_map'].tolist()[0], 0, 'head')
-    # print modflow_model.getObservation(wells_of_interest[1], 0, 'head')
-
+    #TODO: Get average depth to GW using:
+    # 1. Active cells heads in the first layer of the model
+    # 2. Surface elevation in at the top of those active cells:
+    # 3. Average the difference between the two arrays
 
     """
     Ecology heads of importance   
@@ -250,7 +246,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         ecol_depth_to_gw[ecol_bore] = np.random.rand()
     # end for
     
-
+    #TODO: Check that all of the wells listed were mapped to the model mesh and
+    # are available for inspection
+    
+    
     """
     Trigger heads of importance for policy
 
@@ -273,7 +272,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         trigger_heads[trigger_bore] = np.random.rand()
     # end for
    
-   
+    #TODO: Check that all of the wells listed were mapped to the model mesh and
+    # are available for inspection
+
+    
     return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads 
     
 if __name__ == "__main__":
