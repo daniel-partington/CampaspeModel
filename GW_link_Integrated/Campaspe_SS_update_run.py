@@ -1,4 +1,4 @@
-"""Run Campaspe GW model using inputs from Farm model and SW model and 
+"""Run Campaspe GW model using inputs from Farm model and SW model and
 then return SW/GW exchanges, avg depth to GW, depth to GW at ecology sites and
 head at trigger bores."""
 
@@ -20,12 +20,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
     GW Model Runner
-    
+
     :param riv_stages: np rec array fo gauge number and stage
-  
-    
+
+
     """
- 
+
     def loadObj(data_folder, model_name, filename):
         """
         Interface to Model Manager object loader.
@@ -51,14 +51,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"01_steady_state_packaged.pkl"))
-    
-    
+
+
     name = MM.GW_build.keys()[0]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
         MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
-    
+
 
     # This needs to be automatically generated from with the map_raster2mesh routine ...
 #    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
@@ -189,10 +189,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # Override temporal aspects of model build:
     modflow_model.nper = 1 # This is the number of stress periods which is set to 1 here
-    modflow_model.perlen = 1 # This is the period of time which is set to 1 day here 
+    modflow_model.perlen = 1 # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1 # This is the number of sub-steps to do in each stress period
     modflow_model.steady = False # This is to tell FloPy that is a transient model
-    
+
     modflow_model.executable = mf_exe_folder
 
     modflow_model.buildMODFLOW()
@@ -206,7 +206,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     """
 
     sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
-    swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge in sw_stream_gauges])    
+    swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge in sw_stream_gauges])
 
     riv_exch = modflow_model.getRiverFlux('Campaspe River')
     for key in riv_exch.keys():
@@ -224,7 +224,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     farm_zones = [1]
     avg_depth_to_gw = np.recarray((1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])
-    
+
     # ts = MM.GW_build[name].observations.obs_group['head']['time_series']
     # wells_of_interest = ['79234', '62589']
     # wells = {}
@@ -236,46 +236,46 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
 
     """
-    Ecology heads of importance   
+    Ecology heads of importance
 
     River gauges of importance for ecology: 406201, 406202, 406207, 406218, 406265
     Corresponding GW bores nearest to:      83003,  89586,  82999,  5662,   44828
-        
+
     """
-    
+
     ecol_depth_to_gw_bores = ['83003', '89586', '82999', '5662', '44828']
-    ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float) for bore in ecol_depth_to_gw_bores])    
+    ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float) for bore in ecol_depth_to_gw_bores])
     # to set
     for ecol_bore in ecol_depth_to_gw_bores:
         ecol_depth_to_gw[ecol_bore] = np.random.rand()
     # end for
-    
+
 
     """
     Trigger heads of importance for policy
 
-    1. The reference trigger bore for the Elmore-Rochester/Echuca/Bamawn zone 
-       was selected to represent the interactions between the river and 
-       groundwater extractions. So we’d need to make sure we have baseflow 
-       represented in the river between Lake Eppalock  (which I think is an 
+    1. The reference trigger bore for the Elmore-Rochester/Echuca/Bamawn zone
+       was selected to represent the interactions between the river and
+       groundwater extractions. So we'd need to make sure we have baseflow
+       represented in the river between Lake Eppalock  (which I think is an
        input to the ecology model so already covered).
-   
-    2. The reference trigger bore for the Barnadown zone was selected to 
-       represent the gradient of groundwater flow between the Campaspe and the 
-       Murray. So can we have the gradient of flow as an indicator in the 
-       integrated model as well (if it isn’t already)?
+
+    2. The reference trigger bore for the Barnadown zone was selected to
+       represent the gradient of groundwater flow between the Campaspe and the
+       Murray. So can we have the gradient of flow as an indicator in the
+       integrated model as well (if it isn't already)?
     """
-    
+
     trigger_head_bores = ['79234', '62589']
     trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in trigger_head_bores])
     # to set
     for trigger_bore in trigger_head_bores:
         trigger_heads[trigger_bore] = np.random.rand()
     # end for
-   
-   
-    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads 
-    
+
+
+    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads
+
 if __name__ == "__main__":
     args = sys.argv
     if len(args) > 1:
