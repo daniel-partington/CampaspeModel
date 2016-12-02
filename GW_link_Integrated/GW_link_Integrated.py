@@ -294,6 +294,8 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file)
+        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, riv_stages=None, 
+            rainfall_irrigation=None, pumping=None)
     else:
-        run(model_folder, data_folder, mf_exe_folder)
+        run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None, 
+            rainfall_irrigation=None, pumping=None)

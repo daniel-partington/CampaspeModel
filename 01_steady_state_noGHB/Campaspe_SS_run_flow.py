@@ -9,7 +9,7 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
-# import flopy.utils.binaryfile as bf
+import flopy.utils.binaryfile as bf
 
 sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
@@ -18,7 +18,7 @@ sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     """Model Runner."""
-    def loadObj(model_folder, model_name, filename):
+    def loadObj(data_folder, model_name, filename):
         """
         Interface to Model Manager object loader.
 
@@ -33,7 +33,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
         try:
             model_obj = MM.GW_build[model_name].load_obj(os.path.join(
-                model_folder, filename))
+                data_folder, filename))
         except IOError:
             model_obj = MM.GW_build[model_name].polyline_mapped[filename_no_ext + ".shp"]
         # End try
@@ -134,7 +134,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     for i in [1, 2, 3, 7]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[MM.GW_build[name].model_mesh3D[
-            1][0] == i] * MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
+            1][0] == i] * 0.01 #MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
 
     for i in [4, 5, 6, ]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[
@@ -223,57 +223,64 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     MM.GW_build[name].boundaries.assign_boundary_array('GHB', ghb)
 
-#    print "************************************************************************"
-#    print " Set initial head "
-#
-#    path=os.path.join(data_folder)
-#    fname="01_steady_stateMainProcess"
-#    headobj = bf.HeadFile(path + fname +'.hds')
-#    times = headobj.get_times()
-#    head = headobj.get_data(totim=times[-1])
-#
-#    MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
 
-    print "************************************************************************"
-    print " Build and run MODFLOW model "
+    """
+    Model is very sensitive to recharge conditions and in particular low recharge
+    rates. In order to make sure the model converges, we can test if it failed
+    after execution by calling checkConvergence fomr the flopyInterface object:
+        modflow_model
+    If this is the case we can start with  a higher recharge value and then 
+    run, and if we hit convergence we can save the final heads and use as an 
+    initial condition for a lower recharge rate which will hopefully allow the 
+    model to run.
+    """
+    retries = 10
+    
+    for i in range(retries):
+    
+        print "************************************************************************"
+        print " Set initial head "
+    
+        fname="initial"
+        headobj = bf.HeadFile(os.path.join(data_folder, fname) +'.hds')
+        times = headobj.get_times()
+        head = headobj.get_data(totim=times[-1])
+    
+        MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
+    
+        print "************************************************************************"
+        print " Build and run MODFLOW model "
+    
+        ###########################################################################
+        ###########################################################################
+        ###########################################################################
+        # Currently using flopyInterface directly rather than running from the ModelManager ...
+        modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
+    
+        modflow_model.executable = mf_exe_folder
+    
+        modflow_model.buildMODFLOW()
+    
+        modflow_model.checkMODFLOW()
+    
+        modflow_model.runMODFLOW()
+    
+        converge = modflow_model.checkCovergence()
 
-    ###########################################################################
-    ###########################################################################
-    ###########################################################################
-    # Currently using flopyInterface directly rather than running from the ModelManager ...
-    modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
-
-    modflow_model.executable = mf_exe_folder
-
-    modflow_model.buildMODFLOW()
-
-    modflow_model.checkMODFLOW()
-
-    modflow_model.runMODFLOW()
-
-    # print " Return the stream-aquifer exchange for reaches as list "
-    #
-    # SWGWexchange = [1]
-    #
-    # print " Return the average depth to the GW table in areas as list "
-
-    # AvgDepthToGWTable = 1
-    # DepthToGWTable = [1]
-
-    modflow_model.checkCovergence()
-
-   
-    modflow_model.writeObservations()
+        if converge:
+            break
+        
+        modflow_model.writeObservations()
 
     # modflow_model.viewHeadsByZone()
 
-    riv_exch = modflow_model.getRiverFlux('Campaspe River')
-    for key in riv_exch.keys():
-        print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
+    #riv_exch = modflow_model.getRiverFlux('Campaspe River')
+    #for key in riv_exch.keys():
+    #    print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
 
-    riv_exch = modflow_model.getRiverFlux('Murray River')
-    for key in riv_exch.keys():
-        print 'Murray River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
+    #riv_exch = modflow_model.getRiverFlux('Murray River')
+    #for key in riv_exch.keys():
+    #    print 'Murray River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
 
     # ts = MM.GW_build[name].observations.obs_group['head']['time_series']
     # wells_of_interest = ['79234', '62589']
@@ -287,11 +294,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     #modflow_model.viewHeads()
     
-    modflow_model.viewHeadsByZone()
+    #modflow_model.viewHeadsByZone()
 
     #modflow_model.viewHeads2()
 
-    modflow_model.waterBalance()
+    #modflow_model.waterBalance()
     
     #modflow_model.buildMT3D()
     

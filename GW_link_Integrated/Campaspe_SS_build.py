@@ -19,8 +19,7 @@ Interface.pcs_EPSG = "EPSG:28355"
 
 SS_model = GWModelBuilder(name="01_steady_state", 
                           data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\",
-                          model_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state_noGHB\\",
-                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\data_build\\",
+                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state_noGHB\\",
                           GISInterface=Interface,
                           model_type='Modflow',
                           mesh_type='structured')
@@ -194,7 +193,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-SS_model.define_structured_mesh(1000, 1000)
+SS_model.define_structured_mesh(10000, 10000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
@@ -204,12 +203,7 @@ hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_G
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
 #hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
-
-# This loads in the raster files and transforms them into the correct coordinate
-# sytstem.
 SS_model.read_rasters(hu_raster_files, path=hu_raster_path)
-
-
 hu_raster_files_reproj = [x+"_reproj.bil" for x in hu_raster_files]
 
 # Map HGU's to grid
@@ -226,7 +220,7 @@ print "************************************************************************"
 print " Building 3D mesh "
 SS_model.build_3D_mesh_from_rasters(model_grid_raster_files, SS_model.out_data_folder_grid, 1.0, 1000.0)
 # Cleanup any isolated cells:
-SS_model.reclassIsolatedCells()
+SS_model.removeIsolatedCells()
 
 print "************************************************************************"
 print " Assign properties to mesh based on zonal information"
@@ -300,7 +294,7 @@ SS_model.properties.assign_model_properties('SS', SS)
 print "************************************************************************"
 print " Interpolating rainfall data to grid "
 
-interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall, feature_id='Name', method='linear')
+interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall, feature_id='Name')
 # Adjust rainfall to m from mm and from year to days
 interp_rain = interp_rain/1000.0/365.0
 # Adjust rainfall to recharge using 10% magic number
