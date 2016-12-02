@@ -201,6 +201,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.checkCovergence()
 
+    #modflow_model.viewHeads2()
+    
     """
     SW-GW exchanges:
     """
@@ -218,7 +220,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
 
-    farm_zones = [1]
+    farm_zones = ["1"]
     avg_depth_to_gw = np.recarray(
         (1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])
 
@@ -227,6 +229,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # 2. Surface elevation in at the top of those active cells:
     # 3. Average the difference between the two arrays
 
+    for farm_zone in farm_zones:
+        mask = (modflow_model.model_data.model_mesh3D[1][0] == 3) | (modflow_model.model_data.model_mesh3D[1][0] == 1)
+        avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
+    
     """
     Ecology heads of importance   
 
@@ -289,8 +295,8 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, riv_stages=None, 
+        result = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, riv_stages=None, 
             rainfall_irrigation=None, pumping=None)
     else:
-        run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None, 
+        result = run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None, 
             rainfall_irrigation=None, pumping=None)
