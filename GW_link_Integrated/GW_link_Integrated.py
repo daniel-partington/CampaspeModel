@@ -68,11 +68,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     print "************************************************************************"
     print " Updating river parameters "
 
-    Campaspe_river = loadObj(data_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
+    Campaspe_river = MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp'] #loadObj(data_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
 
     simple_river = []
     riv_width_avg = 10.0  # m
     riv_bed_thickness = 0.10  # m
+
+    sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
+
     for riv_cell in Campaspe_river:  # MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']:
         row = riv_cell[0][0]
         col = riv_cell[0][1]
@@ -81,6 +84,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # TODO: Update stage data with interpolated values based on riv_stages passed in to function
 
+    
         stage = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.01
         bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.1 - \
             MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
@@ -95,7 +99,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
 
-    mapped_river = loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
+    mapped_river = MM.GW_build[name].polyline_mapped['River_Murray_model.shp'] #loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
 
     simple_river = []
     riv_width_avg = 10.0  # m
@@ -141,6 +145,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
 
     print "************************************************************************"
+    print " Updating pumping boundary"
+
+    
+
+    print "************************************************************************"
     print " Updating Murray River GHB boundary"
 
     MurrayGHB = []
@@ -173,6 +182,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # TODO: Update head based on last iteration rather than initial head
     fname = "initial"
     headobj = bf.HeadFile(os.path.join(data_folder, fname) + '.hds')
+    
     times = headobj.get_times()
     head = headobj.get_data(totim=times[-1])
 
@@ -229,6 +239,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # 2. Surface elevation in at the top of those active cells:
     # 3. Average the difference between the two arrays
 
+    active_surface_cells = np.sum((modflow_model.model_data.model_mesh3D[1][0] > 0 ))
+    print 'Active surf cells: ', active_surface_cells
+    
     for farm_zone in farm_zones:
         mask = (modflow_model.model_data.model_mesh3D[1][0] == 3) | (modflow_model.model_data.model_mesh3D[1][0] == 1)
         avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)

@@ -1,9 +1,11 @@
 import os
+import datetime
 
 from osgeo import osr
 import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
+
 
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
@@ -17,14 +19,14 @@ Interface = GDALInterface()
 Interface.projected_coordinate_system = Proj_CS 
 Interface.pcs_EPSG = "EPSG:28355"
 
-SS_model = GWModelBuilder(name="01_steady_state", 
+SS_model = GWModelBuilder(name="GW_link_Integrated", 
                           data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\",
-                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\01_steady_state_noGHB\\",
+                          model_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\GW_link_Integrated\\",
+                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\data_build\\",
                           GISInterface=Interface,
                           model_type='Modflow',
                           mesh_type='structured')
 
-# TODO: Recreate this script for the integrated model.
 
 # Cleanup
 #SS_model.flush()
@@ -193,7 +195,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-SS_model.define_structured_mesh(10000, 10000)
+SS_model.define_structured_mesh(1000, 1000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
@@ -220,7 +222,7 @@ print "************************************************************************"
 print " Building 3D mesh "
 SS_model.build_3D_mesh_from_rasters(model_grid_raster_files, SS_model.out_data_folder_grid, 1.0, 1000.0)
 # Cleanup any isolated cells:
-SS_model.removeIsolatedCells()
+SS_model.reclassIsolatedCells()
 
 print "************************************************************************"
 print " Assign properties to mesh based on zonal information"
@@ -483,6 +485,114 @@ C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
 C14_bore_points3D.rename(columns={'zone55_easting':'Easting', 'zone55_northing':'Northing'}, inplace=True)
 
 SS_model.observations.set_as_observations('C14', C14_obs_time_series, C14_bore_points3D, domain='porous', obs_type='concentration', units='pMC')
+
+print "************************************************************************"
+print " Mapping pumping wells to grid "
+
+SS_model.map_points_to_grid(pumps_points, feature_id = 'OLD ID')
+
+SS_model.parameters.create_model_parameter('pump_use', value=0.6)
+SS_model.parameters.parameter_options('pump_use', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.2, 
+                                      PARUBND=1., 
+                                      PARGP='pumping', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+# Convert pumping_data to time series
+
+#pumping_data_ts = pd.DataFrame(cols=['Works ID', 'datetime'])
+
+# Existing data is only for 10 years from 2005 to 2015
+pump_date_index = pd.date_range(start=datetime.datetime(2005,07,01), end=datetime.datetime(2015,06,30), freq='AS-JUL')
+
+wel = {}
+
+for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
+    row = pump_cell[0][0]
+    col = pump_cell[0][1]
+    layers = [0]
+    for pump in pump_cell[1]: 
+        #HydroCode = pumping_data.loc[pump, 'Works ID']
+        #if HydroCode not in bore_data_info.index:
+        #    print HydroCode, ' not in index of bore_data_info'            
+        #    continue
+        #pump_depth = bore_data_info.loc[HydroCode, 'depth'] #[bore_data_info["HydroCode"] == HydroCode]['depth']        
+        if pumping_data.loc[pump, 'Top screen depth (m)'] == 0.: 
+            #print 'No data to place pump at depth ... ignoring ', pump            
+            continue
+        pump_depth = SS_model.model_mesh3D[0][0][row][col] - pumping_data.loc[pump, 'Top screen depth (m)']        
+        active = False
+        for i in range(SS_model.model_mesh3D[0].shape[0]-1):
+            if pump_depth < SS_model.model_mesh3D[0][i][row][col] and pump_depth > SS_model.model_mesh3D[0][i+1][row][col]:
+                active_layer = i
+                active = True
+                break
+        if active == False: 
+            #print 'Well not placed: ', pump            
+            continue
+        #Get top of screen layer and calculate length of screen in layer
+        
+        p14_15 = pumping_data.loc[pump, 'Use 2014/15'] / 365. * 1000.
+        pump_rates = [p14_15]        
+        pumping_data_ts = pd.DataFrame(pump_rates, columns=[pump], index=pump_date_index)
+        pump_install = pumping_data.loc[pump, 'Construction date']
+        
+        if isinstance(pump_install, datetime.time):
+            pump_install = datetime.date(1950,01,01)    
+        pump_date_index2 = pd.date_range(start=pump_install, end=datetime.datetime(2004,06,30), freq='AS-JUL')
+
+        #pump_allocation = pumping_data.loc[pump, 'Annual Volume'] / 365. * 1000.
+
+        # Assume historical pumping is a percentage of lowest non-zero use for well        
+        non_zero_pumping = [x for x in pump_rates if x > 0.]         
+        if non_zero_pumping == []:
+            pumping_rate_old = 0.
+        else:
+            pumping_rate_old = np.min(non_zero_pumping)
+
+        old_pumping_ts = pd.DataFrame(index=pump_date_index2)
+        old_pumping_ts[pump] = pumping_rate_old * SS_model.parameters.param['pump_use']['PARVAL1']
+
+        # Merge the old and measured data
+
+        pumping_data_ts = pd.concat([pumping_data_ts, old_pumping_ts])
+
+        # Now let's resample the data on a monthly basis, and we will take the mean    
+        pumping_data_ts = pumping_data_ts.resample(SS_model.model_time.t['time_step'], how='mean')
+
+        # Let's also get rid of NaN data and replace with backfilling
+        pumping_data_ts = pumping_data_ts.fillna(method='bfill')
+
+        # Let's only consider times in our date range though
+        date_index = pd.date_range(start=SS_model.model_time.t['start_time'], end=SS_model.model_time.t['end_time'], freq=SS_model.model_time.t['time_step'])
+        pumping_data_ts = pumping_data_ts.reindex(date_index)    
+        pumping_data_ts = pumping_data_ts.ix[SS_model.model_time.t['start_time']:SS_model.model_time.t['end_time']]
+        pumping_data_ts = pumping_data_ts.fillna(0.0)
+
+      
+        # Normalise pumping data, i.e. find individual pumps contribution to 
+        # total volume of water that is being pumped
+        #pumpin_data_ts = 
+        total_pumping_rate = pumping_data_ts['']
+        
+        # Now fill in the well dictionary with the values of pumping at relevant stress periods where Q is not 0.0
+        for index, time in enumerate(pumping_data_ts.iterrows()):
+            if index >= SS_model.model_time.t['steps']: 
+                continue
+            #if time[1]['m3/day used'] != 0.0 :
+            try:
+                wel[index] += [[active_layer, row, col, -time[1][pump] / total_pumping_rate]]
+            except:
+                wel[index] = [[active_layer, row, col, -time[1][pump] / total_pumping_rate]]
+                
+print "************************************************************************"
+print " Creating pumping boundary "
+
+SS_model.boundaries.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
+SS_model.boundaries.assign_boundary_array('licenced_wells', wel)
 
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
