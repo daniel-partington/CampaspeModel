@@ -564,7 +564,7 @@ for index, riv in enumerate(new_riv):
     # Create logical array to identify those which are gauges and those which are not
     if riv[0] in filter_gauge_loc:
         riv_gauge_logical[index] = True
-        gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
+        gauge_ind = [a for a, x in enumerate(filter_gauge_loc) if x == riv[0]]
         stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site Name"] == filter_gauges[gauge_ind[0]][1][0]]
         beds[index] = stages[index] - 1.0 #river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
 

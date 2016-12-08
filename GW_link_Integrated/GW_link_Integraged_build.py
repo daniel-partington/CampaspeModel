@@ -38,7 +38,6 @@ SS_model = GWModelBuilder(name="GW_link_Integrated",
 # Set the model boundary using a polygon shapefile:
 print "************************************************************************"
 print " Setting model boundary "
-
 SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp", 
                                                       shapefile_path=SS_model.data_folder)
 
@@ -192,6 +191,15 @@ print '## Mesh specific model building '
 print '########################################################################'
 print '########################################################################'
 
+
+print "************************************************************************"
+print " Defining temporal aspects of the model"
+
+start = datetime.date(2014, 01, 01)
+#start = datetime.date(2014, 01, 01)
+end = datetime.date(2015, 01, 01)
+SS_model.model_time.set_temporal_components(steady_state=False, start_time=start, end_time=end, time_step='A')
+
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
@@ -329,24 +337,39 @@ SS_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 print "************************************************************************"
 print " Mapping bores to grid "
 
-SS_model.map_points_to_grid(bores_shpfile, feature_id = 'HydroCode')
+# Important bores for other component models:
+Ecology = ['83003', '89586', '82999', '5662', '44828']
+Policy = ['79234', '62589']
 
-print SS_model.points_mapped.keys()
+    
+
+SS_model.map_points_to_grid(bores_shpfile, feature_id = 'HydroCode')
 
 bores_more_filter = []
 for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
-    row = bores[0][0]
-    col = bores[0][1]
+    row, col = bores[0][0], bores[0][1]
     for bore in bores[1]: 
         try:
             bore_depth = bore_data_info.loc[bore, 'depth'] #[bore_data_info["HydroCode"] == HydroCode]['depth']        
         except:
+            if bore in Ecology:
+                print 'Ecology bore not in info: ', bore
+            if bore in Policy:
+                print 'Policy bore not in info: ', bore
             continue
         if bore_depth > SS_model.model_mesh3D[0][0][row][col]:
-            #print 'Bore can't be above surface!!!        
+            #print 'Bore can't be above surface!!!   
+            if bore in Ecology:
+                print 'Ecology bore above surf: ', bore
+            if bore in Policy:
+                print 'Policy bore above surf: ', bore
             continue
         if bore_depth <= SS_model.model_mesh3D[0][-2][row][col]:
             #print 'Ignoring bores in bedrock!!!        
+            if bore in Ecology:
+                print 'Ecology bore in  bedrock: ', bore
+            if bore in Policy:
+                print 'Policy bore in bedrock: ', bore
             continue
         bores_more_filter += [bore]        
 
@@ -354,6 +377,8 @@ print 'Final bores within aquifers: ', len(bores_more_filter)
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
+ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology]                          
+                          
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
 
 bore_points3D = final_bores[["HydroCode", "Easting", "Northing", "depth"]] # [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"], final_bores.loc[x, "depth"]] for x in final_bores.index]
@@ -389,30 +414,6 @@ for i in range(len(hu_raster_files_reproj)/2):
     
         interp_heads[hu_raster_files[2*i]] = SS_model.interpolate_points2mesh(bores_layer, bores_head_layer, use='griddata', method='linear')
         
-#for key in interp_heads:
-    #bores_layer_df = pd.DataFrame()
-    #bores_layer_df["Easting"] = [x[0] for x in bores_layer] 
-    #bores_layer_df["Northing"] = [x[1] for x in bores_layer]
-    #bores_layer_df["mean level"] = bores_head_layer
-    #(XI, YI) = SS_model.model_mesh_centroids
-    #plt.figure()
-    #z_min = np.min(interp_heads[key])
-    #z_max = np.max(interp_heads[key])
-    #plt.pcolor(XI, YI, interp_heads[key], vmin=z_min, vmax=z_max)
-    #plt.scatter([x[0] for x in bores_layer], [x[1] for x in bores_layer], 50, bores_head_layer, vmin=z_min, vmax=z_max, cmap="jet")
-    #plt.colorbar()
-
-    #bores_layer_df.plot(kind='scatter', x="Easting", y="Northing", c="mean level", cmap="Spectral") # , edgecolor='None'
-    #plt.scatter(x=[x[0] for x in bores_layer], y=[x[1] for x in bores_layer], c=bores_head_layer)
-
-# Initalise model with head from elevations
-#initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
-#
-#for i in range(len(hu_raster_files_reproj)/2):
-#    initial_heads_SS[i] = (SS_model.model_mesh3D[0][i]+SS_model.model_mesh3D[0][i+1])/2
-#
-#SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)#interp_heads[hu_raster_files[0]])
-
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
 
 for i in range(len(hu_raster_files_reproj)/2):
@@ -506,7 +507,12 @@ SS_model.parameters.parameter_options('pump_use',
 #pumping_data_ts = pd.DataFrame(cols=['Works ID', 'datetime'])
 
 # Existing data is only for 10 years from 2005 to 2015
-pump_date_index = pd.date_range(start=datetime.datetime(2005,07,01), end=datetime.datetime(2015,06,30), freq='AS-JUL')
+#pump_date_index = pd.date_range(start=datetime.datetime(2005,07,01), end=datetime.datetime(2015,06,30), freq='AS-JUL')
+pump_date_index = pd.date_range(start=datetime.datetime(2014,07,01), end=datetime.datetime(2015,06,30), freq='AS-JUL')
+
+# Normalise pumping data, i.e. find individual pumps contribution to 
+# total volume of water that is being pumped
+total_pumping_rate = pumping_data['Use 2014/15'].mean()
 
 wel = {}
 
@@ -557,11 +563,10 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
         old_pumping_ts[pump] = pumping_rate_old * SS_model.parameters.param['pump_use']['PARVAL1']
 
         # Merge the old and measured data
-
         pumping_data_ts = pd.concat([pumping_data_ts, old_pumping_ts])
 
         # Now let's resample the data on a monthly basis, and we will take the mean    
-        pumping_data_ts = pumping_data_ts.resample(SS_model.model_time.t['time_step'], how='mean')
+        pumping_data_ts = pumping_data_ts.resample(SS_model.model_time.t['time_step']).mean()
 
         # Let's also get rid of NaN data and replace with backfilling
         pumping_data_ts = pumping_data_ts.fillna(method='bfill')
@@ -573,16 +578,14 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
         pumping_data_ts = pumping_data_ts.fillna(0.0)
 
       
-        # Normalise pumping data, i.e. find individual pumps contribution to 
-        # total volume of water that is being pumped
-        #pumpin_data_ts = 
-        total_pumping_rate = pumping_data_ts['']
         
         # Now fill in the well dictionary with the values of pumping at relevant stress periods where Q is not 0.0
         for index, time in enumerate(pumping_data_ts.iterrows()):
-            if index >= SS_model.model_time.t['steps']: 
-                continue
+            #if index >= SS_model.model_time.t['steps']: 
+            #    continue
             #if time[1]['m3/day used'] != 0.0 :
+            if time[1][pump] == 0:
+                continue
             try:
                 wel[index] += [[active_layer, row, col, -time[1][pump] / total_pumping_rate]]
             except:
@@ -596,6 +599,23 @@ SS_model.boundaries.assign_boundary_array('licenced_wells', wel)
 
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
+
+# SW gauges being used in the SW model:
+# '406214' AXE CREEK @ LONGLEA
+# '406219' CAMPASPE RIVER @ LAKE EPPALOCK (HEAD GAUGE)
+# '406201' CAMPASPE RIVER @ BARNADOWN
+# '406224' MOUNT PLEASANT CREEK @ RUNNYMEDE
+# '406218' CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)
+# '406202' CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN
+# '406265' CAMPASPE RIVER @ ECHUCA
+   
+#sw_stream_gauges = ['406214', '406219', '406201', '406224', '406218', '406202', '406265']
+# Removed 406214 as it represents Axe Creek which is not included in this model
+# Remvoed 406224 as it represents Mount Pleasant Creek which is not included in the model.
+# Remvoed 406219 as it represents the head in the reservoir which is not modelled.
+# Added in 406203 as it represents stage just downstream of the weir, NB not currently included in list of gauges online
+
+sw_stream_gauges = ['406201', '406203', '406218', '406202', '406265']
 
 use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
               'CAMPASPE RIVER @ DOAKS RESERVE',
@@ -616,10 +636,15 @@ inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
                  'AXE CREEK @ LONGLEA',
                  'AXE CREEK @ STRATHFIELDSAYE']
 
-SS_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
+#SS_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
+SS_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
+
+Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clipped.shp']
+
 filter_gauges = []
-for riv_gauge in SS_model.points_mapped['processed_river_sites_stage_clipped.shp']:
-    if riv_gauge[1][0] in use_gauges:
+for riv_gauge in Campaspe_river_gauges:
+    #if riv_gauge[1][0] in use_gauges:
+    if str(riv_gauge[1][0]) in sw_stream_gauges:
         filter_gauges += [riv_gauge]
 
 SS_model.map_polyline_to_grid(Campaspe_river_poly)
@@ -662,14 +687,35 @@ beds = np.full((len(new_riv)), np.nan, dtype=np.float64)
 # Identify cells that correspond to river gauges
 riv_gauge_logical = np.full((len(new_riv)), False, dtype=np.bool)
 
+
+# To account for fact that river shapefile and gauges shapefile are not perfect
+# we get the closest river cell to the gauge cell
+
+def closest_node(node, nodes):
+    nodes = np.asarray(nodes)
+    dist_2 = np.sum((nodes - node)**2, axis=1)
+    return np.argmin(dist_2)
+
 # Define river gauges at start of river cell
-filter_gauge_loc = [x[0] for x in filter_gauges]
+new_riv_cells = [x[0] for x in new_riv]
+filter_gauge_loc = [new_riv_cells[x] for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
+    
+# Set up the gauges as observations 
+
+
+
+#SS_model.observations.set_as_observations('Campase_riv_gauges', CampaspeRiv_obs_time_series, CampaspeRiv_points3D, domain='surface', obs_type='stage', units='m') 
+                    
+                    
+                    
+                    
 for index, riv in enumerate(new_riv):
     # Create logical array to identify those which are gauges and those which are not
     if riv[0] in filter_gauge_loc:
         riv_gauge_logical[index] = True
         gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-        stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site Name"] == filter_gauges[gauge_ind[0]][1][0]]
+        print filter_gauges[gauge_ind[0]][1][0]                     
+        stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] == filter_gauges[gauge_ind[0]][1][0]]
         beds[index] = stages[index] - 1.0 #river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
 
     # Add chainage to new_riv array:
@@ -910,8 +956,8 @@ print "************************************************************************"
 print " Collate observations"
 
 SS_model.map_obs_loc2mesh3D(method='nearest')
-SS_model.map_obs2model_times()
-SS_model.observations.collate_observations()
+#SS_model.map_obs2model_times()
+#SS_model.observations.collate_observations()
 
 print "************************************************************************"
 print " Package up groundwater model builder object"
