@@ -1,0 +1,90 @@
+{
+  "GW_link_Integrated": {
+    "environment": {
+      "fses\\takuyai": {
+        "grid_resolution": "1000m",
+	    "model_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/data/model_",
+	    "data_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/data",
+	    "param_file": "",
+	    "working_dir": "",
+	    "mf_exe_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/MODFLOW-NWT_64.exe"
+      },
+      "isd\\part0075": {
+        "grid_resolution": "1000m",
+        "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/integrated",
+        "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/01_steady_state_noGHB/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
+      }
+    }
+  },
+  "01_steady_state": {
+	"environment": {
+	  "isd\\part0075": {
+		  "grid_resolution": "1000m",
+		  "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
+		  "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/01_steady_state/structured_model_grid_",
+		  "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
+		  "working_dir": "",
+		  "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
+	  }
+	}
+  },
+  "01_steady_state_C14": {
+    "environment": {
+	  "isd\\part0075": {
+		  "grid_resolution": "1000m",
+		  "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
+		  "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/01_steady_state_noGHB/structured_model_grid_",
+          "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
+          "working_dir": "",
+          "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
+	  }
+	}
+  },
+  "01_steady_state_modern": {
+    "environment": {
+	  "isd\\part0075": {
+	    "grid_resolution": "1000m",
+        "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
+        "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/02_transient_post_clearance_noGHB/structured_model_grid_",
+        "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
+        "working_dir": "",
+        "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
+	  }
+	}
+  },
+  "01_steady_state_noGHB": {
+    "environment": {
+	  "isd\\part0075": {
+	    "grid_resolution": "1000m",
+        "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
+        "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/01_steady_state_noGHB/structured_model_grid_",
+        "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
+        "working_dir": "",
+        "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
+	  }
+	}
+  },
+  "02_transient_flow": {
+  },
+  "02_transient_flow_post_clearance_noGHB": {
+    "environment": {
+	  "isd\\part0075": {
+	    "grid_resolution": "1000m",
+	    "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
+	    "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/02_transient_post_clearance_noGHB/structured_model_grid_",
+	    "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
+	    "working_dir": "",
+	    "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
+	  }
+	}
+  },
+  "02_transient_flow_str": {
+  },
+  "03_transient_flow_irrigation_noGHB": {
+  },
+  "CampaspeIntegrated": {
+  }
+}
