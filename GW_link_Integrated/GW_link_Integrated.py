@@ -345,9 +345,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
-    
+
     modflow_model.waterBalance()
-    #modflow_model.viewHeads2()
+    # modflow_model.viewHeads2()
 
     """
     SW-GW exchanges:
@@ -434,6 +434,22 @@ if __name__ == "__main__":
 
     print CONFIG.model_config
 
+    import pickle
+
+    def load_obj(filename):
+        if filename[-4:] == '.pkl':
+            with open(filename, 'rb') as f:
+                return pickle.load(f)
+        else:
+            print 'File type not recognised as "pkl"'
+        # end if
+
+    #folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
+    folder = r"C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/data"
+    fname = r"dev_river_levels_recarray.pkl"
+
+    riv_stages = load_obj(os.path.join(folder, fname))
+
     args = sys.argv
     if len(args) > 1:
         model_folder = sys.argv[1]
@@ -449,16 +465,12 @@ if __name__ == "__main__":
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
 
-        if len(param_file) == 0:
-            param_file = None
-        # End if
-
     run_params = {
         "model_folder": model_folder,
         "data_folder": data_folder,
         "mf_exe_folder": mf_exe_folder,
         "param_file": param_file if param_file else None,
-        "riv_stages": None,
+        "riv_stages": riv_stages,
         "rainfall_irrigation": None,
         "pumping": None,
     }
