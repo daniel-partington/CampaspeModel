@@ -1,11 +1,13 @@
 """
-Run Campaspe GW model using inputs from Farm model and SW model and 
+Run Campaspe GW model using inputs from Farm model and SW model and
 then return SW/GW exchanges, avg depth to GW, depth to GW at ecology sites and
 head at trigger bores.
 """
 
 import os
 import sys
+import warnings
+
 import numpy as np
 
 import flopy.utils.binaryfile as bf
@@ -13,22 +15,30 @@ import flopy.utils.binaryfile as bf
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
-# Configuration Loader
-from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
-
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
+
+# Configuration Loader
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None):
     """
-    GW Model Runner
+    GW Model Runner.
 
-    :param riv_stages: np rec array fo gauge number and stage
-
+    :param model_folder: str, path to model folder
+    :param data_folder: str, path to data
+    :param mf_exe_folder: str, path to MODFLOW executable
+    :param param_file: str, path to parameter file
+    :param riv_stages: np recarray, gauge numbers and stage
+    :param rainfall_irrigation: np array, array representing rainfall and irrigation input.
+                                Must match the model extent.
+    :param pumping: dict, {Farm Zone ID: daily pumping amount (m/day)}
 
     """
+
+    warnings.warn("This function uses hardcoded values for Farm Zones and SW Gauges")
 
     def loadObj(data_folder, model_name, filename):
         """
@@ -79,7 +89,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
             continue
 
-    # TODO: Update stage data with interpolated values based on riv_stages passed in to function
+        # TODO: Update stage data with interpolated values based on riv_stages passed in to function
 
         stage = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.01
         bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.1 - \
@@ -94,6 +104,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # River', 'river', bc_static=True)
 
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
+    print("Model Boundary")
+    print(MM.GW_build[name].model_boundary)
 
     mapped_river = loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
 
@@ -200,9 +212,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
+    modflow_model.viewHeads2()
 
-    #modflow_model.viewHeads2()
-    
     """
     SW-GW exchanges:
     """
@@ -220,7 +231,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
 
-    farm_zones = ["1"]
+    farm_zones = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     avg_depth_to_gw = np.recarray(
         (1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])
 
@@ -232,13 +243,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     for farm_zone in farm_zones:
         mask = (modflow_model.model_data.model_mesh3D[1][0] == 3) | (modflow_model.model_data.model_mesh3D[1][0] == 1)
         avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
-    
+
     """
-    Ecology heads of importance   
+    Ecology heads of importance
 
     River gauges of importance for ecology: 406201, 406202, 406207, 406218, 406265
     Corresponding GW bores nearest to:      83003,  89586,  82999,  5662,   44828
-        
+
     """
 
     ecol_depth_to_gw_bores = ['83003', '89586', '82999', '5662', '44828']
@@ -255,16 +266,16 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     """
     Trigger heads of importance for policy
 
-    1. The reference trigger bore for the Elmore-Rochester/Echuca/Bamawn zone 
-       was selected to represent the interactions between the river and 
-       groundwater extractions. So we’d need to make sure we have baseflow 
-       represented in the river between Lake Eppalock  (which I think is an 
+    1. The reference trigger bore for the Elmore-Rochester/Echuca/Bamawn zone
+       was selected to represent the interactions between the river and
+       groundwater extractions. So we'd need to make sure we have baseflow
+       represented in the river between Lake Eppalock  (which I think is an
        input to the ecology model so already covered).
-   
-    2. The reference trigger bore for the Barnadown zone was selected to 
-       represent the gradient of groundwater flow between the Campaspe and the 
-       Murray. So can we have the gradient of flow as an indicator in the 
-       integrated model as well (if it isn’t already)?
+
+    2. The reference trigger bore for the Barnadown zone was selected to
+       represent the gradient of groundwater flow between the Campaspe and the
+       Murray. So can we have the gradient of flow as an indicator in the
+       integrated model as well (if it isn't already)?
     """
 
     trigger_head_bores = ['79234', '62589']
@@ -280,6 +291,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads
 
 if __name__ == "__main__":
+
+    CONFIG = ConfigLoader(os.path.join(os.path.dirname(__file__), "model_config.json"))
+
     args = sys.argv
     if len(args) > 1:
         model_folder = sys.argv[1]
@@ -294,9 +308,14 @@ if __name__ == "__main__":
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
 
-    if param_file:
-        result = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, riv_stages=None, 
-            rainfall_irrigation=None, pumping=None)
-    else:
-        result = run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None, 
-            rainfall_irrigation=None, pumping=None)
+    run_params = {
+        "model_folder": model_folder,
+        "data_folder": data_folder,
+        "mf_exe_folder": mf_exe_folder,
+        "param_file": param_file if param_file else None,
+        "riv_stages": None,
+        "rainfall_irrigation": None,
+        "pumping": None,
+    }
+
+    result = run(**run_params)
