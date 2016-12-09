@@ -345,7 +345,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
-    modflow_model.viewHeads2()
+    
+    modflow_model.waterBalance()
+    #modflow_model.viewHeads2()
 
     """
     SW-GW exchanges:
@@ -363,7 +365,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
 
-    farm_zones = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    farm_zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
     avg_depth_to_gw = np.recarray(
         (1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])
 
@@ -373,7 +375,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         # by using the
         mask = (modflow_model.model_data.model_mesh3D[1][0] == 3) | (
             modflow_model.model_data.model_mesh3D[1][0] == 1)
-        avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
+        avg_depth_to_gw[str(farm_zone)] = modflow_model.getAverageDepthToGW(mask=mask)
 
     """
     Ecology heads of importance
