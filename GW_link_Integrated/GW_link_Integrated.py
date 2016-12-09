@@ -133,17 +133,17 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     filter_gauge_loc = [new_riv_cells[x]
                         for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
 
-                        
     #river_stage_file = os.path.join(data_folder, r"dev_river_levels_recarray.pkl")
     #river_stage_data = MM.GW_build[name].load_obj(river_stage_file)
-                        
+
     for index, riv in enumerate(new_riv):
         # Create logical array to identify those which are gauges and those which are not
         if riv[0] in filter_gauge_loc:
             riv_gauge_logical[index] = True
             gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-#            location =  str(filter_gauges[gauge_ind[0]][1][0])     
-            stages[index] = riv_stages[riv_stages["g_id"] == str(filter_gauges[gauge_ind[0]][1][0])][0][1]
+#            location =  str(filter_gauges[gauge_ind[0]][1][0])
+            stages[index] = riv_stages[riv_stages["g_id"] ==
+                                       str(filter_gauges[gauge_ind[0]][1][0])][0][1]
 #            stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] == filter_gauges[gauge_ind[0]][1][0]]
             # river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
             beds[index] = stages[index] - 1.0
@@ -439,6 +439,7 @@ if __name__ == "__main__":
         model_folder = sys.argv[1]
         data_folder = sys.argv[2]
         mf_exe_folder = sys.argv[3]
+
         if len(args) > 4:
             param_file = sys.argv[4]
     else:
@@ -448,28 +449,18 @@ if __name__ == "__main__":
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
 
-    import pickle
+        if len(param_file) == 0:
+            param_file = None
+        # End if
 
-    def load_obj(filename):
-        if filename[-4:] == '.pkl':
-            with open(filename, 'rb') as f:
-                return pickle.load(f)
-        else:
-            print 'File type not recognised as "pkl"'
-        # end if
-    
-        
-    folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
-    fname = r"dev_river_levels_recarray.pkl"
-
-    riv_stages = load_obj(os.path.join(folder, fname))        
-    print riv_stages
-    
-    if param_file:
-        result = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, riv_stages=riv_stages, 
-            rainfall_irrigation=None, pumping=None)
-    else:
-        result = run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=riv_stages, 
-            rainfall_irrigation=None, pumping=2.0)
+    run_params = {
+        "model_folder": model_folder,
+        "data_folder": data_folder,
+        "mf_exe_folder": mf_exe_folder,
+        "param_file": param_file if param_file else None,
+        "riv_stages": None,
+        "rainfall_irrigation": None,
+        "pumping": None,
+    }
 
     result = run(**run_params)
