@@ -78,7 +78,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     print "************************************************************************"
     print " Updating river parameters "
 
-    Campaspe_river = MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp'] #loadObj(data_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
+    # loadObj(data_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
+    Campaspe_river = MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']
 
     simple_river = []
     riv_width_avg = 10.0  # m
@@ -89,78 +90,80 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     sw_stream_gauges = ['406201', '406218', '406202', '406265']
 
     # Need to account for ~8m drop after Campaspe weir.
-    
-    Campaspe_river_gauges = MM.GW_build[name].points_mapped['processed_river_sites_stage_clipped.shp']
-    
+
+    Campaspe_river_gauges = MM.GW_build[name].points_mapped[
+        'processed_river_sites_stage_clipped.shp']
+
     filter_gauges = []
     for riv_gauge in Campaspe_river_gauges:
-        #if riv_gauge[1][0] in use_gauges:
+        # if riv_gauge[1][0] in use_gauges:
         if str(riv_gauge[1][0]) in sw_stream_gauges:
             filter_gauges += [riv_gauge]
-    
+
     simple_river = []
-    riv_width_avg = 10.0 #m
-    riv_bed_thickness = 0.10 #m
-    
+    riv_width_avg = 10.0  # m
+    riv_bed_thickness = 0.10  # m
+
     # Map river from high to low
     new_riv = Campaspe_river
     for index, riv_cell in enumerate(Campaspe_river):
         row = riv_cell[0][0]
         col = riv_cell[0][1]
         new_riv[index] += [MM.GW_build[name].model_mesh3D[0][0][row][col]]
-    
-    new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)    
-    new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)    
-    
+
+    new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)
+    new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)
+
     stages = np.full((len(new_riv)), np.nan, dtype=np.float64)
     beds = np.full((len(new_riv)), np.nan, dtype=np.float64)
-    
+
     # Identify cells that correspond to river gauges
     riv_gauge_logical = np.full((len(new_riv)), False, dtype=np.bool)
-    
-    
+
     # To account for fact that river shapefile and gauges shapefile are not perfect
     # we get the closest river cell to the gauge cell
-    
+
     def closest_node(node, nodes):
         nodes = np.asarray(nodes)
         dist_2 = np.sum((nodes - node)**2, axis=1)
         return np.argmin(dist_2)
-    
+
     # Define river gauges at start of river cell
     new_riv_cells = [x[0] for x in new_riv]
-    filter_gauge_loc = [new_riv_cells[x] for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
+    filter_gauge_loc = [new_riv_cells[x]
+                        for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
 
-                        
-    # TODO: Cleanup this bit below, it should use riv_stages in the future                    
+    # TODO: Cleanup this bit below, it should use riv_stages in the future
     #river_stage_file = os.path.join(data_folder, r"river_stage_processed.h5")
     #river_stage_data = MM.GW_build[name].load_dataframe(river_stage_file)
     river_stage_file = os.path.join(data_folder, r"dev_river_levels_recarray.pkl")
     river_stage_data = MM.GW_build[name].load_obj(river_stage_file)
-                        
+
     for index, riv in enumerate(new_riv):
         # Create logical array to identify those which are gauges and those which are not
         if riv[0] in filter_gauge_loc:
             riv_gauge_logical[index] = True
             gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-            print filter_gauges[gauge_ind[0]][1][0]                     
+            print filter_gauges[gauge_ind[0]][1][0]
             stages[index] = river_stage_data[filter_gauges[gauge_ind[0]][1][0]]
 #            stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] == filter_gauges[gauge_ind[0]][1][0]]
-            beds[index] = stages[index] - 1.0 #river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
-    
+            # river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
+            beds[index] = stages[index] - 1.0
+
         # Add chainage to new_riv array:
         if index == 0:
             new_riv[index] += [0.0]
         else:
-            new_riv[index] += [new_riv[index-1][3] + new_riv[index-1][1]]        
-    
+            new_riv[index] += [new_riv[index - 1][3] + new_riv[index - 1][1]]
+
     # River x in terms of chainage:
     river_x = np.array([x[3] for x in new_riv])
     river_x_unknown = river_x[~riv_gauge_logical]
     river_x_known = river_x[riv_gauge_logical]
-    
+
     # Now interpolate know values of stage and bed to unknown river locations:
-    stages[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, stages[riv_gauge_logical])
+    stages[~riv_gauge_logical] = np.interp(
+        river_x_unknown, river_x_known, stages[riv_gauge_logical])
     beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_gauge_logical])
 
     # Need to create list of relevant riv nodes for each reach by
@@ -168,7 +171,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # 1st order the gauges from upstream to downstream:
     ordered_gauges = ['406201', '406218', '406202', '406265']
-    
+
     riv_reach_nodes = {}
     for index, gauge in enumerate(ordered_gauges):
         if index == 0:
@@ -182,8 +185,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     #adjusted = 0
     #kept = 0
     #riv_vis = np.zeros_like(MM.GW_build[name].model_mesh3D[0][0])
-    #riv_vis_on = np.zeros_like(MM.GW_build[name].model_mesh3D[0][0])    
-    
+    #riv_vis_on = np.zeros_like(MM.GW_build[name].model_mesh3D[0][0])
+
     for index, riv_cell in enumerate(Campaspe_river):
         row = riv_cell[0][0]
         col = riv_cell[0][1]
@@ -207,17 +210,17 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
             bed = MM.GW_build[name].model_mesh3D[0][1][row][col]
         else:
             bed = bed_temp
-            
+
         cond = riv_cell[1] * riv_width_avg * \
             MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
         simple_river += [[0, row, col, stage, cond, bed]]
-    
+
     #print("For river cells, kept: ", kept)
     #print("For river cells, adjusted: ", adjusted)
 
     #import matplotlib.pyplot as plt
-    #plt.imshow(riv_vis_on)
-    
+    # plt.imshow(riv_vis_on)
+
     riv = {}
     riv[0] = simple_river
     # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
@@ -228,8 +231,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     print(MM.GW_build[name].model_boundary)
 
     # Updating Murray River
-    
-    mapped_river = MM.GW_build[name].polyline_mapped['River_Murray_model.shp'] #loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
+
+    # loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
+    mapped_river = MM.GW_build[name].polyline_mapped['River_Murray_model.shp']
 
     simple_river = []
     riv_width_avg = 10.0  # m
@@ -263,7 +267,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     for i in [1, 2, 3, 7]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[MM.GW_build[name].model_mesh3D[
-            1][0] == i] * 0.1 #MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
+            1][0] == i] * 0.1  # MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
 
     for i in [4, 5, 6, ]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[
@@ -282,7 +286,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     MM.GW_build[name].boundaries.assign_boundary_array('licenced_wells', wel)
 
-   
     print "************************************************************************"
     print " Updating Murray River GHB boundary"
 
@@ -316,7 +319,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # TODO: Update head based on last iteration rather than initial head
     fname = "initial"
     headobj = bf.HeadFile(os.path.join(data_folder, fname) + '.hds')
-    
+
     times = headobj.get_times()
     head = headobj.get_data(totim=times[-1])
 
@@ -341,7 +344,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.buildMODFLOW()
 
-    #modflow_model.runMODFLOW()
+    # modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
     modflow_model.viewHeads2()
@@ -350,13 +353,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     SW-GW exchanges:
     """
 
-    swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge 
-        in sw_stream_gauges])
+    swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
+                                              in sw_stream_gauges])
 
     for gauge in sw_stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRiverFluxNodes(
             riv_reach_nodes[gauge])
-    
+
     """
     Average depth to GW table:
 
@@ -366,11 +369,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     avg_depth_to_gw = np.recarray(
         (1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])
 
-    
     for farm_zone in farm_zones:
         # The mask below just chooses all cells that are either Coonambidgal or
         # Shepparton formation. A mask could also be constructed for farm areas
-        # by using the 
+        # by using the
         mask = (modflow_model.model_data.model_mesh3D[1][0] == 3) | (
             modflow_model.model_data.model_mesh3D[1][0] == 1)
         avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
@@ -410,9 +412,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     """
 
     #trigger_head_bores = ['79234', '62589']
-    # Removed bore 79234 as it sits above Lake Eppalock which is not included 
+    # Removed bore 79234 as it sits above Lake Eppalock which is not included
     # in the groudnwater model.
-    
+
     trigger_head_bores = ['62589']
     trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in trigger_head_bores])
     # to set
@@ -427,7 +429,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
 if __name__ == "__main__":
 
-    CONFIG = ConfigLoader(os.path.join(os.path.dirname(__file__), "model_config.json"))
+    CONFIG = ConfigLoader(os.path.join('../config', "model_config.json"))\
+        .set_environment("GW_link_Integrated")
+
+    print CONFIG.model_config
 
     args = sys.argv
     if len(args) > 1:
