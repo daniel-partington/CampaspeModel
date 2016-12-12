@@ -36,6 +36,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
                                 Must match the model extent.
     :param pumping: dict, {Farm Zone ID: daily pumping amount (m/day)}
 
+    :returns: tuple, four elements
+                xchange: numpy recarray,
+                avg_gw_depth: numpy recarray, Average depth for each zone
+                ecol_depth_to_gw: numpy recarray, TODO
+                trigger_head: numpy recarray, Trigger well heads
+
     """
 
     warnings.warn("This function uses hardcoded values for Farm Zones and SW Gauges")
@@ -133,19 +139,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     filter_gauge_loc = [new_riv_cells[x]
                         for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
 
-    #river_stage_file = os.path.join(data_folder, r"dev_river_levels_recarray.pkl")
-    #river_stage_data = MM.GW_build[name].load_obj(river_stage_file)
-
     for index, riv in enumerate(new_riv):
         # Create logical array to identify those which are gauges and those which are not
         if riv[0] in filter_gauge_loc:
             riv_gauge_logical[index] = True
             gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-#            location =  str(filter_gauges[gauge_ind[0]][1][0])
-            stages[index] = riv_stages[riv_stages["g_id"] ==
-                                       str(filter_gauges[gauge_ind[0]][1][0])][0][1]
-#            stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] == filter_gauges[gauge_ind[0]][1][0]]
-            # river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
+
+            stages[index] = filter_gauges[gauge_ind[0]][1][0]
             beds[index] = stages[index] - 1.0
 
         # Add chainage to new_riv array:
@@ -446,7 +446,7 @@ if __name__ == "__main__":
 
     #folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
     folder = r"C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/data"
-    fname = r"dev_river_levels_recarray.pkl"
+    fname = r"dev_river_levels.pkl"
 
     riv_stages = load_obj(os.path.join(folder, fname))
 
@@ -472,7 +472,7 @@ if __name__ == "__main__":
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": None,
+        "pumping": 10.0  # {'5': 10},
     }
 
     result = run(**run_params)
