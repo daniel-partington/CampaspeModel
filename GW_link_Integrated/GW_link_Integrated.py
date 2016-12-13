@@ -41,7 +41,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
                 avg_gw_depth: numpy recarray, Average depth for each zone
                 ecol_depth_to_gw: numpy recarray, TODO
                 trigger_head: numpy recarray, Trigger well heads
-
     """
 
     warnings.warn("This function uses hardcoded values for Farm Zones and SW Gauges")
@@ -429,10 +428,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
 if __name__ == "__main__":
 
+    print("Running from: "+os.getcwd())
+
     CONFIG = ConfigLoader(os.path.join('../config', "model_config.json"))\
         .set_environment("GW_link_Integrated")
-
-    print CONFIG.model_config
 
     import pickle
 
@@ -444,7 +443,8 @@ if __name__ == "__main__":
             print 'File type not recognised as "pkl"'
         # end if
 
-    #folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
+    # Example river level data (to be inputted from SW Model)
+    # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
     folder = r"C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/data"
     fname = r"dev_river_levels.pkl"
 
