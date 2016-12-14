@@ -34,7 +34,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     :param riv_stages: np recarray, gauge numbers and stage
     :param rainfall_irrigation: np array, array representing rainfall and irrigation input.
                                 Must match the model extent.
-    :param pumping: dict, {Farm Zone ID: daily pumping amount (m/day)}
+    :param pumping: float, daily pumping amount in m/day
 
     :returns: tuple, four elements
                 xchange: numpy recarray,
@@ -224,8 +224,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # River', 'river', bc_static=True)
 
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
-    print("Model Boundary")
-    print(MM.GW_build[name].model_boundary)
 
     # Updating Murray River
 
@@ -345,7 +343,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.checkCovergence()
 
-    modflow_model.waterBalance()
+    # modflow_model.waterBalance(plot=False)
     # modflow_model.viewHeads2()
 
     """
@@ -361,7 +359,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
     Average depth to GW table:
-
     """
 
     farm_zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
