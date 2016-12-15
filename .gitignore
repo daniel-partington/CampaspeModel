@@ -2,6 +2,9 @@ too_big_to_git/
 
 dont_git/*
 
+# ipython notebook checkpoints
+*-checkpoint.ipynb
+
 CustomScripts/still_to_be_implemented/*
 
 # Images
