@@ -23,7 +23,7 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None,
-        rainfall_irrigation=None, pumping=None):
+        rainfall_irrigation=None, pumping=None, verbose=True):
     """
     GW Model Runner.
 
@@ -34,8 +34,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     :param riv_stages: np recarray, gauge numbers and stage
     :param rainfall_irrigation: np array, array representing rainfall and irrigation input.
                                 Must match the model extent.
-    :param pumping: dict, {Farm Zone ID: daily pumping amount (m/day)}
+    :param pumping: float, daily pumping amount in m/day
 
+    :returns: tuple, four elements
+                xchange: numpy recarray,
+                avg_gw_depth: numpy recarray, Average depth for each zone
+                ecol_depth_to_gw: numpy recarray, TODO
+                trigger_head: numpy recarray, Trigger well heads
     """
 
     warnings.warn("This function uses hardcoded values for Farm Zones and SW Gauges")
@@ -75,8 +80,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # This needs to be automatically generated from with the map_raster2mesh routine ...
 #    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
-    print "************************************************************************"
-    print " Updating river parameters "
+    if verbose:
+        print "************************************************************************"
+        print " Updating river parameters "
 
     # loadObj(data_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
     Campaspe_river = MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']
@@ -138,13 +144,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         if riv[0] in filter_gauge_loc:
             riv_gauge_logical[index] = True
             gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-#            location =  str(filter_gauges[gauge_ind[0]][1][0])
-            stages[index] = riv_stages[str(filter_gauges[gauge_ind[0]][1][0])]
-#
-#            stages[index] = riv_stages[riv_stages["g_id"] ==
-#                                       str(filter_gauges[gauge_ind[0]][1][0])][0][1]
-#            stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] == filter_gauges[gauge_ind[0]][1][0]]
-            # river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
+
+            stages[index] = filter_gauges[gauge_ind[0]][1][0]
             beds[index] = stages[index] - 1.0
 
         # Add chainage to new_riv array:
@@ -224,8 +225,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # River', 'river', bc_static=True)
 
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
-    print("Model Boundary")
-    print(MM.GW_build[name].model_boundary)
 
     # Updating Murray River
 
@@ -254,8 +253,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # River', 'river', bc_static=True)
     MM.GW_build[name].boundaries.assign_boundary_array('Murray River', riv)
 
-    print "************************************************************************"
-    print " Updating recharge boundary "
+    if verbose:
+        print "************************************************************************"
+        print " Updating recharge boundary "
 
     # Adjust rainfall to recharge using 10% magic number
     interp_rain = np.copy(MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'])
@@ -275,16 +275,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
 
-    print "************************************************************************"
-    print " Updating pumping boundary"
+    if verbose:
+        print "************************************************************************"
+        print " Updating pumping boundary"
 
     pumpy = MM.GW_build[name].boundaries.bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
 
     MM.GW_build[name].boundaries.assign_boundary_array('licenced_wells', wel)
 
-    print "************************************************************************"
-    print " Updating Murray River GHB boundary"
+    if verbose:
+        print "************************************************************************"
+        print " Updating Murray River GHB boundary"
 
     MurrayGHB = []
     for MurrayGHB_cell in mapped_river:
@@ -305,13 +307,15 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     ghb = {}
     ghb[0] = MurrayGHB
 
-    print "************************************************************************"
-    print " Updating GHB boundary"
+    if verbose:
+        print "************************************************************************"
+        print " Updating GHB boundary"
 
     MM.GW_build[name].boundaries.assign_boundary_array('GHB', ghb)
 
-    print "************************************************************************"
-    print " Set initial head "
+    if verbose:
+        print "************************************************************************"
+        print " Set initial head "
 
     # TODO: Update head based on last iteration rather than initial head
     fname = "initial"
@@ -322,8 +326,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
 
-    print "************************************************************************"
-    print " Build and run MODFLOW model "
+    if verbose:
+        print "************************************************************************"
+        print " Build and run MODFLOW model "
 
     ###########################################################################
     ###########################################################################
@@ -369,6 +374,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     
     #modflow_model.viewHeads2()
 
+    # modflow_model.waterBalance(plot=False)
+    # modflow_model.viewHeads2()
+
     """
     SW-GW exchanges:
     """
@@ -385,7 +393,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
     Average depth to GW table:
-
     """
 
     farm_zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
@@ -454,10 +461,27 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
 if __name__ == "__main__":
 
+    print("Running from: "+os.getcwd())
+
     CONFIG = ConfigLoader(os.path.join('../config', "model_config.json"))\
         .set_environment("GW_link_Integrated")
 
-    print CONFIG.model_config
+    import pickle
+
+    def load_obj(filename):
+        if filename[-4:] == '.pkl':
+            with open(filename, 'rb') as f:
+                return pickle.load(f)
+        else:
+            print 'File type not recognised as "pkl"'
+        # end if
+
+    # Example river level data (to be inputted from SW Model)
+    # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
+    folder = r"C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/data"
+    fname = r"dev_river_levels.pkl"
+
+    riv_stages = load_obj(os.path.join(folder, fname))
 
     args = sys.argv
     if len(args) > 1:
@@ -474,13 +498,6 @@ if __name__ == "__main__":
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
 
-        if len(param_file) == 0:
-            param_file = None
-        
-    import pickle
-    
-    riv_stages = pickle.load(open(r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data\dev_river_levels.pkl"))
-            
     run_params = {
         "model_folder": model_folder,
         "data_folder": data_folder,
@@ -488,7 +505,7 @@ if __name__ == "__main__":
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 10.0,
+        "pumping": 10.0  # {'5': 10},
     }
 
     result = run(**run_params)
