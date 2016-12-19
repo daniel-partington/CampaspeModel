@@ -133,17 +133,16 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     filter_gauge_loc = [new_riv_cells[x]
                         for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
 
-    #river_stage_file = os.path.join(data_folder, r"dev_river_levels_recarray.pkl")
-    #river_stage_data = MM.GW_build[name].load_obj(river_stage_file)
-
     for index, riv in enumerate(new_riv):
         # Create logical array to identify those which are gauges and those which are not
         if riv[0] in filter_gauge_loc:
             riv_gauge_logical[index] = True
             gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
 #            location =  str(filter_gauges[gauge_ind[0]][1][0])
-            stages[index] = riv_stages[riv_stages["g_id"] ==
-                                       str(filter_gauges[gauge_ind[0]][1][0])][0][1]
+            stages[index] = riv_stages[str(filter_gauges[gauge_ind[0]][1][0])]
+#
+#            stages[index] = riv_stages[riv_stages["g_id"] ==
+#                                       str(filter_gauges[gauge_ind[0]][1][0])][0][1]
 #            stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] == filter_gauges[gauge_ind[0]][1][0]]
             # river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
             beds[index] = stages[index] - 1.0
@@ -265,7 +264,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     for i in [1, 2, 3, 7]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[MM.GW_build[name].model_mesh3D[
-            1][0] == i] * 0.1  # MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
+            1][0] == i] * 0.05  # MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
 
     for i in [4, 5, 6, ]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[
@@ -336,17 +335,38 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = False  # This is to tell FloPy that is a transient model
+    modflow_model.steady = False#False # This is to tell FloPy that is a transient model
 
     modflow_model.executable = mf_exe_folder
 
     modflow_model.buildMODFLOW()
 
-    # modflow_model.runMODFLOW()
+    modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
     
     modflow_model.waterBalance()
+
+#    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
+#    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
+#    print("Campaspe River flux -'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] < 0.0]).sum())
+#    
+#    camp_riv_flux = modflow_model.getRiverFlux('Campaspe River')[0]
+#    import matplotlib.pyplot as plt
+#    
+#    plt.figure()
+#    
+#    points = [x[1] for x in camp_riv_flux]
+#
+#    cmap = plt.get_cmap('spectral')
+#
+#    x = [ x[2] for x in points ]
+#    y = [ y[1] for y in points ]
+#    vals = [v[0] for v in camp_riv_flux]
+#    ax = plt.scatter(x, y, c=vals, cmap=cmap, vmin=-1000, vmax= 1000)
+#   
+#    plt.colorbar(ax)
+    
     #modflow_model.viewHeads2()
 
     """
@@ -359,6 +379,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     for gauge in sw_stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRiverFluxNodes(
             riv_reach_nodes[gauge])
+
+    print("Upstream of weir", swgw_exchanges[sw_stream_gauges[0]]+swgw_exchanges[sw_stream_gauges[1]])
+    print("Downstream of weir", swgw_exchanges[sw_stream_gauges[2]]+swgw_exchanges[sw_stream_gauges[3]])
 
     """
     Average depth to GW table:
@@ -390,7 +413,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
                                                 for bore in ecol_depth_to_gw_bores])
     # to set
     for ecol_bore in ecol_depth_to_gw_bores:
-        ecol_depth_to_gw[ecol_bore] = np.random.rand()
+        # NOTE: This returns the depth to groundwater below the surface in metres
+        ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
@@ -419,7 +443,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in trigger_head_bores])
     # to set
     for trigger_bore in trigger_head_bores:
-        trigger_heads[trigger_bore] = np.random.rand()
+        # NOTE: This returns the head in mAHD
+        trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
@@ -451,16 +476,19 @@ if __name__ == "__main__":
 
         if len(param_file) == 0:
             param_file = None
-        # End if
-
+        
+    import pickle
+    
+    riv_stages = pickle.load(open(r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data\dev_river_levels.pkl"))
+            
     run_params = {
         "model_folder": model_folder,
         "data_folder": data_folder,
         "mf_exe_folder": mf_exe_folder,
         "param_file": param_file if param_file else None,
-        "riv_stages": None,
+        "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": None,
+        "pumping": 10.0,
     }
 
     result = run(**run_params)
