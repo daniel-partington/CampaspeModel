@@ -137,7 +137,7 @@ def getBoreData(get='transient'):
     dfVIC_level = dfVIC_level.drop(dfVIC_level[['obs_point_datum', 'hydroid']], axis=1)
 
     # Only use data from the state observation bores:
-    dfVIC_level = dfVIC_level[dfVIC_level['quality_flag'] == '43']
+    dfVIC_level = dfVIC_level[dfVIC_level['quality_flag'].isin(['43', '47'])]
 
     # Group bores by ID and get the mean of the heads
     dfVIC_level_summary = dfVIC_level.groupby('bore_id').count()
