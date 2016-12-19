@@ -1,9 +1,9 @@
 {
   "grid_resolution": "1000m",
-  "model_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/structured_model_grid_",
-  "data_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated",
+  "model_folder": "/Users/masher/Documents/projects/phd/CampaspeModel/testbox/structured_model_grid_",
+  "data_folder": "/Users/masher/Documents/projects/phd/CampaspeModel/testbox/integrated",
   "param_file": "",
   "working_dir": "",
-  "mf_exe_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/MODFLOW-NWT_64.exe"
+  "mf_exe_folder": "/Users/masher/Desktop/junk/phd/campaspe/no_git/temp/mf2005mja"
 }
 

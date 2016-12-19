@@ -462,8 +462,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 if __name__ == "__main__":
 
     print("Running from: "+os.getcwd())
-
-    CONFIG = ConfigLoader(os.path.join('../config', "model_config.json"))\
+    CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "model_config.json"))\
         .set_environment("GW_link_Integrated")
 
     import pickle
@@ -478,10 +477,8 @@ if __name__ == "__main__":
 
     # Example river level data (to be inputted from SW Model)
     # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
-    folder = r"C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/data"
     fname = r"dev_river_levels.pkl"
-
-    riv_stages = load_obj(os.path.join(folder, fname))
+    riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], 'data', fname))
 
     args = sys.argv
     if len(args) > 1:
@@ -508,4 +505,8 @@ if __name__ == "__main__":
         "pumping": 10.0  # {'5': 10},
     }
 
-    result = run(**run_params)
+    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
+    print "swgw_exchanges", swgw_exchanges
+    print "avg_depth_to_gw", avg_depth_to_gw
+    print "ecol_depth_to_gw", ecol_depth_to_gw
+    print "trigger_heads", trigger_heads
