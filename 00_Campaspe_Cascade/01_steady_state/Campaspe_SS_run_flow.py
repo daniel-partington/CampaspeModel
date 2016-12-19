@@ -4,14 +4,13 @@ import os
 import sys
 import numpy as np
 
+sys.path.append('C:\Workspace\part0075\GIT_REPOS')
+
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
-import flopy.utils.binaryfile as bf
-
-sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
 # MM is short for model manager
 
@@ -78,30 +77,59 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     print "************************************************************************"
     print " Updating river parameters "
 
-    mapped_river = loadObj(model_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
+#    mapped_river = loadObj(model_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
+#
+#    simple_river = []
+#    riv_width_avg = 10.0  # m
+#    riv_bed_thickness = 0.10  # m
+#    for riv_cell in mapped_river:  # MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']:
+#        row = riv_cell[0][0]
+#        col = riv_cell[0][1]
+#        if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
+#            continue
+#        # print test_model.model_mesh3D
+#        stage = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.01
+#        bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.1 - \
+#            MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
+#        cond = riv_cell[1] * riv_width_avg * \
+#            MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
+#        simple_river += [[0, row, col, stage, cond, bed]]
+#
+#    riv = {}
+#    riv[0] = simple_river
+#    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
+#    # River', 'river', bc_static=True)
+#    MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
+#
 
-    simple_river = []
-    riv_width_avg = 10.0  # m
-    riv_bed_thickness = 0.10  # m
-    for riv_cell in mapped_river:  # MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']:
+
+    riv_width_avg = 10.0 #m
+    riv_bed_thickness = 0.10 #m
+    
+    cond = []
+    for index, riv_cell in enumerate(MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']):
         row = riv_cell[0][0]
         col = riv_cell[0][1]
         if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
             continue
-        # print test_model.model_mesh3D
-        stage = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.01
-        bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.1 - \
-            MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
-        cond = riv_cell[1] * riv_width_avg * \
-            MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
-        simple_river += [[0, row, col, stage, cond, bed]]
+#        #print SS_model.model_mesh3D
+#        stage = stages[index] #SS_model.model_mesh3D[0][0][row][col]
+#        bed = beds[index] #SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['bed_depress']['PARVAL1']
+        cond += [riv_cell[1] * riv_width_avg * MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness]
+#        simple_river += [[0, row, col, stage, cond, bed]]
+#
+#    riv = {}
+#    riv[0] = simple_river
 
-    riv = {}
-    riv[0] = simple_river
-    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
-    # River', 'river', bc_static=True)
+    riv = MM.GW_build[name].boundaries.bc['Campaspe River']['bc_array'].copy()
+    for key in riv.keys():
+        riv[key] = [[x[0], x[1], x[2], x[3], cond[ind], x[5]] for ind, x in enumerate(riv[key])]
+            
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
 
+    print "************************************************************************"
+    print "Updating River Murray"
+    
     mapped_river = loadObj(model_folder, name, r"River_Murray_model.shp_mapped.pkl")
 
     simple_river = []
@@ -126,6 +154,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     # River', 'river', bc_static=True)
     MM.GW_build[name].boundaries.assign_boundary_array('Murray River', riv)
 
+    
     print "************************************************************************"
     print " Updating recharge boundary "
 
@@ -134,7 +163,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     for i in [1, 2, 3, 7]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[MM.GW_build[name].model_mesh3D[
-            1][0] == i] * 0.01 #MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
+            1][0] == i] * 0.1 #MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
 
     for i in [4, 5, 6, ]:
         interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[
@@ -238,15 +267,16 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     
     for i in range(retries):
     
+        
         print "************************************************************************"
         print " Set initial head "
     
-        fname="initial"
-        headobj = bf.HeadFile(os.path.join(data_folder, fname) +'.hds')
-        times = headobj.get_times()
-        head = headobj.get_data(totim=times[-1])
-    
-        MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
+#        fname="initial"
+#        headobj = bf.HeadFile(os.path.join(data_folder, fname) +'.hds')
+#        times = headobj.get_times()
+#        head = headobj.get_data(totim=times[-1])
+#    
+#        MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
     
         print "************************************************************************"
         print " Build and run MODFLOW model "
@@ -255,8 +285,15 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
         ###########################################################################
         ###########################################################################
         # Currently using flopyInterface directly rather than running from the ModelManager ...
+
         modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
-    
+
+        # Override temporal aspects of model build:
+        modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
+        modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 1 day here
+        modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
+        modflow_model.steady = True # This is to tell FloPy that is a transient model
+
         modflow_model.executable = mf_exe_folder
     
         modflow_model.buildMODFLOW()
@@ -272,7 +309,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
         
         modflow_model.writeObservations()
 
-    # modflow_model.viewHeadsByZone()
+    modflow_model.viewHeads2()
 
     #riv_exch = modflow_model.getRiverFlux('Campaspe River')
     #for key in riv_exch.keys():
@@ -281,31 +318,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     #riv_exch = modflow_model.getRiverFlux('Murray River')
     #for key in riv_exch.keys():
     #    print 'Murray River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
-
-    # ts = MM.GW_build[name].observations.obs_group['head']['time_series']
-    # wells_of_interest = ['79234', '62589']
-    # wells = {}
-    # for well in wells_of_interest:
-    #    wells[well] = ts[ts['name'] == well]
-    #    wells[well] = ts[ts['name'] == well]
-
-    # print modflow_model.getObservation(wells[wells_of_interest[1]]['obs_map'].tolist()[0], 0, 'head')
-    # print modflow_model.getObservation(wells_of_interest[1], 0, 'head')
-
-    #modflow_model.viewHeads()
-    
-    #modflow_model.viewHeadsByZone()
-
-    #modflow_model.viewHeads2()
-
-    #modflow_model.waterBalance()
-    
-    #modflow_model.buildMT3D()
-    
-    #modflow_model.runMT3D()
-    
-    #modflow_model.viewConcsByZone()
-   
+  
 
 if __name__ == "__main__":
     args = sys.argv

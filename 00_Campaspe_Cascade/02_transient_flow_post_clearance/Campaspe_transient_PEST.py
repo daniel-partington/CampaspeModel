@@ -11,7 +11,6 @@ def run(model_folder, pest_folder):
     
     name = MM.GW_build.keys()[0]
     
-    
     MM.setupPEST(name, 
                  directory=pest_folder, 
                  csv_copy=True, models_ID=[name]) 
