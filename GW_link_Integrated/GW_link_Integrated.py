@@ -37,7 +37,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     :param pumping: float, daily pumping amount in m/day
 
     :returns: tuple, four elements
-                xchange: numpy recarray,
+                xchange: numpy recarray, exchange for each gauge by gauge ID
                 avg_gw_depth: numpy recarray, Average depth for each zone
                 ecol_depth_to_gw: numpy recarray, TODO
                 trigger_head: numpy recarray, Trigger well heads
