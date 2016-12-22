@@ -1,8 +1,0 @@
-{
-  "grid_resolution": "1000m",
-  "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
-  "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/01_steady_state/structured_model_grid_",
-  "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
-  "working_dir": "",
-  "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/MODFLOW-NWT_64.exe"
-}
