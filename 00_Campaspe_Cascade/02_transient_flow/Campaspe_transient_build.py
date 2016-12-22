@@ -343,26 +343,26 @@ tr_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_s
 tr_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
 # Create parameter that goes back to the steady state model for setting recharge
-tr_model.parameters.create_model_parameter('rch_red_pre_clearance', value=0.01)
-tr_model.parameters.parameter_options('rch_red_pre_clearance', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.0, 
-                                      PARUBND=0.1, 
-                                      PARGP='rech_mult', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+#tr_model.parameters.create_model_parameter('SSrch_red_pre_clearance', value=0.01)
+#tr_model.parameters.parameter_options('rch_red_pre_clearance', 
+#                                      PARTRANS='log', 
+#                                      PARCHGLIM='factor', 
+#                                      PARLBND=0.0, 
+#                                      PARUBND=0.1, 
+#                                      PARGP='rech_mult', 
+#                                      SCALE=1, 
+#                                      OFFSET=0)
 
 # Create uniform parameter for recharge for post-clearance period up until 
-tr_model.parameters.create_model_parameter('rch_red_post_clearance', value=0.05)
-tr_model.parameters.parameter_options('rch_red_post_clearance', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.0, 
-                                      PARUBND=0.5, 
-                                      PARGP='rech_mult', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+#tr_model.parameters.create_model_parameter('TRrch_', value=0.05)
+#tr_model.parameters.parameter_options('TRrch_', 
+#                                      PARTRANS='log', 
+#                                      PARCHGLIM='factor', 
+#                                      PARLBND=0.0, 
+#                                      PARUBND=0.5, 
+#                                      PARGP='rech_mult', 
+#                                      SCALE=1, 
+#                                      OFFSET=0)
 
 # Create uniform irrigation parameter for recharge for post-clearance period up until 
 #tr_model.parameters.create_model_parameter('irrig_post_clearance', value=0.120)
@@ -377,6 +377,18 @@ tr_model.parameters.parameter_options('rch_red_post_clearance',
 
 
 # Adjust rainfall to recharge using rainfall reduction
+for i in [1,2,3,7]:
+    tr_model.parameters.create_model_parameter('SSrch_'+zone_map[i], value=0.01)
+    tr_model.parameters.parameter_options('SSrch_'+zone_map[i], 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=0., 
+                                          PARUBND=0.9, 
+                                          PARGP='rech_mult', 
+                                          SCALE=1, 
+                                          OFFSET=0)
+
+
 for i in [1,2,3,7]:
     tr_model.parameters.create_model_parameter('rch_red_'+zone_map[i], value=0.05)
     tr_model.parameters.parameter_options('rch_red_'+zone_map[i], 
@@ -553,7 +565,7 @@ tr_model.boundaries.assign_boundary_array('C14_wells', wel)
 
 C14_obs_time_series = df_C14.copy() 
 C14_obs_time_series = C14_obs_time_series[['Bore_id', 'a14C(pMC)']]
-C14_obs_time_series['datetime'] = pd.to_datetime(datetime.date(2015,12,31))
+C14_obs_time_series['datetime'] = pd.to_datetime(datetime.date(2015,12,30))
 C14_obs_time_series.rename(columns={'Bore_id':'name', 'a14C(pMC)':'value'}, inplace=True)
 C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']]
 C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
@@ -567,15 +579,15 @@ print " Mapping pumping wells to grid "
 tr_model.map_points_to_grid(pumps_points, feature_id = 'OLD ID')
 
 
-tr_model.parameters.create_model_parameter('pump_use', value=0.6)
-tr_model.parameters.parameter_options('pump_use', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.2, 
-                                      PARUBND=1., 
-                                      PARGP='pumping', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+#tr_model.parameters.create_model_parameter('pump_use', value=0.6)
+#tr_model.parameters.parameter_options('pump_use', 
+#                                      PARTRANS='log', 
+#                                      PARCHGLIM='factor', 
+#                                      PARLBND=0.2, 
+#                                      PARUBND=1., 
+#                                      PARGP='pumping', 
+#                                      SCALE=1, 
+#                                      OFFSET=0)
 
 # Convert pumping_data to time series
 
@@ -651,7 +663,7 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
             pumping_rate_old = np.min(non_zero_pumping)
 
         old_pumping_ts = pd.DataFrame(index=pump_date_index2)
-        old_pumping_ts[pump] = pumping_rate_old * tr_model.parameters.param['pump_use']['PARVAL1']
+        old_pumping_ts[pump] = pumping_rate_old * 0.6 #tr_model.parameters.param['pump_use']['PARVAL1']
 
         # Merge the old and measured data
 
@@ -837,7 +849,7 @@ for index, riv_cell in enumerate(tr_model.polyline_mapped['Campaspe_Riv_model.sh
 riv = {}
 riv[0] = simple_river
 
-time_series = pd.DataFrame([{'name':'Net_SWGWExchange', 'value':np.nan, 'datetime':pd.to_datetime(datetime.date(2015,12,31))},])
+time_series = pd.DataFrame([{'name':'Net_SWGWExchange', 'value':np.nan, 'datetime':pd.to_datetime(datetime.date(2015,12,30))},])
 tr_model.observations.set_as_observations('net_riv_flux', time_series, new_riv_cells, domain='surface', 
                             obs_type='SWGWExchange', units='m^3/d', weights=0.0, real=False)
 
@@ -1130,6 +1142,29 @@ print " Creating Channel boundary"
 
 tr_model.boundaries.create_model_boundary_condition('Channel', 'channel', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Channel', channel)
+
+print "************************************************************************"
+print " Creating parameters for transport "
+
+tr_model.parameters.create_model_parameter('porosity', value=0.25)
+tr_model.parameters.parameter_options('porosity', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.05, 
+                                      PARUBND=0.4, 
+                                      PARGP='transport', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+tr_model.parameters.create_model_parameter('disp', value=0.01)
+tr_model.parameters.parameter_options('disp', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-5, 
+                                      PARUBND=100., 
+                                      PARGP='transport', 
+                                      SCALE=1, 
+                                      OFFSET=0)
 
 print "************************************************************************"
 print " Collate observations"

@@ -21,28 +21,6 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     """Model Runner."""
-    def loadObj(model_folder, model_name, filename):
-        """
-        Interface to Model Manager object loader.
-
-        Attempts to load model object from alternate source when file cannot be found.
-
-        :param model_folder: Folder where the model is
-        :param model_name: Name of the model to load object from
-        :param filename: Filename of picked object.
-                         Attempts to load from shapefile with same name on exception.
-        """
-        filename_no_ext = os.path.splitext(filename)[0].split('.')[0]
-
-        try:
-            model_obj = MM.GW_build[model_name].load_obj(os.path.join(
-                model_folder, filename))
-        except IOError:
-            model_obj = MM.GW_build[model_name].polyline_mapped[filename_no_ext + ".shp"]
-        # End try
-
-        return model_obj
-    # End loadObj()
 
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
@@ -67,6 +45,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     modflow_model.buildMODFLOW()
 
+    #print modflow_model.model_data.observations.obs_group.keys()
+    #sys.exit()
     print "************************************************************************"
     print " Instantiate MT3D model "
     
@@ -86,7 +66,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     print("Add the BTN package to the model")
     ibound = modflow_model.model_data.model_mesh3D[1]        
     ibound[ibound == -1] = 0
-    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, 
+    prsity = MM.GW_build[name].parameters.param['porosity']['PARVAL1']
+    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, prsity=prsity
                        sconc=conc_init, ncomp=1, mcomp=1, 
                        cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
@@ -101,7 +82,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
                        npsink=8, dchmoc=0.01)
 
     print("Add the DSP package to the model")
-    flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=10., trpt=0.1, trpv=0.1, dmcoef=0.0)
+    al = MM.GW_build[name].parameters.param['disp']['PARVAL1']
+    flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=al, trpt=0.1, trpv=0.1, dmcoef=0.0)
 
     print("Add the RCT package to the model")
     flopy.mt3d.Mt3dRct(mt, isothm=1, ireact=1, igetsc=0, rc1=np.log(2)/(5730.0*365.0))
@@ -120,52 +102,50 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     crch = {}
     for per in range(modflow_model.nper):
         crch[per] = []
+    # End for
 
-    for boundary in modflow_model.model_data.boundaries.bc:
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'recharge':
-            for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
-                crch[key] = np.ones_like(modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key])               
+    river = {}
+    river[0] = []
+
+    bc = modflow_model.model_data.boundaries.bc
+    for boundary in bc:
+        bc_boundary = bc[boundary]
+        bc_type = bc_boundary['bc_type']
+        bc_array = bc_boundary['bc_array']
+
+        if bc_type == 'recharge':
+            for key in bc_array.keys():
+                crch[key] = np.ones_like(bc_array[key])               
                 crch[key] = crch[key] * 100.0
                 crch[key][ibound[0]==0] = 0.0
-        #if self.model_data.boundaries.bc[boundary]['bc_type'] == 'river':
-        #    self.createRIVpackage(self.model_data.boundaries.bc[boundary]['bc_array'])
+        
+        if (bc_type == 'river') or (bc_type == 'channel'):
+            time_key = bc_array.keys()[0]
+            river[0] += bc_array[time_key]
+        # End if
             
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'wells':
-            for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
-                for well in modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key]:
+        if bc_type == 'wells':
+            for key in bc_array.keys():
+                for well in bc_array[key]:
                     ssm_data[key].append((well[0], well[1], well[2], 100.0, itype['WEL']))
                     
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'drain':
-            for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
-                for drain in modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key]:
+        if bc_type == 'drain':
+            for key in bc_array.keys():
+                for drain in bc_array[key]:
                     ssm_data[key].append((drain[0], drain[1], drain[2], 100.0, itype['DRN']))
 
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'general head':
-            modflow_model.model_data.boundaries.bc[boundary]['bc_array']
-            for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
-                for ghb in modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key]:
+        if bc_type == 'general head':
+            for key in bc_array.keys():
+                for ghb in bc_array[key]:
                     ssm_data[key].append((ghb[0], ghb[1], ghb[2], 0.0, itype['GHB']))
 
-    river_exists = False
-    for boundary in modflow_model.model_data.boundaries.bc:
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'river':
-            river_exists = True
-            break
-    
-    if river_exists:
-        river = {}
-        river[0] = []
-        for boundary in modflow_model.model_data.boundaries.bc:
-            if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'river':
-                time_key = modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys()[0]
-                river[0] += modflow_model.model_data.boundaries.bc[boundary]['bc_array'][time_key]
-            if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'channel':
-                time_key = modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys()[0]
-                river[0] += modflow_model.model_data.boundaries.bc[boundary]['bc_array'][time_key]
-        
+    if len(river) > 0:
         for key in river.keys():
             for riv in river[key]:
                 ssm_data[key].append((riv[0], riv[1], riv[2], 100.0, itype['RIV']))
+            # End for
+        # End for
+    # End if
 
     ssm_data_temp = {}
     for key in ssm_data.keys():
@@ -186,16 +166,21 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     
     success, buff = mt.run_model()
     
+    post = flopyInterface.MT3DPostProcess(modflow_model)
+    
+    post.writeObservations()
+    #post.compareAllObs()
+    #post.viewConcsByZone()
+    
 #    #
-    concobj = bf.UcnFile(modflow_model.data_folder + 'MT3D001.UCN')
-    arry = concobj.get_alldata()[680]
-    import matplotlib.pyplot as plt
-    vmin, vmax = 0.0, 100.0
-    for i in range(7):
-        plt.figure()
-        plt.imshow(arry[i], vmin=vmin, vmax=vmax, interpolation='none')
+#    concobj = bf.UcnFile(modflow_model.data_folder + 'MT3D001.UCN')
+#    arry = concobj.get_alldata()[680]
+#    import matplotlib.pyplot as plt
+#    vmin, vmax = 0.0, 100.0
+#    for i in range(7):
+#        plt.figure()
+#        plt.imshow(arry[i], vmin=vmin, vmax=vmax, interpolation='none')
 
-    #modflow_model.viewConcsByZone()
 
 if __name__ == "__main__":
     args = sys.argv

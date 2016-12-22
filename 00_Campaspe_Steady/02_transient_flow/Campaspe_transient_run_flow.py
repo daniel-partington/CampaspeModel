@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
+import numpy as np
 import flopy.utils.binaryfile as bf
 
 from HydroModelBuilder.GWModelManager import GWModelManager
@@ -18,27 +19,11 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
     
     name = MM.GW_build.keys()[0]
-    # modify data folder
-    #MM.GW_build['Campaspe'].data_folder
-    #modify output folder
-    #MM.GW_build['Campaspe'].out_data_folder
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
-    
-    #MM.updateParameters('Campaspe', 'parameters.txt')
-    
+ 
     if param_file:
-        with open(param_file, 'r') as f:
-            text = f.readlines()
-            # Remove header    
-            text = text[1:]
-            # Read in parameters and replace values in parameters class for param
-            for line in text:
-                param_name, value = line.strip('\n').split('\t')
-                value = value.lstrip()
-                MM.GW_build[name].parameters.param[param_name]['PARVAL1'] = float(value)
-
-   
+        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
     
     print "************************************************************************"
     print " Updating HGU parameters "
@@ -67,25 +52,28 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     
     mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder,"Campaspe_Riv_model.shp_mapped.pkl"))
     
-    simple_river = []
     riv_width_avg = 10.0 #m
     riv_bed_thickness = 0.10 #m
-    for riv_cell in mapped_river: #MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']:
+    
+    cond = []
+    for index, riv_cell in enumerate(MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']):
         row = riv_cell[0][0]
         col = riv_cell[0][1]
         if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
             continue
-        #print test_model.model_mesh3D
-        stage = MM.GW_build[name].model_mesh3D[0][0][row][col]
-        bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - MM.GW_build[name].parameters.param['bed_depress']['PARVAL1']
-        cond = riv_cell[1] * riv_width_avg * MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
-        simple_river += [[0, row, col, stage, cond, bed]]
-    
-    riv = {}
-    riv[0] = simple_river
+        cond += [riv_cell[1] * riv_width_avg * MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness]
+
+    riv = MM.GW_build[name].boundaries.bc['Campaspe River']['bc_array'].copy()
+    for key in riv.keys():
+        riv[key] = [[x[0], x[1], x[2], x[3], cond[ind], x[5]] for ind, x in enumerate(riv[key])]
+            
     MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
     
-    mapped_river = MM.GW_build[name].load_obj(os.path.join(model_folder, r"River_Murray_model.shp_mapped.pkl"))
+    
+    print "************************************************************************"
+    print " Updating Murray River boundary"
+    
+    mapped_river = MM.GW_build[name].polyline_mapped["River_Murray_model.shp"]
     
     simple_river = []
     riv_width_avg = 10.0 #m
@@ -243,6 +231,10 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     print "************************************************************************"
     print " Updating pumping boundary"
 
+    #pumpy = MM.GW_build[name].boundaries.bc['licenced_wells']['bc_array']
+    #wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
+
+    #MM.GW_build[name].boundaries.assign_boundary_array('licenced_wells', wel)
     
     print "************************************************************************"
     print " Set initial head "
@@ -281,7 +273,12 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     
     modflow_model.writeObservations()
 
-    modflow_model.viewHeads2()
+    Campaspe_riv_flux = modflow_model.getRiverFlux('Campaspe River')
+    net_riv_flux =  np.sum(np.array([x[0] for x in Campaspe_riv_flux[max(Campaspe_riv_flux.keys())]]))
+    
+    with open(modflow_model.data_folder + os.path.sep + 'observations_net_riv_flux.txt', 'w') as f:
+        f.write('%f\n' %net_riv_flux)  
+        
     
     #ss_converge = modflow_model.checkCovergence(path=os.path.join(data_folder,"model_01_steady_state") , name="01_steady_stateMainProcess")
     #tr_converge = modflow_model.checkCovergence()
@@ -290,8 +287,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None):
     #    if tr_converge:
     #        modflow_model.writeObservations()
 
-    
-    #modflow_model.getRiverFlux('Campaspe River')
+
     return modflow_model
 
 if __name__ == "__main__":

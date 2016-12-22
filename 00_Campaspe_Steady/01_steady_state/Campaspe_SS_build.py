@@ -946,29 +946,6 @@ print " Creating GHB boundary"
 SS_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
 SS_model.boundaries.assign_boundary_array('GHB', ghb)
 
-print "************************************************************************"
-print " Creating parameters for transport "
-
-SS_model.parameters.create_model_parameter('porosity', value=0.25)
-SS_model.parameters.parameter_options('porosity', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.05, 
-                                      PARUBND=0.4, 
-                                      PARGP='transport', 
-                                      SCALE=1, 
-                                      OFFSET=0)
-
-SS_model.parameters.create_model_parameter('disp', value=0.01)
-SS_model.parameters.parameter_options('disp', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=1E-4, 
-                                      PARUBND=100., 
-                                      PARGP='transport', 
-                                      SCALE=1, 
-                                      OFFSET=0)
-
 #print "************************************************************************"
 #print " Collate observations"
 #
