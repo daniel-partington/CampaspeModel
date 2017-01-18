@@ -1,4 +1,4 @@
-"""Update parameters and run Steady State model for Campaspe."""
+"""Update parameters and run transient flow model for Campaspe."""
 
 import os
 import sys
@@ -67,7 +67,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     ibound = modflow_model.model_data.model_mesh3D[1]        
     ibound[ibound == -1] = 0
     prsity = MM.GW_build[name].parameters.param['porosity']['PARVAL1']
-    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, prsity=prsity
+    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, prsity=prsity,
                        sconc=conc_init, ncomp=1, mcomp=1, 
                        cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 

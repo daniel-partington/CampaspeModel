@@ -1,4 +1,4 @@
-"""Update parameters and run Steady State model for Campaspe."""
+"""Update parameters and run Steady State transport model for Campaspe."""
 
 import os
 import sys
