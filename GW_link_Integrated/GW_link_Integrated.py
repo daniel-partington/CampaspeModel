@@ -9,6 +9,7 @@ import sys
 import warnings
 
 import numpy as np
+import cPickle as pickle
 
 import flopy.utils.binaryfile as bf
 
@@ -437,11 +438,11 @@ if __name__ == "__main__":
     CONFIG = ConfigLoader(os.path.join('../config', "model_config.json"))\
         .set_environment("GW_link_Integrated")
 
-    import pickle
+    # import cPickle as pickle
 
     def load_obj(filename):
         if filename[-4:] == '.pkl':
-            with open(filename, 'rb') as f:
+            with open(filename, 'r') as f:
                 return pickle.load(f)
         else:
             print 'File type not recognised as "pkl"'
