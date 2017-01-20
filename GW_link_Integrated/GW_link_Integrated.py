@@ -255,7 +255,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         match = interp_rain[mesh_1[0] == i]
         # match = interp_rain[mesh[
         #     1][0] == i] * 0.1
-        interp_rain[mesh_1[0] == i] = match * 0.1
+        interp_rain[mesh_1[0] == i] = match * 0.05
 
     for i in [4, 5, 6, ]:
         interp_rain[mesh_1[0] == i] = 0
@@ -309,7 +309,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # TODO: Update head based on last iteration rather than initial head
     #fname = "initial"
-    fname = 'model_{}'.format(name) 
+    fname = 'model_{}'.format(name)
     print fname
     headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
 
@@ -341,18 +341,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
-    
+
     modflow_model.waterBalance()
 
 #    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
 #    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
 #    print("Campaspe River flux -'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] < 0.0]).sum())
-#    
+#
 #    camp_riv_flux = modflow_model.getRiverFlux('Campaspe River')[0]
 #    import matplotlib.pyplot as plt
-#    
+#
 #    plt.figure()
-#    
+#
 #    points = [x[1] for x in camp_riv_flux]
 #
 #    cmap = plt.get_cmap('spectral')
@@ -361,9 +361,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 #    y = [ y[1] for y in points ]
 #    vals = [v[0] for v in camp_riv_flux]
 #    ax = plt.scatter(x, y, c=vals, cmap=cmap, vmin=-1000, vmax= 1000)
-#   
+#
 #    plt.colorbar(ax)
-    
+
     #modflow_model.viewHeads2()
 
     # modflow_model.waterBalance(plot=False)
@@ -508,4 +508,4 @@ if __name__ == "__main__":
     print "swgw_exchanges", swgw_exchanges
     print "avg_depth_to_gw", avg_depth_to_gw
     print "ecol_depth_to_gw", ecol_depth_to_gw
-    print "trigger_heads", trigger_heads    
+    print "trigger_heads", trigger_heads
