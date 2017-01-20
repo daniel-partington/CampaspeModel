@@ -27,7 +27,6 @@ SS_model = GWModelBuilder(name="GW_link_Integrated",
                           model_type='Modflow',
                           mesh_type='structured')
 
-
 # Cleanup
 #SS_model.flush()
 

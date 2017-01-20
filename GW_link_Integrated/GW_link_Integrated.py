@@ -318,8 +318,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         print " Set initial head "
 
     # TODO: Update head based on last iteration rather than initial head
-    fname = "initial"
-    headobj = bf.HeadFile(os.path.join(data_folder, fname) + '.hds')
+    #fname = "initial"
+    fname = 'model_{}'.format(name) 
+    print fname
+    headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
 
     times = headobj.get_times()
     head = headobj.get_data(totim=times[-1])
@@ -469,7 +471,7 @@ if __name__ == "__main__":
 
     def load_obj(filename):
         if filename[-4:] == '.pkl':
-            with open(filename, 'rb') as f:
+            with open(filename, 'r') as f:
                 return pickle.load(f)
         else:
             print 'File type not recognised as "pkl"'
@@ -509,4 +511,4 @@ if __name__ == "__main__":
     print "swgw_exchanges", swgw_exchanges
     print "avg_depth_to_gw", avg_depth_to_gw
     print "ecol_depth_to_gw", ecol_depth_to_gw
-    print "trigger_heads", trigger_heads
+    print "trigger_heads", trigger_heads    
