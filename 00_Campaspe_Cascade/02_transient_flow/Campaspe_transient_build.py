@@ -611,6 +611,7 @@ def findInterval(row, times):
 
 wells_start = findInterval(start_pumping, date_index) 
 
+pump_shallow = [] # Shallow (if <25m) or Deep (>= 25m)
 for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
     row = pump_cell[0][0]
     col = pump_cell[0][1]
@@ -634,8 +635,13 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
         if active == False: 
             #print 'Well not placed: ', pump            
             continue
-        #Get top of screen layer and calculate length of screen in layer
-        
+
+        # Specify if pump is shallow
+        if pump_depth < 25:
+            pump_shallow += [True]
+        else:
+            pump_shallow += [False]
+
         p05_06 = pumping_data.loc[pump, 'Use 2005/06'] / 365. * 1000.
         p06_07 = pumping_data.loc[pump, 'Use 2006/07'] / 365. * 1000.
         p07_08 = pumping_data.loc[pump, 'Use 2007/08'] / 365. * 1000.

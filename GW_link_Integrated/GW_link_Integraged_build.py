@@ -516,6 +516,8 @@ total_pumping_rate = pumping_data['Use 2014/15'].mean()
 
 wel = {}
 
+pump_shallow = [] # Shallow (if <25m) or Deep (>= 25m)
+
 for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
     row = pump_cell[0][0]
     col = pump_cell[0][1]
@@ -540,6 +542,12 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
             #print 'Well not placed: ', pump            
             continue
         #Get top of screen layer and calculate length of screen in layer
+
+        # Specify if pump is shallow
+        if pump_depth < 25:
+            pump_shallow += [True]
+        else:
+            pump_shallow += [False]
         
         p14_15 = pumping_data.loc[pump, 'Use 2014/15'] / 365. * 1000.
         pump_rates = [p14_15]        
