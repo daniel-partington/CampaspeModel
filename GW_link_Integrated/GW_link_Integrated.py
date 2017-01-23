@@ -22,6 +22,34 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
+def loadObj(data_folder, model_name, filename):
+    """
+    Interface to Model Manager object loader.
+
+    Attempts to load model object from alternate source when file cannot be found.
+
+    :param model_folder: Folder where the model is
+    :param model_name: Name of the model to load object from
+    :param filename: Filename of picked object.
+                     Attempts to load from shapefile with same name on exception.
+    """
+    filename_no_ext = os.path.splitext(filename)[0].split('.')[0]
+
+    try:
+        model_obj = MM.GW_build[model_name].load_obj(os.path.join(
+            data_folder, filename))
+    except IOError:
+        model_obj = MM.GW_build[model_name].polyline_mapped[filename_no_ext + ".shp"]
+    # End try
+
+    return model_obj
+# End loadObj()
+
+def closest_node(node, nodes):
+    nodes = np.asarray(nodes)
+    dist_2 = np.sum((nodes - node)**2, axis=1)
+    return np.argmin(dist_2)
+# End closest_node()
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None, verbose=True, MM=None):
@@ -45,29 +73,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     """
 
     warnings.warn("This function uses hardcoded values for Farm Zones and SW Gauges")
-
-    def loadObj(data_folder, model_name, filename):
-        """
-        Interface to Model Manager object loader.
-
-        Attempts to load model object from alternate source when file cannot be found.
-
-        :param model_folder: Folder where the model is
-        :param model_name: Name of the model to load object from
-        :param filename: Filename of picked object.
-                         Attempts to load from shapefile with same name on exception.
-        """
-        filename_no_ext = os.path.splitext(filename)[0].split('.')[0]
-
-        try:
-            model_obj = MM.GW_build[model_name].load_obj(os.path.join(
-                data_folder, filename))
-        except IOError:
-            model_obj = MM.GW_build[model_name].polyline_mapped[filename_no_ext + ".shp"]
-        # End try
-
-        return model_obj
-    # End loadObj()
 
     if MM is None:
         MM = GWModelManager()
@@ -131,11 +136,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # To account for fact that river shapefile and gauges shapefile are not perfect
     # we get the closest river cell to the gauge cell
-
-    def closest_node(node, nodes):
-        nodes = np.asarray(nodes)
-        dist_2 = np.sum((nodes - node)**2, axis=1)
-        return np.argmin(dist_2)
 
     # Define river gauges at start of river cell
     new_riv_cells = [x[0] for x in new_riv]
@@ -336,7 +336,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.buildMODFLOW()
 
-    modflow_model.runMODFLOW()
+    modflow_model.runMODFLOW(silent=True)
 
     modflow_model.checkCovergence()
 
@@ -378,8 +378,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         swgw_exchanges[gauge] = modflow_model.getRiverFluxNodes(
             riv_reach_nodes[gauge])
 
-    print("Upstream of weir", swgw_exchanges[sw_stream_gauges[0]]+swgw_exchanges[sw_stream_gauges[1]])
-    print("Downstream of weir", swgw_exchanges[sw_stream_gauges[2]]+swgw_exchanges[sw_stream_gauges[3]])
+    if verbose:
+        print("Upstream of weir", swgw_exchanges[sw_stream_gauges[0]]+swgw_exchanges[sw_stream_gauges[1]])
+        print("Downstream of weir", swgw_exchanges[sw_stream_gauges[2]]+swgw_exchanges[sw_stream_gauges[3]])
 
     """
     Average depth to GW table:
@@ -454,10 +455,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 if __name__ == "__main__":
 
     print("Running from: "+os.getcwd())
-    CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "model_config.json"))\
+    CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                          "config", "model_config.json"))\
         .set_environment("GW_link_Integrated")
-
-    # import cPickle as pickle
 
     def load_obj(filename):
         if filename[-4:] == '.pkl':
@@ -465,7 +465,7 @@ if __name__ == "__main__":
                 return pickle.load(f)
         else:
             print 'File type not recognised as "pkl"'
-        # end if
+        # End if
 
     # Example river level data (to be inputted from SW Model)
     # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
@@ -502,7 +502,7 @@ if __name__ == "__main__":
     }
 
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
-    print "swgw_exchanges", swgw_exchanges
-    print "avg_depth_to_gw", avg_depth_to_gw
-    print "ecol_depth_to_gw", ecol_depth_to_gw
-    print "trigger_heads", trigger_heads
+    # print "swgw_exchanges", swgw_exchanges
+    # print "avg_depth_to_gw", avg_depth_to_gw
+    # print "ecol_depth_to_gw", ecol_depth_to_gw
+    # print "trigger_heads", trigger_heads
