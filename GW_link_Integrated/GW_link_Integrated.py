@@ -336,7 +336,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.buildMODFLOW()
 
-    modflow_model.runMODFLOW(silent=True)
+    modflow_model.runMODFLOW()  # silent=True
 
     modflow_model.checkCovergence()
 
@@ -498,7 +498,8 @@ if __name__ == "__main__":
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
         "pumping": 10.0,  # {'5': 10},
-        "MM": MM
+        "MM": MM,
+        "verbose": False
     }
 
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
