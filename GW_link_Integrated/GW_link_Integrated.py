@@ -307,10 +307,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         print "************************************************************************"
         print " Set initial head "
 
-    # TODO: Update head based on last iteration rather than initial head
-    #fname = "initial"
+    # TODO: Copy in initial heads file on first run
     fname = 'model_{}'.format(name)
-    print fname
     headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
 
     times = headobj.get_times()
@@ -342,7 +340,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.checkCovergence()
 
-    modflow_model.waterBalance()
+    # modflow_model.waterBalance()
 
 #    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
 #    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
@@ -413,7 +411,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # to set
     for ecol_bore in ecol_depth_to_gw_bores:
         # NOTE: This returns the depth to groundwater below the surface in metres
-        ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
+        # ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
+        ecol_depth_to_gw[ecol_bore] = np.random.rand()
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
@@ -471,8 +470,6 @@ if __name__ == "__main__":
     # Example river level data (to be inputted from SW Model)
     # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
     fname = r"dev_river_levels.pkl"
-    riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], 'data', fname))
-
     riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
 
     args = sys.argv
