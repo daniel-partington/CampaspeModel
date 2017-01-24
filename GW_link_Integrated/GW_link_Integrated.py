@@ -9,6 +9,7 @@ import sys
 import warnings
 
 import numpy as np
+import cPickle as pickle
 
 import flopy.utils.binaryfile as bf
 
@@ -23,7 +24,7 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None,
-        rainfall_irrigation=None, pumping=None, verbose=True):
+        rainfall_irrigation=None, pumping=None, verbose=True, MM=None):
     """
     GW Model Runner.
 
@@ -37,7 +38,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     :param pumping: float, daily pumping amount in m/day
 
     :returns: tuple, four elements
-                xchange: numpy recarray,
+                xchange: numpy recarray, exchange for each gauge by gauge ID
                 avg_gw_depth: numpy recarray, Average depth for each zone
                 ecol_depth_to_gw: numpy recarray, TODO
                 trigger_head: numpy recarray, Trigger well heads
@@ -68,14 +69,21 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         return model_obj
     # End loadObj()
 
-    MM = GWModelManager()
-    MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
+    if MM is None:
+        MM = GWModelManager()
+        MM.load_GW_model(os.path.join(model_folder, "GW_link_Integrated_packaged.pkl"))
+    # End if
 
     name = MM.GW_build.keys()[0]
 
+    this_model = MM.GW_build[name]
+    mesh = this_model.model_mesh3D
+    mesh_0 = mesh[0]
+    mesh_1 = mesh[1]
+
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
-        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+        this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
 
     # This needs to be automatically generated from with the map_raster2mesh routine ...
 #    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
@@ -85,26 +93,21 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         print " Updating river parameters "
 
     # loadObj(data_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
-    Campaspe_river = MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']
+    Campaspe_river = this_model.polyline_mapped['Campaspe_Riv_model.shp']
 
     simple_river = []
     riv_width_avg = 10.0  # m
     riv_bed_thickness = 0.10  # m
 
-    #sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
-
+    # sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
     sw_stream_gauges = ['406201', '406218', '406202', '406265']
 
     # Need to account for ~8m drop after Campaspe weir.
 
-    Campaspe_river_gauges = MM.GW_build[name].points_mapped[
-        'processed_river_sites_stage_clipped.shp']
+    Campaspe_river_gauges = this_model.points_mapped['processed_river_sites_stage_clipped.shp']
 
-    filter_gauges = []
-    for riv_gauge in Campaspe_river_gauges:
-        # if riv_gauge[1][0] in use_gauges:
-        if str(riv_gauge[1][0]) in sw_stream_gauges:
-            filter_gauges += [riv_gauge]
+    filter_gauges = [riv_gauge for riv_gauge in Campaspe_river_gauges
+                     if str(riv_gauge[1][0]) in sw_stream_gauges]
 
     simple_river = []
     riv_width_avg = 10.0  # m
@@ -115,7 +118,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     for index, riv_cell in enumerate(Campaspe_river):
         row = riv_cell[0][0]
         col = riv_cell[0][1]
-        new_riv[index] += [MM.GW_build[name].model_mesh3D[0][0][row][col]]
+        new_riv[index] += [mesh_0[0][row][col]]
 
     new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)
     new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)
@@ -179,110 +182,98 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
             split_loc_upstream = new_riv_cells.index(filter_gauge_loc[index - 1])
             split_loc_downstream = new_riv_cells.index(filter_gauge_loc[index])
             riv_reach_nodes[gauge] = new_riv_cells[split_loc_upstream:split_loc_downstream + 1]
-
-    #adjusted = 0
-    #kept = 0
-    #riv_vis = np.zeros_like(MM.GW_build[name].model_mesh3D[0][0])
-    #riv_vis_on = np.zeros_like(MM.GW_build[name].model_mesh3D[0][0])
+        # End if
+    # End for
 
     for index, riv_cell in enumerate(Campaspe_river):
         row = riv_cell[0][0]
         col = riv_cell[0][1]
-        if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
+
+        if mesh_1[0][row][col] == -1:
             continue
         stage_temp = stages[index]
-        if stage_temp < MM.GW_build[name].model_mesh3D[0][1][row][col]:
-            stage = MM.GW_build[name].model_mesh3D[0][1][row][col] + 0.01
-            #print("Adjusting stage by: ", stage-stage_temp)
-            #adjusted += 1
-            #riv_vis_on[row][col] = -1
-            #riv_vis_on[row][col] = stage
+        if stage_temp < mesh_0[1][row][col]:
+            stage = mesh_0[1][row][col] + 0.01
         else:
             stage = stage_temp
-            #print("Keeping stage at: ", row, col)
-            #kept += 1
-            #riv_vis_on[row][col] = 1
-            #riv_vis[row][col] = stage
+        # End if
+
         bed_temp = beds[index]
-        if bed_temp < MM.GW_build[name].model_mesh3D[0][1][row][col]:
-            bed = MM.GW_build[name].model_mesh3D[0][1][row][col]
+        if bed_temp < mesh_0[1][row][col]:
+            bed = mesh_0[1][row][col]
         else:
             bed = bed_temp
+        # End if
 
         cond = riv_cell[1] * riv_width_avg * \
-            MM.GW_build[name].parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
+            this_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
         simple_river += [[0, row, col, stage, cond, bed]]
-
-    #print("For river cells, kept: ", kept)
-    #print("For river cells, adjusted: ", adjusted)
-
-    #import matplotlib.pyplot as plt
-    # plt.imshow(riv_vis_on)
 
     riv = {}
     riv[0] = simple_river
-    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
-    # River', 'river', bc_static=True)
 
-    MM.GW_build[name].boundaries.assign_boundary_array('Campaspe River', riv)
+    this_model.boundaries.assign_boundary_array('Campaspe River', riv)
 
     # Updating Murray River
 
     # loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
-    mapped_river = MM.GW_build[name].polyline_mapped['River_Murray_model.shp']
+    mapped_river = this_model.polyline_mapped['River_Murray_model.shp']
 
     simple_river = []
     riv_width_avg = 10.0  # m
     riv_bed_thickness = 0.10  # m
-    for riv_cell in mapped_river:  # MM.GW_build[name].polyline_mapped['Campaspe_Riv_model.shp']:
-        row = riv_cell[0][0]
-        col = riv_cell[0][1]
-        if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
+    for riv_cell in mapped_river:
+        cell = riv_cell[0]
+        row = cell[0]
+        col = cell[1]
+
+        if mesh_1[0][row][col] == -1:
             continue
-        # print test_model.model_mesh3D
-        stage = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.01
-        bed = MM.GW_build[name].model_mesh3D[0][0][row][col] - 0.1 - \
-            MM.GW_build[name].parameters.param['RMstage']['PARVAL1']
+        # End if
+
+        stage = mesh_0[0][row][col] - 0.01
+        bed = mesh_0[0][row][col] - 0.1 - \
+            this_model.parameters.param['RMstage']['PARVAL1']
         cond = riv_cell[1] * riv_width_avg * \
-            MM.GW_build[name].parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
+            this_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
         simple_river += [[0, row, col, stage, cond, bed]]
 
-    riv = {}
-    riv[0] = simple_river
-    # MM.GW_build[name].boundaries.create_model_boundary_condition('Campaspe
-    # River', 'river', bc_static=True)
-    MM.GW_build[name].boundaries.assign_boundary_array('Murray River', riv)
+    riv = {0: simple_river}
+
+    this_model.boundaries.assign_boundary_array('Murray River', riv)
 
     if verbose:
         print "************************************************************************"
         print " Updating recharge boundary "
 
     # Adjust rainfall to recharge using 10% magic number
-    interp_rain = np.copy(MM.GW_build[name].boundaries.bc['Rainfall']['bc_array'])
+    interp_rain = np.copy(this_model.boundaries.bc['Rainfall']['bc_array'])
 
     # TODO: Replace interp_rain with input from farm model, i.e. rainfall_irrigation
 
     for i in [1, 2, 3, 7]:
-        interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[MM.GW_build[name].model_mesh3D[
-            1][0] == i] * 0.05  # MM.GW_build[name].parameters.param['rch_red_' + zone_map[i]]['PARVAL1']
+        match = interp_rain[mesh_1[0] == i]
+        # match = interp_rain[mesh[
+        #     1][0] == i] * 0.1
+        interp_rain[mesh_1[0] == i] = match * 0.05
 
     for i in [4, 5, 6, ]:
-        interp_rain[MM.GW_build[name].model_mesh3D[1][0] == i] = interp_rain[
-            MM.GW_build[name].model_mesh3D[1][0] == i] * 0.
+        interp_rain[mesh_1[0] == i] = 0
+        # interp_rain[mesh_1[0] == i] = interp_rain[
+        #     mesh_1[0] == i] * 0.
 
-    rch = {}
-    rch[0] = interp_rain
+    rch = {0: interp_rain}
 
-    MM.GW_build[name].boundaries.assign_boundary_array('Rain_reduced', rch)
+    this_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 
     if verbose:
         print "************************************************************************"
         print " Updating pumping boundary"
 
-    pumpy = MM.GW_build[name].boundaries.bc['licenced_wells']['bc_array']
+    pumpy = this_model.boundaries.bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
 
-    MM.GW_build[name].boundaries.assign_boundary_array('licenced_wells', wel)
+    this_model.boundaries.assign_boundary_array('licenced_wells', wel)
 
     if verbose:
         print "************************************************************************"
@@ -292,26 +283,25 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     for MurrayGHB_cell in mapped_river:
         row = MurrayGHB_cell[0][0]
         col = MurrayGHB_cell[0][1]
-        # print MM.GW_build[name].model_mesh3D
-        for lay in range(MM.GW_build[name].model_mesh3D[1].shape[0]):
-            if MM.GW_build[name].model_mesh3D[1][0][row][col] == -1:
+
+        MMparams = this_model.parameters.param
+        for lay in xrange(mesh_1.shape[0]):
+            if mesh_1[0][row][col] == -1:
                 continue
-            MurrayGHBstage = MM.GW_build[name].model_mesh3D[0][0][row][
-                col] + MM.GW_build[name].parameters.param['MGHB_stage']['PARVAL1']
-            dx = MM.GW_build[name].gridHeight
-            dz = MM.GW_build[name].model_mesh3D[0][lay][row][col] - \
-                MM.GW_build[name].model_mesh3D[0][lay + 1][row][col]
-            MGHBconductance = dx * dz * MM.GW_build[name].parameters.param['MGHBcond']['PARVAL1']
+
+            MurrayGHBstage = mesh_0[0][row][col] + MMparams['MGHB_stage']['PARVAL1']
+            dx = this_model.gridHeight
+            dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
+            MGHBconductance = dx * dz * MMparams['MGHBcond']['PARVAL1']
             MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
-    ghb = {}
-    ghb[0] = MurrayGHB
+    ghb = {0: MurrayGHB}
 
     if verbose:
         print "************************************************************************"
         print " Updating GHB boundary"
 
-    MM.GW_build[name].boundaries.assign_boundary_array('GHB', ghb)
+    this_model.boundaries.assign_boundary_array('GHB', ghb)
 
     if verbose:
         print "************************************************************************"
@@ -319,14 +309,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # TODO: Update head based on last iteration rather than initial head
     #fname = "initial"
-    fname = 'model_{}'.format(name) 
+    fname = 'model_{}'.format(name)
     print fname
     headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
 
     times = headobj.get_times()
     head = headobj.get_data(totim=times[-1])
 
-    MM.GW_build[name].initial_conditions.set_as_initial_condition("Head", head)
+    this_model.initial_conditions.set_as_initial_condition("Head", head)
 
     if verbose:
         print "************************************************************************"
@@ -336,7 +326,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     ###########################################################################
     ###########################################################################
     # Currently using flopyInterface directly rather than running from the ModelManager ...
-    modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
+    modflow_model = flopyInterface.ModflowModel(this_model, data_folder=data_folder)
 
     # Override temporal aspects of model build:
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
@@ -351,18 +341,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
-    
+
     modflow_model.waterBalance()
 
 #    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
 #    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
 #    print("Campaspe River flux -'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] < 0.0]).sum())
-#    
+#
 #    camp_riv_flux = modflow_model.getRiverFlux('Campaspe River')[0]
 #    import matplotlib.pyplot as plt
-#    
+#
 #    plt.figure()
-#    
+#
 #    points = [x[1] for x in camp_riv_flux]
 #
 #    cmap = plt.get_cmap('spectral')
@@ -371,9 +361,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 #    y = [ y[1] for y in points ]
 #    vals = [v[0] for v in camp_riv_flux]
 #    ax = plt.scatter(x, y, c=vals, cmap=cmap, vmin=-1000, vmax= 1000)
-#   
+#
 #    plt.colorbar(ax)
-    
+
     #modflow_model.viewHeads2()
 
     # modflow_model.waterBalance(plot=False)
@@ -444,9 +434,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
        integrated model as well (if it isn't already)?
     """
 
-    #trigger_head_bores = ['79234', '62589']
+    # trigger_head_bores = ['79234', '62589']
     # Removed bore 79234 as it sits above Lake Eppalock which is not included
-    # in the groudnwater model.
+    # in the groundwater model.
 
     trigger_head_bores = ['62589']
     trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in trigger_head_bores])
@@ -461,13 +451,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads
 
+
 if __name__ == "__main__":
 
     print("Running from: "+os.getcwd())
     CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "model_config.json"))\
         .set_environment("GW_link_Integrated")
 
-    import pickle
+    # import cPickle as pickle
 
     def load_obj(filename):
         if filename[-4:] == '.pkl':
@@ -481,6 +472,8 @@ if __name__ == "__main__":
     # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
     fname = r"dev_river_levels.pkl"
     riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], 'data', fname))
+
+    riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
 
     args = sys.argv
     if len(args) > 1:
@@ -497,6 +490,9 @@ if __name__ == "__main__":
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
 
+    MM = GWModelManager()
+    MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
+
     run_params = {
         "model_folder": model_folder,
         "data_folder": data_folder,
@@ -504,11 +500,12 @@ if __name__ == "__main__":
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 10.0  # {'5': 10},
+        "pumping": 10.0,  # {'5': 10},
+        "MM": MM
     }
 
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
     print "swgw_exchanges", swgw_exchanges
     print "avg_depth_to_gw", avg_depth_to_gw
     print "ecol_depth_to_gw", ecol_depth_to_gw
-    print "trigger_heads", trigger_heads    
+    print "trigger_heads", trigger_heads
