@@ -9,7 +9,11 @@ import numpy as np
 
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverStations, readHydrogeologicalProperties
+from CampaspeModel.CustomScripts import processWeatherStations 
+from CampaspeModel.CustomScripts import getBoreData
+from CampaspeModel.CustomScripts import get_GW_licence_info
+from CampaspeModel.CustomScripts import processRiverStations
+from CampaspeModel.CustomScripts import readHydrogeologicalProperties
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
@@ -190,7 +194,8 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-SS_model.define_structured_mesh(1000, 1000)
+resolution = 5000
+SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
@@ -198,29 +203,32 @@ hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_G
 # Build basement file ... only need to do this once as it is time consuming so commented out for future runs
 #SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
-hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
-#hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
+hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
+                   "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
+                   "lta_2b", "bse_1t", "bse_2b.tif"]
 
 # This loads in the raster files and transforms them into the correct coordinate
 # sytstem.
 SS_model.read_rasters(hu_raster_files, path=hu_raster_path)
 
 
-hu_raster_files_reproj = [x+"_reproj.bil" for x in hu_raster_files]
+hu_raster_files_reproj = [x + "_reproj.bil" for x in hu_raster_files]
 
 # Map HGU's to grid
 print "************************************************************************"
 print " Mapping rasters to grid "
 
-hu_gridded_rasters = SS_model.map_rasters_to_grid(hu_raster_files, hu_raster_path)
+hu_gridded_rasters = SS_model.map_rasters_to_grid(hu_raster_files, 
+                                                  hu_raster_path)
 
 # Build 3D grid
-model_grid_raster_files = [x+"_model_grid.bil" for x in hu_raster_files]
+model_grid_raster_files = [x + "_model_grid.bil" for x in hu_raster_files]
 
 # First two arguments of next function are arbitrary and not used ... need to rework module
 print "************************************************************************"
 print " Building 3D mesh "
-SS_model.build_3D_mesh_from_rasters(model_grid_raster_files, SS_model.out_data_folder_grid, 1.0, 1000.0)
+SS_model.build_3D_mesh_from_rasters(model_grid_raster_files, 
+                                    SS_model.out_data_folder_grid, 1.0, 1000.0)
 # Cleanup any isolated cells:
 SS_model.reclassIsolatedCells()
 
@@ -237,9 +245,59 @@ HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts',
            'qa':'Coonambidgal Sands', 'utqa':'Shepparton Sands',
            'utam':'Shepparton Sands'}
 
+HGU_zone = {'bse':6, 'utb':1, 
+           'utaf':4, 'lta':5, 
+           'qa':0, 'utqa':2,
+           'utam':3}
+           
+# Set up pilot points:
+SS_model.create_pilot_points('hk')           
+hk = SS_model.pilot_points['hk']
+
+# Create some references to data inside the model builder object
+mesh_array = SS_model.model_mesh3D
+cell_centers = SS_model.model_mesh_centroids
+model_boundary = SS_model.model_boundary
+zones = len(np.unique(SS_model.model_mesh3D[1])) - 1
+
+# Create dict of zones and properties
+zone_prop_dict={zone: HGU_props['Kh mean'][HGU_map[HGU[zone]]] for zone in range(zones)}
+# Define some parameters for pilot point distribution
+if resolution == 1000:
+    skip=[0, 0, 6, 0, 6, 6, 6] 
+    skip_active=[49, 20, 0, 34, 0, 0, 0]
+else:
+    skip=[0,  0, 3, 0, 2, 3, 3] 
+    skip_active=[3, 20, 0, 4, 0, 0, 0]
+
+# Generate the pilot points 
+hk.generate_points_from_mesh(mesh_array, cell_centers, 
+    skip=skip, 
+    skip_active=skip_active,
+    zone_prop_dict=zone_prop_dict)
+
+# Create some necessary files fro pilot points utilities
+hk.write_settings_fig()
+hk.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
+hk.write_struct_file(mesh_array, nugget=0.0, 
+                  transform='log',numvariogram=1, variogram=0.15, 
+                  vartype=2, bearing=0.0, a=20000.0, anisotropy=1.0)
+
+# These search_radius values have been tested on the 1000m grid, would be good
+# to add in other resolution lists as they are developed
+if resolution == 1000:
+    search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
+else:
+    search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
+    
+hk.setup_pilot_points_by_zones(mesh_array, zones, search_radius)    
+hk.run_pyfac2real_by_zones(zones)
+           
 for unit in HGU:
-    SS_model.parameters.create_model_parameter('Kh_' + unit, value=HGU_props['Kh mean'][HGU_map[unit]])
-    SS_model.parameters.parameter_options('Kh_' + unit, 
+    SS_model.parameters.create_model_parameter_set('Kh_' + unit, 
+                                                   value=HGU_props['Kh mean'][HGU_map[unit]], 
+                                                   num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
+    SS_model.parameters.parameter_options_set('Kh_' + unit, 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
@@ -283,10 +341,12 @@ Kv = SS_model.model_mesh3D[1].astype(float)
 Sy = SS_model.model_mesh3D[1].astype(float)
 SS = SS_model.model_mesh3D[1].astype(float)
 for key in zone_map.keys():
-    Kh[Kh == key] = SS_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
+    #Kh[Kh == key] = SS_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
     Kv[Kv == key] = SS_model.parameters.param['Kv_' + zone_map[key]]['PARVAL1']
     Sy[Sy == key] = SS_model.parameters.param['Sy_' + zone_map[key]]['PARVAL1']
     SS[SS == key] = SS_model.parameters.param['SS_' + zone_map[key]]['PARVAL1']
+
+Kh = hk.val_array
 
 SS_model.properties.assign_model_properties('Kh', Kh)
 SS_model.properties.assign_model_properties('Kv', Kv)
