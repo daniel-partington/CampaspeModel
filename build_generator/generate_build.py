@@ -9,11 +9,12 @@ def generate_build_script(script_name, *args):
         script += i
     # End for
 
-    # TODO: Replace with file output/writing
-    # print script
-
     if not script_name.endswith(".py"):
         script_name = "{}.py".format(script_name)
+    # End if
+
+    if not os.path.isdir("gen_builds"):
+        os.mkdir("gen_builds")
     # End if
 
     with open("gen_builds/{}".format(script_name), 'w') as output:
