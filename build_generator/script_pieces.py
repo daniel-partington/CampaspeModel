@@ -89,23 +89,19 @@ SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file,
 """.format(shp=shp_file, buf_dist=buffer_dist)
 
 
-def s_the_rest():
-    """
-    To be removed once build generator is complete
-    """
-
+def s_weather_stations(station_list, rain_info_file, rain_gauges_shp):
     return """
 # Setup recharge:
 # ... read in climate data using Custom_Scripts
-weather_stations = ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
+weather_stations = {stn_list}  # ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
 
 if VERBOSE:
     print "************************************************************************"
-    print " Executing custom script: processWeatherStations "
+    print " Executing custom script: processWeatherStations"
 
 rain_info_file = "rain_processed"
 # Check if this data has been processed and if not process it
-rain_info_h5 = SS_model.out_data_folder + rain_info_file + '.h5'
+rain_info_h5 = SS_model.out_data_folder + {nfo_file} + '.h5'
 if os.path.exists(rain_info_h5):
     long_term_historic_rainfall = SS_model.load_dataframe(rain_info_h5)
 else:
@@ -113,8 +109,17 @@ else:
                                                                                 path=climate_path)
     SS_model.save_dataframe(SS_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
 
-rain_gauges = SS_model.read_points_data(climate_path + "Rain_gauges.shp")
+rain_gauges = SS_model.read_points_data(climate_path + "{gauges_shp}")
 
+""".format(stn_list=station_list, nfo_file=rain_info_file, gauges_shp=rain_gauges_shp)
+
+
+def s_the_rest():
+    """
+    To be removed once build generator is complete
+    """
+
+    return """
 # INCLUDE NSW bores in this next part too for better head representation at the border,
 # i.e. Murray River
 

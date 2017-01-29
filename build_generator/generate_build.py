@@ -37,5 +37,8 @@ if __name__ == '__main__':
                                              climate_path="C:/Workspace/part0075/MDB modelling/Campaspe_data/Climate/"
                                              ),
                           s_set_boundaries("GW_model_area.shp", 20000),
+                          s_weather_stations(['Kyneton',  'Elmore', 'Rochester', 'Echuca'],
+                                             "rain_processed",
+                                             "Rain_gauges.shp"),
                           s_the_rest()
                           )
