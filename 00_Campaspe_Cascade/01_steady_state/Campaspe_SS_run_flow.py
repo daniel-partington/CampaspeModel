@@ -4,7 +4,7 @@ import os
 import sys
 import numpy as np
 
-sys.path.append('C:\Workspace\part0075\GIT_REPOS')
+#sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
@@ -15,7 +15,7 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
 # MM is short for model manager
 
 
-def run(model_folder, data_folder, mf_exe_folder, param_file=None):
+def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True):
     """Model Runner."""
 
     MM = GWModelManager()
@@ -27,10 +27,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
     if param_file:
-        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
-    print "************************************************************************"
-    print " Updating HGU parameters "
+    if verbose:
+        print "************************************************************************"
+        print " Updating HGU parameters "
 
     # This needs to be automatically generated from with the map_raster2mesh routine ...
     zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
@@ -68,8 +69,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     m.properties.assign_model_properties('Sy', Sy)
     m.properties.assign_model_properties('SS', SS)
 
-    print "************************************************************************"
-    print " Updating river parameters "
+    if verbose:
+        print "************************************************************************"
+        print " Updating river parameters "
 
     riv_width_avg = 10.0 #m
     riv_bed_thickness = 0.10 #m
@@ -88,8 +90,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
             
     m.boundaries.assign_boundary_array('Campaspe River', riv)
 
-    print "************************************************************************"
-    print "Updating River Murray"
+    if verbose:
+        print "************************************************************************"
+        print "Updating River Murray"
     
     mapped_river = m.polyline_mapped['River_Murray_model.shp']
 
@@ -114,8 +117,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     m.boundaries.assign_boundary_array('Murray River', riv)
 
     
-    print "************************************************************************"
-    print " Updating recharge boundary "
+    if verbose:
+        print "************************************************************************"
+        print " Updating recharge boundary "
 
     # Adjust rainfall to recharge using 10% magic number
     interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
@@ -140,8 +144,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     # print m.observations.obs_group['head'].keys()
     # print m.observations.obs_group['head']['mapped_observations']
 
-    print "************************************************************************"
-    print " Updating Murray River GHB boundary"
+    if verbose:
+        print "************************************************************************"
+        print " Updating Murray River GHB boundary"
 
     MurrayGHB = []
     for MurrayGHB_cell in mapped_river:
@@ -206,8 +211,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 #
 #    ghb[0] += EastGHB
 
-    print "************************************************************************"
-    print " Updating GHB boundary"
+    if verbose:
+        print "************************************************************************"
+        print " Updating GHB boundary"
 
     m.boundaries.assign_boundary_array('GHB', ghb)
 
@@ -226,9 +232,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     
     for i in range(retries):
     
-        
-        print "************************************************************************"
-        print " Set initial head "
+        if verbose:
+            print "************************************************************************"
+            print " Set initial head "
     
 #        fname="initial"
 #        headobj = bf.HeadFile(os.path.join(data_folder, fname) +'.hds')
@@ -237,8 +243,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 #    
 #        m.initial_conditions.set_as_initial_condition("Head", head)
     
-        print "************************************************************************"
-        print " Build and run MODFLOW model "
+        if verbose:
+            print "************************************************************************"
+            print " Build and run MODFLOW model "
     
         ###########################################################################
         ###########################################################################
@@ -249,15 +256,15 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
         # Override temporal aspects of model build:
         modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
-        modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 1 day here
+        modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
         modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
         modflow_model.steady = True # This is to tell FloPy that is a transient model
 
         modflow_model.executable = mf_exe_folder
     
-        modflow_model.buildMODFLOW()
+        modflow_model.buildMODFLOW(transport=True)
     
-        modflow_model.checkMODFLOW()
+        #modflow_model.checkMODFLOW()
     
         modflow_model.runMODFLOW(silent=True)
     
@@ -295,6 +302,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file)
+        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=False)
     else:
         run(model_folder, data_folder, mf_exe_folder)
