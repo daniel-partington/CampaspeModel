@@ -194,7 +194,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 5000
+resolution = 1000
 SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
@@ -291,6 +291,7 @@ else:
     search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
     
 hk.setup_pilot_points_by_zones(mesh_array, zones, search_radius)    
+print("Running pyfac2real")
 hk.run_pyfac2real_by_zones(zones)
            
 for unit in HGU:

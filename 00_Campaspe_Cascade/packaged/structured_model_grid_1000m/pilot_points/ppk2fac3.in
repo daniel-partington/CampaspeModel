@@ -1,0 +1,15 @@
+grid.spc 
+points3.pts 
+0.0 
+zone3.inf 
+struct.dat 
+
+structure3
+o
+20000
+1
+50
+factors3.dat
+f
+sd3.ref
+reg3.dat
