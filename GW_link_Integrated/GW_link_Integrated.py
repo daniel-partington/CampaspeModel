@@ -4,23 +4,23 @@ then return SW/GW exchanges, avg depth to GW, depth to GW at ecology sites and
 head at trigger bores.
 """
 
+import cPickle as pickle
 import os
 import sys
 import warnings
 
-import numpy as np
-import cPickle as pickle
-
 import flopy.utils.binaryfile as bf
+import numpy as np
 
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+# Configuration Loader
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
+
 
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
 
-# Configuration Loader
-from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 def loadObj(data_folder, model_name, filename):
     """
@@ -45,11 +45,13 @@ def loadObj(data_folder, model_name, filename):
     return model_obj
 # End loadObj()
 
+
 def closest_node(node, nodes):
     nodes = np.asarray(nodes)
     dist_2 = np.sum((nodes - node)**2, axis=1)
     return np.argmin(dist_2)
 # End closest_node()
+
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None, verbose=True, MM=None):
@@ -91,7 +93,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
 
     # This needs to be automatically generated from with the map_raster2mesh routine ...
-#    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
+    # zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
     if verbose:
         print "************************************************************************"
@@ -330,47 +332,23 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = False#False # This is to tell FloPy that is a transient model
+    modflow_model.steady = False  # False # This is to tell FloPy that is a transient model
 
     modflow_model.executable = mf_exe_folder
 
     modflow_model.buildMODFLOW()
 
-    modflow_model.runMODFLOW()  # silent=True
+    modflow_model.runMODFLOW()
 
     modflow_model.checkCovergence()
 
     # modflow_model.waterBalance()
-
-#    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
-#    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
-#    print("Campaspe River flux -'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] < 0.0]).sum())
-#
-#    camp_riv_flux = modflow_model.getRiverFlux('Campaspe River')[0]
-#    import matplotlib.pyplot as plt
-#
-#    plt.figure()
-#
-#    points = [x[1] for x in camp_riv_flux]
-#
-#    cmap = plt.get_cmap('spectral')
-#
-#    x = [ x[2] for x in points ]
-#    y = [ y[1] for y in points ]
-#    vals = [v[0] for v in camp_riv_flux]
-#    ax = plt.scatter(x, y, c=vals, cmap=cmap, vmin=-1000, vmax= 1000)
-#
-#    plt.colorbar(ax)
-
-    #modflow_model.viewHeads2()
-
     # modflow_model.waterBalance(plot=False)
     # modflow_model.viewHeads2()
 
     """
     SW-GW exchanges:
     """
-
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
                                               in sw_stream_gauges])
 
@@ -379,8 +357,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
             riv_reach_nodes[gauge])
 
     if verbose:
-        print("Upstream of weir", swgw_exchanges[sw_stream_gauges[0]]+swgw_exchanges[sw_stream_gauges[1]])
-        print("Downstream of weir", swgw_exchanges[sw_stream_gauges[2]]+swgw_exchanges[sw_stream_gauges[3]])
+        print("Upstream of weir", swgw_exchanges[
+              sw_stream_gauges[0]] + swgw_exchanges[sw_stream_gauges[1]])
+        print("Downstream of weir", swgw_exchanges[
+              sw_stream_gauges[2]] + swgw_exchanges[sw_stream_gauges[3]])
 
     """
     Average depth to GW table:
@@ -454,9 +434,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
 if __name__ == "__main__":
 
-    print("Running from: "+os.getcwd())
+    print("Running from: " + os.getcwd())
     CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                          "config", "model_config.json"))\
+                                       "config", "model_config.json"))\
         .set_environment("GW_link_Integrated")
 
     def load_obj(filename):
