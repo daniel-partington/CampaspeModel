@@ -18,7 +18,7 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 # MM is short for model manager
 
-def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True):
+def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True):
     """Model Runner."""
 
     MM = GWModelManager()
@@ -54,7 +54,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
                            ftlfilename='mt3d_link.ftl', 
                            modflowmodel=modflow_model.mf, 
                            model_ws=modflow_model.data_folder, 
-                           exe_name='MT3D-USGS_64.exe')
+                           exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
 
     #Add the BTN package to the model
     ibound = modflow_model.model_data.model_mesh3D[1]        
@@ -176,10 +176,10 @@ if __name__ == "__main__":
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
         data_folder = model_config['data_folder']
-        mf_exe_folder = model_config['mf_exe_folder']
+        mt_exe_folder = model_config['mt_exe_folder']
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
+        run(model_folder, data_folder, mt_exe_folder, param_file=param_file, verbose=verbose)
     else:
-        run(model_folder, data_folder, mf_exe_folder, verbose=verbose)
+        run(model_folder, data_folder, mt_exe_folder, verbose=verbose)
