@@ -1,3 +1,4 @@
+import sys
 import os
 import datetime
 
@@ -33,6 +34,35 @@ SS_model = GWModelBuilder(name="GW_link_Integrated",
 # Define the units for the project for consistency and to allow converions on input data
 # SS_model.length = 'm'
 # SS_model.time = 'd'
+
+#******************************************************************************
+#******************************************************************************
+#
+# Complimentary models requirements, i.e. bore and gauge data that should be 
+# referenceable to this model for parsing specific outputs and receiving inputs:
+
+
+model_linking = r"../testbox/integrated/data/model_linking.csv"
+with open(model_linking, 'r') as f:
+    lines = f.readlines()
+    def process_line(line):
+        processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
+        return processed
+
+    for line in lines:
+        if line.split(':')[0] == 'Ecology':
+            Ecology_bores = process_line(line)
+            print('Ecology: {}'.format(Ecology_bores))
+        elif line.split(':')[0] == 'Policy':
+            Policy_bores = process_line(line)
+            print('Policy: {}'.format(Policy_bores))
+        elif line.split(':')[0] == 'SW_stream_gauges':
+            Stream_gauges = process_line(line)
+            print('SW: {}'.format(Stream_gauges))
+
+#******************************************************************************
+#******************************************************************************
+
 
 # Set the model boundary using a polygon shapefile:
 print "************************************************************************"
@@ -336,11 +366,6 @@ SS_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 print "************************************************************************"
 print " Mapping bores to grid "
 
-# Important bores for other component models:
-Ecology = ['83003', '89586', '82999', '5662', '44828']
-Policy = ['79234', '62589']
-
-    
 
 SS_model.map_points_to_grid(bores_shpfile, feature_id = 'HydroCode')
 
@@ -351,24 +376,30 @@ for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
         try:
             bore_depth = bore_data_info.loc[bore, 'depth'] #[bore_data_info["HydroCode"] == HydroCode]['depth']        
         except:
-            if bore in Ecology:
+            if bore in Ecology_bores:
                 print 'Ecology bore not in info: ', bore
-            if bore in Policy:
+                #sys.exit('Halting model build due to bore not being found')
+            if bore in Policy_bores:
                 print 'Policy bore not in info: ', bore
+                #sys.exit('Halting model build due to bore not being found')
             continue
         if bore_depth > SS_model.model_mesh3D[0][0][row][col]:
             #print 'Bore can't be above surface!!!   
-            if bore in Ecology:
+            if bore in Ecology_bores:
                 print 'Ecology bore above surf: ', bore
-            if bore in Policy:
+                #sys.exit('Halting model build due to bore not being mapped')
+            if bore in Policy_bores:
                 print 'Policy bore above surf: ', bore
+                #sys.exit('Halting model build due to bore not being mapped')
             continue
         if bore_depth <= SS_model.model_mesh3D[0][-2][row][col]:
             #print 'Ignoring bores in bedrock!!!        
-            if bore in Ecology:
+            if bore in Ecology_bores:
                 print 'Ecology bore in  bedrock: ', bore
-            if bore in Policy:
+                #sys.exit('Halting model build due to bore not being mapped')
+            if bore in Policy_bores:
                 print 'Policy bore in bedrock: ', bore
+                #sys.exit('Halting model build due to bore not being mapped')
             continue
         bores_more_filter += [bore]        
 
@@ -376,7 +407,7 @@ print 'Final bores within aquifers: ', len(bores_more_filter)
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
-ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology]                          
+ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]                          
                           
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
 
@@ -622,8 +653,6 @@ print " Mapping Campaspe river to grid"
 # Remvoed 406219 as it represents the head in the reservoir which is not modelled.
 # Added in 406203 as it represents stage just downstream of the weir, NB not currently included in list of gauges online
 
-sw_stream_gauges = ['406201', '406203', '406218', '406202', '406265']
-
 use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
               'CAMPASPE RIVER @ DOAKS RESERVE',
               'CAMPASPE RIVER @ AXEDALE',
@@ -651,7 +680,7 @@ Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clip
 filter_gauges = []
 for riv_gauge in Campaspe_river_gauges:
     #if riv_gauge[1][0] in use_gauges:
-    if str(riv_gauge[1][0]) in sw_stream_gauges:
+    if str(riv_gauge[1][0]) in Stream_gauges:
         filter_gauges += [riv_gauge]
 
 SS_model.map_polyline_to_grid(Campaspe_river_poly)
