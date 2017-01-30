@@ -10,8 +10,10 @@ from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
 # Configuration Loader
-from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
+#from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
 
+# Configuration Loader
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 # MM is short for model manager
 
 
@@ -287,6 +289,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
   
 
 if __name__ == "__main__":
+
+    print("Running from: " + os.getcwd())
+    CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "model_config.json"))\
+        .set_environment("01_steady_state")
+
     args = sys.argv
     if len(args) > 1:
         model_folder = sys.argv[1]
