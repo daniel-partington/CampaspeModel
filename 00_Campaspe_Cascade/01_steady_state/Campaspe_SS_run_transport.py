@@ -41,8 +41,6 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
 
-    modflow_model.executable = mf_exe_folder
-
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 40000 * 365  # 
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
