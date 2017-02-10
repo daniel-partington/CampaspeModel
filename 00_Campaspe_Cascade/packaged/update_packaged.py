@@ -31,4 +31,6 @@ for folder in pp_folds:
     to_dir = os.path.join(cwd, folder2, "pilot_points")
     if os.path.exists(to_dir):
         shutil.rmtree(to_dir)
-    shutil.copytree(folder, to_dir)                        
+        
+    ignore_patterns = ('*.in','grid.spc','reg*.dat','*.ref','*.fig', '*.ref', '*.inf', 'struct.dat', 'debug1.dat')
+    shutil.copytree(folder, to_dir, ignore=shutil.ignore_patterns(*ignore_patterns))                        
