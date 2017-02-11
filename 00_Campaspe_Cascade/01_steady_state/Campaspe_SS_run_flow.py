@@ -2,20 +2,15 @@
 
 import os
 import sys
-import numpy as np
+import shutil
 
-#sys.path.append('C:\Workspace\part0075\GIT_REPOS')
+import numpy as np
 
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
 # Configuration Loader
-#from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
-
-# Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
-# MM is short for model manager
-
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True):
     """Model Runner."""
@@ -48,7 +43,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
     for index, key in enumerate(zone_map.keys()):
         # if key ==7:
         #    continue
-        #Kh[Zone == key] = m.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
+#        Kh[Zone == key] = m.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
         for index2, param in enumerate(m.parameters.param_set['Kh_' + zone_map[key]]):
             if index2 == 0:
                 points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
@@ -63,8 +58,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
     zones = len(zone_map.keys())
     hk.output_directory = os.path.join(data_folder, 'pilot_points')
     hk.update_pilot_points_files_by_zones(zones, points_values_dict)
+    import time
+    time.sleep(3)
     hk.run_pyfac2real_by_zones(zones) 
+    hk.save_mesh3D_array(filename=os.path.join(data_folder, 'hk_val_array'))
     Kh = hk.val_array
+    m.save_array(os.path.join(data_folder, 'Kh'), Kh)
     
     m.properties.assign_model_properties('Kh', Kh)
     m.properties.assign_model_properties('Kv', Kv)
@@ -94,7 +93,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
 
     if verbose:
         print "************************************************************************"
-        print "Updating River Murray"
+        print " Updating River Murray"
     
     mapped_river = m.polyline_mapped['River_Murray_model.shp']
 
@@ -106,7 +105,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
         col = riv_cell[0][1]
         if m.model_mesh3D[1][0][row][col] == -1:
             continue
-        # print test_model.model_mesh3D
         stage = m.model_mesh3D[0][0][row][col] - 0.01
         bed = m.model_mesh3D[0][0][row][col] - 0.1 - \
             m.parameters.param['RMstage']['PARVAL1']
@@ -117,7 +115,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
     riv = {}
     riv[0] = simple_river
     m.boundaries.assign_boundary_array('Murray River', riv)
-
     
     if verbose:
         print "************************************************************************"
@@ -148,7 +145,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
 
     if verbose:
         print "************************************************************************"
-        print " Updating Murray River GHB boundary"
+        print " Updating River Murray GHB boundary"
 
     MurrayGHB = []
     for MurrayGHB_cell in mapped_river:
@@ -157,6 +154,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
         # print m.model_mesh3D
         for lay in range(m.model_mesh3D[1].shape[0]):
             if m.model_mesh3D[1][0][row][col] == -1:
+                continue
+            if lay == 0:
                 continue
             MurrayGHBstage = m.model_mesh3D[0][0][row][
                 col] + m.parameters.param['MGHB_stage']['PARVAL1']
@@ -217,7 +216,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
         print "************************************************************************"
         print " Updating GHB boundary"
 
-    m.boundaries.assign_boundary_array('GHB', ghb)
+    #m.boundaries.assign_boundary_array('GHB', ghb)
 
 
     """
@@ -230,38 +229,42 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
     initial condition for a lower recharge rate which will hopefully allow the 
     model to run.
     """
-    retries = 10
+    retries = 1
     
     for i in range(retries):
     
-        if verbose:
-            print "************************************************************************"
-            print " Set initial head "
-    
-#        fname="initial"
-#        headobj = bf.HeadFile(os.path.join(data_folder, fname) +'.hds')
-#        times = headobj.get_times()
-#        head = headobj.get_data(totim=times[-1])
-#    
-#        m.initial_conditions.set_as_initial_condition("Head", head)
     
         if verbose:
             print "************************************************************************"
             print " Build and run MODFLOW model "
     
-        ###########################################################################
-        ###########################################################################
-        ###########################################################################
-        # Currently using flopyInterface directly rather than running from the ModelManager ...
+        #init_head = [400., 100., 100., 50.]
+        #head = np.full(m.model_mesh3D[1].shape, init_head[i])
 
-        modflow_model = flopyInterface.ModflowModel(m, data_folder=data_folder)
+        #m.initial_conditions.set_as_initial_condition("Head", head)
 
         # Override temporal aspects of model build:
+        modflow_model = flopyInterface.ModflowModel(m, data_folder=data_folder)
+
+        if verbose:
+            print "************************************************************************"
+            print " Set initial head "
+    
+        if os.path.exists(os.path.join(data_folder, '01_steady_state.hds')):
+            print(" Trying last head solution as initial condition")
+            filename = os.path.join(data_folder, '01_steady_state.hds')
+            head = modflow_model.getFinalHeads(str(filename))
+            modflow_model.strt = head
+        else:
+            if verbose:
+                print(" No initial head file found")
+
+                
         modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
         modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
         modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-        modflow_model.steady = True # This is to tell FloPy that is a transient model
-
+        modflow_model.steady = True #True #True # This is to tell FloPy that is a transient model
+                
         modflow_model.executable = mf_exe_folder
     
         modflow_model.buildMODFLOW(transport=True)
@@ -275,10 +278,94 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
         if converge:
             break
         
-    #modflow_model.writeObservations()
+        print(" Trying new initial conditions")
 
-    #modflow_model.viewHeads2()
+    if not converge:
+        retries = 5 #5
+        print(" Modifying recharge")
+        for i in range(retries):
+            
+            rech_steps = [0.1, 0.08, 0.05, 0.02, 0.01]
+            print(" Trying recharge reduction of: {}".format(rech_steps[i]))
+            interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
+        
+            for k in [1, 2, 3, 7]:
+                interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[m.model_mesh3D[
+                    1][0] == k] * rech_steps[i]
+        
+            for k in [4, 5, 6, ]:
+                interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[
+                    m.model_mesh3D[1][0] == k] * 0.
+        
+            rch = {}
+            rch[0] = interp_rain
+        
+            m.boundaries.assign_boundary_array('Rain_reduced', rch)
+    
+            if i > 0:
+                filename = os.path.join(data_folder, 'init{}'.format(rech_steps[i-1])) + '.hds'
+                head = modflow_model.getFinalHeads(str(filename))
+                modflow_model.strt = head
 
+            #modflow_model = flopyInterface.ModflowModel(m, data_folder=data_folder)
+            modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
+            modflow_model.perlen = 100 #40000 * 365  # This is the period of time which is set to 40000 yrs
+            modflow_model.nstp = 100 #1 # This is the number of sub-steps to do in each stress period
+            modflow_model.steady = False #True # This is to tell FloPy that is a transient model
+                
+            modflow_model.buildMODFLOW(transport=True)
+        
+            #modflow_model.checkMODFLOW()
+        
+            modflow_model.runMODFLOW(silent=True)
+        
+            converge = modflow_model.checkCovergence()
+    
+            if not converge:
+                print("Absolute failure to find solution")
+                break
+            else:
+                print("Testing steady state solution from transient solution")
+                shutil.copy(os.path.join(modflow_model.data_folder, modflow_model.name + '.hds'), 
+                            os.path.join(data_folder, 'init{}.hds'.format(rech_steps[i])))
+                
+#        if converge:
+                interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
+            
+                for k in [1, 2, 3, 7]:
+                    interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[m.model_mesh3D[
+                        1][0] == k] * m.parameters.param['SSrch_' + zone_map[k]]['PARVAL1']
+            
+                for k in [4, 5, 6, ]:
+                    interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[
+                        m.model_mesh3D[1][0] == k] * 0.
+            
+                rch = {}
+                rch[0] = interp_rain
+            
+                m.boundaries.assign_boundary_array('Rain_reduced', rch)
+        
+                modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
+                modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
+                modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
+                modflow_model.steady = True #True # This is to tell FloPy that is a transient model
+        
+                filename = os.path.join(data_folder, 'init{}.hds'.format(rech_steps[i]))
+                head = modflow_model.getFinalHeads(str(filename))
+                modflow_model.strt = head
+                
+                modflow_model.buildMODFLOW(transport=True)
+                modflow_model.runMODFLOW(silent=True)
+                converge = modflow_model.checkCovergence()            
+                if converge:
+                    shutil.copy(os.path.join(modflow_model.data_folder, modflow_model.name + '.hds'), 
+                                data_folder)
+                    break
+                
+    #modflow_model.waterBalance()
+    modflow_model.viewGHB()
+    #modflow_model.viewHeads()
+    modflow_model.viewHeadLayer(figsize=(20,10))
     #riv_exch = modflow_model.getRiverFlux('Campaspe River')
     #for key in riv_exch.keys():
     #    print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
@@ -309,6 +396,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=False)
+        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=True) #False)
     else:
         run(model_folder, data_folder, mf_exe_folder)
