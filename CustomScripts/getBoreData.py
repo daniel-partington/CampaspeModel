@@ -50,7 +50,10 @@ N	Deemed not anomalous by the data provider
 """
 
 def getBoreDataGMW():
+    '''
+    Function to process bore data received from Goulburn Murray Water
     
+    '''
     # Now load in the bore data to pandas dataframes
     
     fname = r"Shallow monitoring bores bc301115.xlsx"
@@ -84,6 +87,12 @@ def getBoreDataGMW():
     water_level_bores = pd.unique(WaterLevel['Bore ID'])
 
 def getBoreData(get='transient'): 
+    '''
+    Function to process National Groudnwater Information System (NGIS) data
+    to extract bores with level readings and that have clear info on 
+    the construction, i.e. top and bottom of screen.
+    '''
+
     VIC_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\level_VIC.csv"
     VIC_salinity_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016\salinity_VIC.csv"
     #NSW_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\level_NSW.csv"
@@ -111,6 +120,7 @@ def getBoreData(get='transient'):
 
     df_ConstructionLog_VIC["BoreID"] = df_ConstructionLog_VIC["BoreID"].astype(str)
     df_BoreholeLog_VIC["HydroCode"] = df_BoreholeLog_VIC["HydroCode"].astype(str) 
+    
     
     #df_ConstructionLog_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_ConstructionLog.dbf", cols=["BoreID","TopElev", "BottomElev", "Constructi"])
     #df_HydrogeologicUnit_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_HydrogeologicUnit.dbf", cols=["HGUNumber", "HGCCode"])
@@ -148,7 +158,7 @@ def getBoreData(get='transient'):
     obs_num_min = 1
     dfVIC_level_summary = dfVIC_level_summary[dfVIC_level_summary['result'] > obs_num_min]
 
-    print 'Total number of unique bores with at least %i readings: ' %(obs_num_min), dfVIC_level_summary.shape[0]
+    print 'Total number of unique bores with at least %i readings: ' %(obs_num_min + 1), dfVIC_level_summary.shape[0]
     # Get column with index
     dfVIC_level_summary['HydroCode'] = dfVIC_level_summary.index
 
@@ -167,7 +177,9 @@ def getBoreData(get='transient'):
     print 'Total number of bores with levels and screen info: ', df_bores_clear.shape[0] 
  
     # Filter bores by those with only one construction record as multiscreened wells are ambiguous with respect to observations in NGIS database   
-    # df_bores_clear = df_bores_clear[df_bores_clear['result'] < 3]
+    df_bores_clear = df_bores_clear[df_bores_clear['result'] < 3]
+
+    print 'Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0] 
     
     # Assume bottom is the screened part and that well is not multi-screened    
     df_bores_clear['mean level'] = df_bore_construction_info.groupby('HydroCode').min()['mean level']
@@ -204,5 +216,5 @@ def getBoreData(get='transient'):
     #ax.plot(title="Bore @" + wellslist[0])
 
 if __name__ == "__main__":
-    #df_level, df_bores = getBoreData(get='transient')    
-    getBoreDataGMW()
+    df_level, df_bores = getBoreData(get='transient')    
+    #getBoreDataGMW()

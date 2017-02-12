@@ -1,0 +1,15 @@
+grid.spc 
+points2.pts 
+0.0 
+zone2.inf 
+struct.dat 
+
+structure2
+o
+20000
+1
+50
+factors2.dat
+f
+sd2.ref
+reg2.dat

@@ -76,6 +76,59 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     warnings.warn("This function uses hardcoded values for Farm Zones and SW Gauges")
 
+    #******************************************************************************
+    #******************************************************************************
+    #
+    # Complimentary models requirements, i.e. bore and gauge data that should be 
+    # referenceable to this model for parsing specific outputs and receiving inputs:
+    
+    
+    model_linking = r"../testbox/integrated/data/model_linking.csv"
+    with open(model_linking, 'r') as f:
+        lines = f.readlines()
+        def process_line(line):
+            processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
+            return processed
+    
+        for line in lines:
+            if line.split(':')[0] == 'Ecology':
+                Ecology_bores = process_line(line)
+                print('Ecology: {}'.format(Ecology_bores))
+            elif line.split(':')[0] == 'Policy':
+                Policy_bores = process_line(line)
+                print('Policy: {}'.format(Policy_bores))
+            elif line.split(':')[0] == 'SW_stream_gauges':
+                Stream_gauges = process_line(line)
+                print('SW: {}'.format(Stream_gauges))
+    
+    #******************************************************************************
+    #******************************************************************************
+    
+    
+    
+    def loadObj(data_folder, model_name, filename):
+        """
+        Interface to Model Manager object loader.
+
+        Attempts to load model object from alternate source when file cannot be found.
+
+        :param model_folder: Folder where the model is
+        :param model_name: Name of the model to load object from
+        :param filename: Filename of picked object.
+                         Attempts to load from shapefile with same name on exception.
+        """
+        filename_no_ext = os.path.splitext(filename)[0].split('.')[0]
+
+        try:
+            model_obj = MM.GW_build[model_name].load_obj(os.path.join(
+                data_folder, filename))
+        except IOError:
+            model_obj = MM.GW_build[model_name].polyline_mapped[filename_no_ext + ".shp"]
+        # End try
+
+        return model_obj
+    # End loadObj()
+
     if MM is None:
         MM = GWModelManager()
         MM.load_GW_model(os.path.join(model_folder, "GW_link_Integrated_packaged.pkl"))
@@ -90,7 +143,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
-        this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+        this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'),
+            verbose=verbose)
 
     # This needs to be automatically generated from with the map_raster2mesh routine ...
     # zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
@@ -107,14 +161,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     riv_bed_thickness = 0.10  # m
 
     # sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
-    sw_stream_gauges = ['406201', '406218', '406202', '406265']
+    #sw_stream_gauges = ['406201', '406218', '406202', '406265']
 
     # Need to account for ~8m drop after Campaspe weir.
 
     Campaspe_river_gauges = this_model.points_mapped['processed_river_sites_stage_clipped.shp']
 
     filter_gauges = [riv_gauge for riv_gauge in Campaspe_river_gauges
-                     if str(riv_gauge[1][0]) in sw_stream_gauges]
+                     if str(riv_gauge[1][0]) in Stream_gauges]
 
     simple_river = []
     riv_width_avg = 10.0  # m
@@ -173,10 +227,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # splitting the riv nodes list up
 
     # 1st order the gauges from upstream to downstream:
-    ordered_gauges = ['406201', '406218', '406202', '406265']
+    #ordered_gauges = ['406201', '406218', '406202', '406265']
 
     riv_reach_nodes = {}
-    for index, gauge in enumerate(ordered_gauges):
+#    for index, gauge in enumerate(ordered_gauges):
+    for index, gauge in enumerate(Stream_gauges):
         if index == 0:
             split_loc = new_riv_cells.index(filter_gauge_loc[index])
             riv_reach_nodes[gauge] = new_riv_cells[0:split_loc + 1]
@@ -332,7 +387,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = False  # False # This is to tell FloPy that is a transient model
+    modflow_model.steady = False # This is to tell FloPy that is a transient model
 
     modflow_model.executable = mf_exe_folder
 
@@ -340,9 +395,32 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.runMODFLOW()
 
-    modflow_model.checkCovergence()
+    #modflow_model.checkCovergence()
 
-    # modflow_model.waterBalance()
+    #modflow_model.waterBalance()
+
+#    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
+#    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
+#    print("Campaspe River flux -'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] < 0.0]).sum())
+#
+#    camp_riv_flux = modflow_model.getRiverFlux('Campaspe River')[0]
+#    import matplotlib.pyplot as plt
+#
+#    plt.figure()
+#
+#    points = [x[1] for x in camp_riv_flux]
+#
+#    cmap = plt.get_cmap('spectral')
+#
+#    x = [ x[2] for x in points ]
+#    y = [ y[1] for y in points ]
+#    vals = [v[0] for v in camp_riv_flux]
+#    ax = plt.scatter(x, y, c=vals, cmap=cmap, vmin=-1000, vmax= 1000)
+#
+#    plt.colorbar(ax)
+
+    #modflow_model.viewHeads2()
+
     # modflow_model.waterBalance(plot=False)
     # modflow_model.viewHeads2()
 
@@ -350,9 +428,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     SW-GW exchanges:
     """
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
-                                              in sw_stream_gauges])
+                                              in Stream_gauges])
 
-    for gauge in sw_stream_gauges:
+    for gauge in Stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRiverFluxNodes(
             riv_reach_nodes[gauge])
 
@@ -386,7 +464,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
 
-    ecol_depth_to_gw_bores = ['83003', '89586', '82999', '5662', '44828']
+    ecol_depth_to_gw_bores = Ecology_bores #['83003', '89586', '82999', '5662', '44828']
     ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float)
                                                 for bore in ecol_depth_to_gw_bores])
     # to set
@@ -418,7 +496,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # Removed bore 79234 as it sits above Lake Eppalock which is not included
     # in the groundwater model.
 
-    trigger_head_bores = ['62589']
+    trigger_head_bores = Policy_bores #['62589']
     trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in trigger_head_bores])
     # to set
     for trigger_bore in trigger_head_bores:

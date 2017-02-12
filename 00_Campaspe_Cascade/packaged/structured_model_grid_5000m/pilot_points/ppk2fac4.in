@@ -1,0 +1,15 @@
+grid.spc 
+points4.pts 
+0.0 
+zone4.inf 
+struct.dat 
+
+structure4
+o
+20000
+1
+50
+factors4.dat
+f
+sd4.ref
+reg4.dat
