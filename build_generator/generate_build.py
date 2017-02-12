@@ -37,8 +37,21 @@ if __name__ == '__main__':
                                              climate_path="C:/Workspace/part0075/MDB modelling/Campaspe_data/Climate/"
                                              ),
                           s_set_boundaries("GW_model_area.shp", 20000),
-                          s_weather_stations(['Kyneton',  'Elmore', 'Rochester', 'Echuca'],
+                          s_weather_stations(['Kyneton', 'Elmore', 'Rochester', 'Echuca'],
                                              "rain_processed",
                                              "Rain_gauges.shp"),
+                          s_load_bores(),
+                          s_load_pumping_wells(),
+                          s_hydrogeo_properties(),
+                          s_load_carbon14_data(),
+                          s_process_river_stations(),
+                          s_load_river_shp(),
+                          s_load_gw_boundary_shp(),
+                          s_build_mesh(),
+                          s_assign_mesh_properties(),
+                          s_interp_rainfall_to_grid(),
+                          s_create_recharge_boundary(),
+                          s_map_bores_to_grid(),
+                          s_set_initial_heads(),
                           s_the_rest()
                           )

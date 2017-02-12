@@ -114,11 +114,7 @@ rain_gauges = SS_model.read_points_data(climate_path + "{gauges_shp}")
 """.format(stn_list=station_list, nfo_file=rain_info_file, gauges_shp=rain_gauges_shp)
 
 
-def s_the_rest():
-    """
-    To be removed once build generator is complete
-    """
-
+def s_load_bores():
     return """
 # INCLUDE NSW bores in this next part too for better head representation at the border,
 # i.e. Murray River
@@ -168,7 +164,11 @@ final_bores = final_bores[final_bores['mean level'] > final_bores['BottomElev']]
 if VERBOSE:
     print 'Final number of bores within the data boundary that have level data and screen info: ', \
           final_bores.shape[0]
+"""
 
+
+def s_load_pumping_wells():
+    return """
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
 path = temp_data_loc + r"Campaspe_data\GW\Bore data\\"
@@ -183,14 +183,22 @@ pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path,
                                                        out_file=out_file, out_path=out_path)
 pump_pnt_shp = temp_data_loc + r"Campaspe_data\GW\Bore data\pumping wells.shp"
 pumps_points = SS_model.read_points_data(pump_pnt_shp)
+"""
 
+
+def s_hydrogeo_properties():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: readHydrogeologicalProperties "
 
 file_location = temp_data_loc + r"Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
+"""
 
+
+def s_load_carbon14_data():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print "Get the C14 data"
@@ -201,11 +209,14 @@ C14data = temp_data_loc + r"Campaspe_data\Chemistry\C14_locs.xlsx"
 df_C14 = pd.read_excel(C14data)
 df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
 df_C14.dropna(inplace=True)
+"""
 
+
+def s_process_river_stations():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: processRiverStations "
-
 
 sw_data_loc = temp_data_loc + r"Campaspe_data\SW\All_streamflow_Campaspe_catchment\\"
 
@@ -228,7 +239,11 @@ else:
 river_gauges = SS_model.read_points_data(temp_data_loc +
                                          sw_data_loc +
                                          r"processed_river_sites_stage.shp")
+"""
 
+
+def s_load_river_shp():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
@@ -236,7 +251,11 @@ if VERBOSE:
 river_path = temp_data_loc + r"Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\"
 Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=river_path)
 Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=river_path)
+"""
 
+
+def s_load_gw_boundary_shp():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print "Load in the shapefiles defining groundwater boundaries"
@@ -245,7 +264,11 @@ WGWbound_poly = SS_model.read_polyline("western_head.shp",
                                        path=CONFIG.get_setting(['model_build', 'input_data']))
 EGWbound_poly = SS_model.read_polyline("eastern_head.shp",
                                        path=CONFIG.get_setting(['model_build', 'input_data']))
+"""
 
+
+def s_build_mesh():
+    return """
 if VERBOSE:
     print '########################################################################'
     print '## Mesh specific model building '
@@ -301,7 +324,11 @@ SS_model.build_3D_mesh_from_rasters(model_grid_raster_files,
                                     1000.0)
 # Cleanup any isolated cells:
 SS_model.reclassIsolatedCells()
+"""
 
+
+def s_assign_mesh_properties():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Assign properties to mesh based on zonal information"
@@ -383,7 +410,11 @@ SS_model.properties.assign_model_properties('Kh', Kh)
 SS_model.properties.assign_model_properties('Kv', Kv)
 SS_model.properties.assign_model_properties('Sy', Sy)
 SS_model.properties.assign_model_properties('SS', SS)
+"""
 
+
+def s_interp_rainfall_to_grid():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Interpolating rainfall data to grid "
@@ -415,14 +446,22 @@ for i in [1, 2, 3, 7]:
     ]['PARVAL1']
 
 rch = {0: interp_rain}
+"""
 
+
+def s_create_recharge_boundary():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Creating recharge boundary "
 
 SS_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rain_reduced', rch)
+"""
 
+
+def s_map_bores_to_grid():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Mapping bores to grid "
@@ -517,7 +556,11 @@ for i in xrange(len(hu_raster_files_reproj) / 2):
             bores_head_layer,
             use='griddata',
             method='linear')
+"""
 
+
+def s_set_initial_heads():
+    return """
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
 
 for i in xrange(len(hu_raster_files_reproj) / 2):
@@ -527,6 +570,15 @@ initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 400.)
 
 # interp_heads[hu_raster_files[0]])
 SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)
+"""
+
+
+def s_the_rest():
+    """
+    To be removed once build generator is complete
+    """
+
+    return """
 
 # Map river polyline feature to grid including length of river in cell
 print "************************************************************************"
