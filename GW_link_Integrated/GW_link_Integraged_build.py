@@ -1,24 +1,26 @@
-import sys
-import os
 import datetime
+import os
+import sys
 
-from osgeo import osr
-import pandas as pd
 import numpy as np
+import pandas as pd
+from osgeo import osr
 
+from CampaspeModel.CustomScripts import (get_GW_licence_info, getBoreData,
+                                         processRiverStations,
+                                         processWeatherStations,
+                                         readHydrogeologicalProperties)
+from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import \
+    GDALInterface
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
-from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, \
-    get_GW_licence_info, processRiverStations, \
-    readHydrogeologicalProperties
-
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
+p_j = os.path.join
 dir_name = os.path.dirname
-CONFIG = ConfigLoader(os.path.join(dir_name(dir_name(__file__)), "config", "model_config.json"))\
+CONFIG = ConfigLoader(p_j(dir_name(dir_name(__file__)), "config", "model_config.json"))\
     .set_environment("GW_link_Integrated")
 
-VERBOSE = False
+VERBOSE = True
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
@@ -36,7 +38,7 @@ data_folder = model_config['data_folder']
 mf_exe_folder = model_config['mf_exe_folder']
 param_file = model_config['param_file']
 
-climate_path = "C:/Workspace/part0075/MDB modelling/Campaspe_data/Climate/"
+climate_path = "C:/development/campaspe/GW_data/Campaspe_data/Climate/"
 
 bore_levels_file = "bore_levels"
 bore_info_file = "bore_info"
@@ -44,11 +46,12 @@ bore_info_file = "bore_info"
 model_params = {
     "name": "GW_link_Integrated",
     "data_folder": CONFIG.get_setting(['model_build', 'input_data']),
+    "campaspe_data": CONFIG.get_setting(['model_build', 'campaspe_data']),
     "model_data_folder": model_config['data_folder'],
     "out_data_folder": CONFIG.get_setting(['model_build', 'data_build']),
     "GISInterface": Interface,
     "model_type": "Modflow",
-    "mesh_type": "structured",
+    "mesh_type": "structured"
 }
 SS_model = GWModelBuilder(**model_params)
 
@@ -56,16 +59,17 @@ SS_model = GWModelBuilder(**model_params)
 # SS_model.length = 'm'
 # SS_model.time = 'd'
 
-#******************************************************************************
-#******************************************************************************
+# ******************************************************************************
+# ******************************************************************************
 #
-# Complimentary models requirements, i.e. bore and gauge data that should be 
+# Complimentary models requirements, i.e. bore and gauge data that should be
 # referenceable to this model for parsing specific outputs and receiving inputs:
 
 
 model_linking = r"../testbox/integrated/data/model_linking.csv"
 with open(model_linking, 'r') as f:
     lines = f.readlines()
+
     def process_line(line):
         processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
         return processed
@@ -81,9 +85,8 @@ with open(model_linking, 'r') as f:
             Stream_gauges = process_line(line)
             print('SW: {}'.format(Stream_gauges))
 
-#******************************************************************************
-#******************************************************************************
-
+# ******************************************************************************
+# ******************************************************************************
 
 # Set the model boundary using a polygon shapefile:
 if VERBOSE:
@@ -97,6 +100,7 @@ SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp",
 if VERBOSE:
     print "************************************************************************"
     print " Setting spatial data boundary "
+
 SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file,
                                                   buffer_dist=20000)
 
@@ -109,17 +113,18 @@ if VERBOSE:
     print " Executing custom script: processWeatherStations "
 
 rain_info_file = "rain_processed"
-# Check if this data has been processed and if not process it
-rain_info_h5 = SS_model.out_data_folder + rain_info_file + '.h5'
+# Check if this data has been processed and if not process i
+rain_info_h5 = p_j(SS_model.out_data_folder, rain_info_file + ".h5")
+
 if os.path.exists(rain_info_h5):
     long_term_historic_rainfall = SS_model.load_dataframe(rain_info_h5)
 else:
     long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations,
                                                                                 path=climate_path)
-    SS_model.save_dataframe(SS_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder, rain_info_file),
+                            long_term_historic_rainfall)
 
-rain_gauges = SS_model.read_points_data(climate_path + "Rain_gauges.shp")
-
+rain_gauges = SS_model.read_points_data(p_j(climate_path, "Rain_gauges.shp"))
 # INCLUDE NSW bores in this next part too for better head representation at the border,
 # i.e. Murray River
 
@@ -128,16 +133,17 @@ if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: getBoreData "
 
-bore_lf = SS_model.out_data_folder + bore_levels_file + ".h5"
-bore_if = SS_model.out_data_folder + bore_info_file + ".h5"
+bore_lf = p_j(SS_model.out_data_folder, bore_levels_file + ".h5")
+bore_if = p_j(SS_model.out_data_folder, bore_info_file + ".h5")
 
 if os.path.exists(bore_lf) & os.path.exists(bore_if):
     bore_data_levels = SS_model.load_dataframe(bore_lf)
     bore_data_info = SS_model.load_dataframe(bore_if)
 else:
-    bore_data_levels, bore_data_info = getBoreData.getBoreData()
-    SS_model.save_dataframe(SS_model.out_data_folder + bore_levels_file, bore_data_levels)
-    SS_model.save_dataframe(SS_model.out_data_folder + bore_info_file, bore_data_info)
+    bore_data_levels, bore_data_info = getBoreData.getBoreData(base_path=SS_model.campaspe_data)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder,
+                                bore_levels_file), bore_data_levels)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_info_file), bore_data_info)
 # end if
 
 # getBoreDepth ... assuming that midpoint of screen interval
@@ -145,10 +151,12 @@ else:
 bore_data_info['depth'] = (bore_data_info['TopElev'] + bore_data_info['BottomElev']) / 2.0
 bore_data_info["HydroCode"] = bore_data_info.index
 
-temp_data_loc = r"C:\Workspace\part0075\MDB modelling\\"
+# temp_data_loc = r"C:\Workspace\part0075\MDB modelling\\"
+temp_data_loc = r"C:\development\campaspe\GW_data\\"
 
 # For steady state model, only use bore details containing average level, not
-ngis_bore_shp = temp_data_loc + r"ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp"
+ngis_bore_shp = p_j(
+    temp_data_loc, r"Campaspe_data\\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
 # observation_bores = SS_model.read_points_data(ngis_bore_shp)
 
 if VERBOSE:
@@ -171,8 +179,9 @@ if VERBOSE:
 
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
-path = temp_data_loc + r"Campaspe_data\GW\Bore data\\"
-out_path = temp_data_loc + r"Campaspe_data\GW\Bore data\\"
+
+path = p_j(temp_data_loc, r"Campaspe_data\GW\Bore data\\")
+out_path = p_j(temp_data_loc, r"Campaspe_data\GW\Bore data\\")
 out_file = "pumping wells.shp"
 
 if VERBOSE:
@@ -181,23 +190,25 @@ if VERBOSE:
 
 pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path,
                                                        out_file=out_file, out_path=out_path)
-pump_pnt_shp = temp_data_loc + r"Campaspe_data\GW\Bore data\pumping wells.shp"
+pump_pnt_shp = p_j(temp_data_loc, r"Campaspe_data\GW\Bore data\pumping wells.shp")
 pumps_points = SS_model.read_points_data(pump_pnt_shp)
 
 if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: readHydrogeologicalProperties "
 
-file_location = temp_data_loc + r"Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
+file_location = p_j(
+    temp_data_loc, r"Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx")
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 
 if VERBOSE:
     print "************************************************************************"
     print "Get the C14 data"
 
-C14_points = SS_model.read_points_data(temp_data_loc + r"Campaspe_data\Chemistry\C14.shp")
+C14_points = SS_model.read_points_data(p_j(
+    temp_data_loc, r"Campaspe_data\Chemistry\C14.shp"))
 
-C14data = temp_data_loc + r"Campaspe_data\Chemistry\C14_locs.xlsx"
+C14data = p_j(temp_data_loc, r"Campaspe_data\Chemistry\C14_locs.xlsx")
 df_C14 = pd.read_excel(C14data)
 df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
 df_C14.dropna(inplace=True)
@@ -207,33 +218,34 @@ if VERBOSE:
     print " Executing custom script: processRiverStations "
 
 
-sw_data_loc = temp_data_loc + r"Campaspe_data\SW\All_streamflow_Campaspe_catchment\\"
+sw_data_loc = p_j(temp_data_loc, r"Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
 
 river_flow_file = "river_flow_processed"
+riv_flow_path = p_j(SS_model.out_data_folder, river_flow_file)
 # Check if this data has been processed and if not process it
-if os.path.exists(SS_model.out_data_folder + river_flow_file + '.h5'):
-    river_flow_data = SS_model.load_dataframe(SS_model.out_data_folder + river_flow_file + '.h5')
+if os.path.exists(riv_flow_path + '.h5'):
+    river_flow_data = SS_model.load_dataframe(riv_flow_path + '.h5')
 else:
     river_flow_data = processRiverStations.getFlow(path=sw_data_loc)
-    SS_model.save_dataframe(SS_model.out_data_folder + river_flow_file, river_flow_data)
+    SS_model.save_dataframe(riv_flow_path, river_flow_data)
 
 river_stage_file = "river_stage_processed"
+riv_stage_path = p_j(SS_model.out_data_folder, river_stage_file)
 # Check if this data has been processed and if not process it
-if os.path.exists(SS_model.out_data_folder + river_stage_file + '.h5'):
-    river_stage_data = SS_model.load_dataframe(SS_model.out_data_folder + river_stage_file + '.h5')
+if os.path.exists(riv_stage_path + '.h5'):
+    river_stage_data = SS_model.load_dataframe(riv_stage_path + '.h5')
 else:
     river_stage_data = processRiverStations.getStage(path=sw_data_loc)
-    SS_model.save_dataframe(SS_model.out_data_folder + river_stage_file, river_stage_data)
+    SS_model.save_dataframe(riv_stage_path, river_stage_data)
 
-river_gauges = SS_model.read_points_data(temp_data_loc +
-                                         sw_data_loc +
-                                         r"processed_river_sites_stage.shp")
+river_gauges = SS_model.read_points_data(p_j(sw_data_loc,
+                                             r"processed_river_sites_stage.shp"))
 
 if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
 
-river_path = temp_data_loc + r"Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\"
+river_path = p_j(temp_data_loc, r"Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\")
 Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=river_path)
 Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=river_path)
 
@@ -268,7 +280,7 @@ if VERBOSE:
 SS_model.define_structured_mesh(1000, 1000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
-hu_raster_path = temp_data_loc + r"VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
+hu_raster_path = p_j(temp_data_loc, r"VAF_v2.0_ESRI_GRID\ESRI_GRID\\")
 
 # TODO RUN ON FLAG
 # Build basement file ... only need to do this once as it is time consuming so commented out
@@ -440,28 +452,28 @@ for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
         except:
             if bore in Ecology_bores:
                 print 'Ecology bore not in info: ', bore
-                #sys.exit('Halting model build due to bore not being found')
+                # sys.exit('Halting model build due to bore not being found')
             if bore in Policy_bores:
                 print 'Policy bore not in info: ', bore
-                #sys.exit('Halting model build due to bore not being found')
+                # sys.exit('Halting model build due to bore not being found')
             continue
         if bore_depth > SS_model.model_mesh3D[0][0][row][col]:
-            #print 'Bore can't be above surface!!!   
+            # print 'Bore can't be above surface!!!
             if bore in Ecology_bores:
                 print 'Ecology bore above surf: ', bore
-                #sys.exit('Halting model build due to bore not being mapped')
+                # sys.exit('Halting model build due to bore not being mapped')
             if bore in Policy_bores:
                 print 'Policy bore above surf: ', bore
-                #sys.exit('Halting model build due to bore not being mapped')
+                # sys.exit('Halting model build due to bore not being mapped')
             continue
         if bore_depth <= SS_model.model_mesh3D[0][-2][row][col]:
-            #print 'Ignoring bores in bedrock!!!        
+            # print 'Ignoring bores in bedrock!!!
             if bore in Ecology_bores:
                 print 'Ecology bore in  bedrock: ', bore
-                #sys.exit('Halting model build due to bore not being mapped')
+                # sys.exit('Halting model build due to bore not being mapped')
             if bore in Policy_bores:
                 print 'Policy bore in bedrock: ', bore
-                #sys.exit('Halting model build due to bore not being mapped')
+                # sys.exit('Halting model build due to bore not being mapped')
             continue
         bores_more_filter += [bore]
     # End for
@@ -472,9 +484,10 @@ if VERBOSE:
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
-ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]                          
-                          
-bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
+ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]
+
+bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
+               for x in final_bores.index]
 
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
                for x in final_bores.index]
@@ -773,7 +786,7 @@ Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clip
 
 filter_gauges = []
 for riv_gauge in Campaspe_river_gauges:
-    #if riv_gauge[1][0] in use_gauges:
+    # if riv_gauge[1][0] in use_gauges:
     if str(riv_gauge[1][0]) in Stream_gauges:
         filter_gauges += [riv_gauge]
 
