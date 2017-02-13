@@ -10,7 +10,8 @@
 	    "mf_exe_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/MODFLOW-NWT_64.exe",
 		"model_build": {
 			"input_data": "C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/model_build/input_data",
-			"data_build": "C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/model_build/data_build"
+			"data_build": "C:/UserData/takuyai/ownCloud/CampaspeModel/testbox/integrated/model_build/data_build",
+			"campaspe_data": "C:/development/campaspe/GW_data/Campaspe_data"
 		}
       },
       "taku-clevolap\\takuya": {
