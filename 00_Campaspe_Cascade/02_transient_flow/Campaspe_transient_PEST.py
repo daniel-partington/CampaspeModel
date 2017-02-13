@@ -1,7 +1,10 @@
 import sys
 import os
-sys.path.append('C:\Workspace\part0075\GIT_REPOS')
+#sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 from HydroModelBuilder.GWModelManager import GWModelManager
+
+# Configuration Loader
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 # MM is short for model manager
 def run(model_folder, pest_folder):
@@ -21,8 +24,26 @@ def run(model_folder, pest_folder):
 
 if __name__ ==  "__main__":
 
-    grid_resolution = '5000'
-    model_folder = r"C:\Workspace\part0075\MDB modelling\testbox\00_Campaspe_Cascade\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\\" 
-    pest_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master"     
+# Get general model config information
+    CONFIG = ConfigLoader('../../config/model_config.json')\
+                    .set_environment("01_steady_state")
+
+    verbose=True
+                    
+    args = sys.argv
+    if len(args) > 1:
+        model_folder = sys.argv[1]
+        data_folder = sys.argv[2]
+        mf_exe_folder = sys.argv[3]
+        if len(args) > 4:
+            param_file = sys.argv[4]
+    else:
+        model_config = CONFIG.model_config
+        model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
+        data_folder = model_config['data_folder']
+        mf_exe_folder = model_config['mf_exe_folder']
+        param_file = model_config['param_file']    
+    
+    pest_folder = data_folder     
     
     run(model_folder, pest_folder)

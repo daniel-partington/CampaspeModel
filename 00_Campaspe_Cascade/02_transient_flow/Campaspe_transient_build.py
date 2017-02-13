@@ -220,7 +220,8 @@ tr_model.model_time.set_temporal_components(steady_state=False, start_time=start
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-tr_model.define_structured_mesh(5000, 5000) #10000,10000)
+resolution = 5000
+tr_model.define_structured_mesh(resolution, resolution) 
 
 # Read in hydrostratigraphic raster info for layer elevations:
 #hu_raster_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Hydrogeological_Unit_Layers\\"
@@ -262,16 +263,42 @@ HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts',
            'qa':'Coonambidgal Sands', 'utqa':'Shepparton Sands',
            'utam':'Shepparton Sands'}
 
+HGU_zone = {'bse':6, 'utb':1, 
+            'utaf':4, 'lta':5, 
+            'qa':0, 'utqa':2,
+            'utam':3}
+
+pilot_points = True
+           
+if pilot_points:       
+    tr_model.load_pilot_points(r"C:\Workspace\part0075\MDB modelling\testbox\00_Campaspe_Cascade\01_steady_state\structured_model_grid_5000m\pilot_points.pkl")
+    hk = tr_model.pilot_points['hk']
+           
 for unit in HGU:
-    tr_model.parameters.create_model_parameter('Kh_' + unit, value=HGU_props['Kh mean'][HGU_map[unit]])
-    tr_model.parameters.parameter_options('Kh_' + unit, 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
-                                          PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                          PARGP='cond', 
-                                          SCALE=1, 
-                                          OFFSET=0)
+    if pilot_points:
+        tr_model.parameters.create_model_parameter_set('Kh_' + unit, 
+                                                       value=HGU_props['Kh mean'][HGU_map[unit]], 
+                                                       num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
+        tr_model.parameters.parameter_options_set('Kh_' + unit, 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                              PARGP='cond', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+    else:
+        tr_model.parameters.create_model_parameter('Kh_' + unit, 
+                                                   value=HGU_props['Kh mean'][HGU_map[unit]])
+        tr_model.parameters.parameter_options('Kh_' + unit, 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                              PARGP='cond', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+
     tr_model.parameters.create_model_parameter('Kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
     tr_model.parameters.parameter_options('Kv_' + unit, 
                                           PARTRANS='log', 
@@ -308,10 +335,14 @@ Kv = tr_model.model_mesh3D[1].astype(float)
 Sy = tr_model.model_mesh3D[1].astype(float)
 SS = tr_model.model_mesh3D[1].astype(float)
 for key in zone_map.keys():
-    Kh[Kh == key] = tr_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
+    if not pilot_points:
+        Kh[Kh == key] = tr_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
     Kv[Kv == key] = tr_model.parameters.param['Kv_' + zone_map[key]]['PARVAL1']
     Sy[Sy == key] = tr_model.parameters.param['Sy_' + zone_map[key]]['PARVAL1']
     SS[SS == key] = tr_model.parameters.param['SS_' + zone_map[key]]['PARVAL1']
+
+if pilot_points:
+    Kh = hk.val_array
 
 tr_model.properties.assign_model_properties('Kh', Kh)
 tr_model.properties.assign_model_properties('Kv', Kv)
