@@ -9,8 +9,8 @@ import numpy as np
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
 from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, \
-                                        get_GW_licence_info, processRiverStations, \
-                                        readHydrogeologicalProperties
+    get_GW_licence_info, processRiverStations, \
+    readHydrogeologicalProperties
 
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
@@ -278,7 +278,7 @@ hu_raster_path = temp_data_loc + r"VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b",
                    "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
 SS_model.read_rasters(hu_raster_files, path=hu_raster_path)
-hu_raster_files_reproj = [x+"_reproj.bil" for x in hu_raster_files]
+hu_raster_files_reproj = [x + "_reproj.bil" for x in hu_raster_files]
 
 # Map HGU's to grid
 if VERBOSE:
@@ -288,7 +288,7 @@ if VERBOSE:
 hu_gridded_rasters = SS_model.map_rasters_to_grid(hu_raster_files, hu_raster_path)
 
 # Build 3D grid
-model_grid_raster_files = [x+"_model_grid.bil" for x in hu_raster_files]
+model_grid_raster_files = [x + "_model_grid.bil" for x in hu_raster_files]
 
 # First two arguments of next function are arbitrary and not used ... need to rework module
 if VERBOSE:
@@ -391,15 +391,15 @@ if VERBOSE:
 interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall,
                                                feature_id='Name')
 # Adjust rainfall to m from mm and from year to days
-interp_rain = interp_rain/1000.0/365.0
+interp_rain = interp_rain / 1000.0 / 365.0
 # Adjust rainfall to recharge using 10% magic number
 
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
 for i in [1, 2, 3, 7]:
-    SS_model.parameters.create_model_parameter('rch_red_'+zone_map[i], value=0.09)
-    SS_model.parameters.parameter_options('rch_red_'+zone_map[i],
+    SS_model.parameters.create_model_parameter('rch_red_' + zone_map[i], value=0.09)
+    SS_model.parameters.parameter_options('rch_red_' + zone_map[i],
                                           PARTRANS='log',
                                           PARCHGLIM='factor',
                                           PARLBND=0.,
@@ -410,9 +410,9 @@ for i in [1, 2, 3, 7]:
 
     match = interp_rain[SS_model.model_mesh3D[1][0] == i]
     interp_rain[SS_model.model_mesh3D[1][0] == i] = match * SS_model.parameters.param[
-                                                                                'rch_red_' +
-                                                                                zone_map[i]
-                                                                            ]['PARVAL1']
+        'rch_red_' +
+        zone_map[i]
+    ]['PARVAL1']
 
 rch = {0: interp_rain}
 
@@ -499,33 +499,33 @@ bores_in_layers = SS_model.map_points_to_raster_layers(bore_points, final_bores[
 # Map bores to layers to create initial head maps for different hydrogeological units
 interp_heads = {}
 
-for i in xrange(len(hu_raster_files_reproj)/2):
+for i in xrange(len(hu_raster_files_reproj) / 2):
     bores_layer = np.array(bore_points)[np.array(bores_in_layers[i])]
-    print 'Creating head map for: ', hu_raster_files[2*i]
+    print 'Creating head map for: ', hu_raster_files[2 * i]
     if bores_layer.shape[0] < 4:
-        interp_heads[hu_raster_files[2*i]] = np.full(SS_model.model_mesh3D[1].shape[1:], np.NaN)
+        interp_heads[hu_raster_files[2 * i]] = np.full(SS_model.model_mesh3D[1].shape[1:], np.NaN)
     else:
         bores_head_layer = np.array(
-                            final_bores["mean level"].tolist()
-                           )[np.array(bores_in_layers[i])]
+            final_bores["mean level"].tolist()
+        )[np.array(bores_in_layers[i])]
         unique_bores = np.unique(bores_layer)
 
         b = np.ascontiguousarray(bores_layer).view(np.dtype(
-                                                    (np.void, bores_layer.dtype.itemsize *
-                                                     bores_layer.shape[1])))
+            (np.void, bores_layer.dtype.itemsize *
+             bores_layer.shape[1])))
         _, idx = np.unique(b, return_index=True)
 
         unique_bores = bores_layer[idx]
 
-        interp_heads[hu_raster_files[2*i]] = SS_model.interpolate_points2mesh(
-                                                bores_layer,
-                                                bores_head_layer,
-                                                use='griddata',
-                                                method='linear')
+        interp_heads[hu_raster_files[2 * i]] = SS_model.interpolate_points2mesh(
+            bores_layer,
+            bores_head_layer,
+            use='griddata',
+            method='linear')
 
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
 
-for i in xrange(len(hu_raster_files_reproj)/2):
+for i in xrange(len(hu_raster_files_reproj) / 2):
     initial_heads_SS[i] = SS_model.model_mesh3D[1][0]  # (interp_heads[hu_raster_files[2]]) # 2*i
 
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 400.)
@@ -566,7 +566,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
         active = False
         for i in xrange(SS_model.model_mesh3D[1].shape[0]):
             if well_depth < SS_model.model_mesh3D[0][i][row][col] and \
-               well_depth > SS_model.model_mesh3D[0][i+1][row][col]:
+               well_depth > SS_model.model_mesh3D[0][i + 1][row][col]:
                 active_layer = i
                 active = True
                 break
@@ -579,7 +579,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
 
         # Well sits in the mesh, so assign to well boundary condition
         well_name[i] = well
-        i = i+1
+        i = i + 1
         try:
             wel[0] += [[active_layer, row, col, 0.]]
         except:
@@ -645,12 +645,12 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
             # print 'No data to place pump at depth ... ignoring ', pump
             continue
         pump_depth = SS_model.model_mesh3D[0][0][row][col] - pumping_data.loc[
-                                                                pump,
-                                                                'Top screen depth (m)']
+            pump,
+            'Top screen depth (m)']
         active = False
-        for i in xrange(SS_model.model_mesh3D[0].shape[0]-1):
+        for i in xrange(SS_model.model_mesh3D[0].shape[0] - 1):
             if pump_depth < SS_model.model_mesh3D[0][i][row][col] and \
-               pump_depth > SS_model.model_mesh3D[0][i+1][row][col]:
+               pump_depth > SS_model.model_mesh3D[0][i + 1][row][col]:
                 active_layer = i
                 active = True
                 break
@@ -853,7 +853,7 @@ for index, riv in enumerate(new_riv):
     if index == 0:
         new_riv[index] += [0.0]
     else:
-        new_riv[index] += [new_riv[index-1][3] + new_riv[index-1][1]]
+        new_riv[index] += [new_riv[index - 1][3] + new_riv[index - 1][1]]
     # End if
 # End for
 
@@ -980,7 +980,7 @@ for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
             continue
         # End if
         dx = SS_model.gridHeight
-        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
+        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay + 1][row][col]
         MGHBconductance = dx * dz * SS_model.parameters.param['MGHBcond']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
