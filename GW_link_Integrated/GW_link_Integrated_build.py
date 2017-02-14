@@ -1,6 +1,6 @@
 import datetime
 import os
-import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -64,7 +64,6 @@ SS_model = GWModelBuilder(**model_params)
 #
 # Complimentary models requirements, i.e. bore and gauge data that should be
 # referenceable to this model for parsing specific outputs and receiving inputs:
-
 
 model_linking = r"../testbox/integrated/data/model_linking.csv"
 with open(model_linking, 'r') as f:
@@ -144,7 +143,7 @@ else:
     SS_model.save_dataframe(p_j(SS_model.out_data_folder,
                                 bore_levels_file), bore_data_levels)
     SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_info_file), bore_data_info)
-# end if
+# End if
 
 # getBoreDepth ... assuming that midpoint of screen interval
 # is representative location and assign to layer accordingly
@@ -152,11 +151,11 @@ bore_data_info['depth'] = (bore_data_info['TopElev'] + bore_data_info['BottomEle
 bore_data_info["HydroCode"] = bore_data_info.index
 
 # temp_data_loc = r"C:\Workspace\part0075\MDB modelling\\"
-temp_data_loc = r"C:\development\campaspe\GW_data\\"
+temp_data_loc = "C:/development/campaspe/GW_data/"
 
 # For steady state model, only use bore details containing average level, not
 ngis_bore_shp = p_j(
-    temp_data_loc, r"Campaspe_data\\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
+    temp_data_loc, "Campaspe_data/ngis_shp_VIC/ngis_shp_VIC/NGIS_Bores.shp")
 # observation_bores = SS_model.read_points_data(ngis_bore_shp)
 
 if VERBOSE:
@@ -245,7 +244,8 @@ if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
 
-river_path = p_j(temp_data_loc, r"Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\")
+# river_path = p_j(temp_data_loc, "Campaspe_model/GIS/GIS_preprocessed/Surface_Water/Streams/")
+river_path = p_j(temp_data_loc, "input_data/Waterways/")
 Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=river_path)
 Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=river_path)
 
@@ -280,12 +280,12 @@ if VERBOSE:
 SS_model.define_structured_mesh(1000, 1000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
-hu_raster_path = p_j(temp_data_loc, r"VAF_v2.0_ESRI_GRID\ESRI_GRID\\")
+hu_raster_path = p_j(temp_data_loc, "ESRI_GRID_raw/ESRI_GRID/")
 
 # TODO RUN ON FLAG
 # Build basement file ... only need to do this once as it is time consuming so commented out
 # for future runs
-# SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
+SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b",
                    "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
