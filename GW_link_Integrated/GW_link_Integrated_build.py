@@ -1,23 +1,26 @@
-import os
 import datetime
+import os
+import time
 
-from osgeo import osr
-import pandas as pd
 import numpy as np
+import pandas as pd
+from osgeo import osr
 
+from CampaspeModel.CustomScripts import (get_GW_licence_info, getBoreData,
+                                         processRiverStations,
+                                         processWeatherStations,
+                                         readHydrogeologicalProperties)
+from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import \
+    GDALInterface
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
-from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, \
-                                        get_GW_licence_info, processRiverStations, \
-                                        readHydrogeologicalProperties
-
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
+p_j = os.path.join
 dir_name = os.path.dirname
-CONFIG = ConfigLoader(os.path.join(dir_name(dir_name(__file__)), "config", "model_config.json"))\
+CONFIG = ConfigLoader(p_j(dir_name(dir_name(__file__)), "config", "model_config.json"))\
     .set_environment("GW_link_Integrated")
 
-VERBOSE = False
+VERBOSE = True
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
@@ -30,30 +33,60 @@ Interface.projected_coordinate_system = Proj_CS
 Interface.pcs_EPSG = "EPSG:28355"
 
 model_config = CONFIG.model_config
-model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
+model_folder = p_j(model_config['model_folder'], model_config['grid_resolution'])
 data_folder = model_config['data_folder']
 mf_exe_folder = model_config['mf_exe_folder']
 param_file = model_config['param_file']
 
-climate_path = "C:/Workspace/part0075/MDB modelling/Campaspe_data/Climate/"
+climate_path = "C:/development/campaspe/GW_data/Campaspe_data/Climate/"
 
 bore_levels_file = "bore_levels"
 bore_info_file = "bore_info"
 
+model_build_input_path = CONFIG.get_setting(['model_build', 'input_data'])
 model_params = {
     "name": "GW_link_Integrated",
-    "data_folder": CONFIG.get_setting(['model_build', 'input_data']),
+    "data_folder": model_build_input_path,
+    "campaspe_data": CONFIG.get_setting(['model_build', 'campaspe_data']),
     "model_data_folder": model_config['data_folder'],
     "out_data_folder": CONFIG.get_setting(['model_build', 'data_build']),
     "GISInterface": Interface,
     "model_type": "Modflow",
-    "mesh_type": "structured",
+    "mesh_type": "structured"
 }
 SS_model = GWModelBuilder(**model_params)
 
 # Define the units for the project for consistency and to allow converions on input data
 # SS_model.length = 'm'
 # SS_model.time = 'd'
+
+# ******************************************************************************
+# ******************************************************************************
+#
+# Complimentary models requirements, i.e. bore and gauge data that should be
+# referenceable to this model for parsing specific outputs and receiving inputs:
+
+model_linking = r"../testbox/integrated/data/model_linking.csv"
+with open(model_linking, 'r') as f:
+    lines = f.readlines()
+
+    def process_line(line):
+        processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
+        return processed
+
+    for line in lines:
+        if line.split(':')[0] == 'Ecology':
+            Ecology_bores = process_line(line)
+            print('Ecology: {}'.format(Ecology_bores))
+        elif line.split(':')[0] == 'Policy':
+            Policy_bores = process_line(line)
+            print('Policy: {}'.format(Policy_bores))
+        elif line.split(':')[0] == 'SW_stream_gauges':
+            Stream_gauges = process_line(line)
+            print('SW: {}'.format(Stream_gauges))
+
+# ******************************************************************************
+# ******************************************************************************
 
 # Set the model boundary using a polygon shapefile:
 if VERBOSE:
@@ -67,6 +100,7 @@ SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp",
 if VERBOSE:
     print "************************************************************************"
     print " Setting spatial data boundary "
+
 SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file,
                                                   buffer_dist=20000)
 
@@ -79,17 +113,18 @@ if VERBOSE:
     print " Executing custom script: processWeatherStations "
 
 rain_info_file = "rain_processed"
-# Check if this data has been processed and if not process it
-rain_info_h5 = SS_model.out_data_folder + rain_info_file + '.h5'
+# Check if this data has been processed and if not process i
+rain_info_h5 = p_j(SS_model.out_data_folder, rain_info_file + ".h5")
+
 if os.path.exists(rain_info_h5):
     long_term_historic_rainfall = SS_model.load_dataframe(rain_info_h5)
 else:
     long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations,
                                                                                 path=climate_path)
-    SS_model.save_dataframe(SS_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder, rain_info_file),
+                            long_term_historic_rainfall)
 
-rain_gauges = SS_model.read_points_data(climate_path + "Rain_gauges.shp")
-
+rain_gauges = SS_model.read_points_data(p_j(climate_path, "Rain_gauges.shp"))
 # INCLUDE NSW bores in this next part too for better head representation at the border,
 # i.e. Murray River
 
@@ -98,27 +133,30 @@ if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: getBoreData "
 
-bore_lf = SS_model.out_data_folder + bore_levels_file + ".h5"
-bore_if = SS_model.out_data_folder + bore_info_file + ".h5"
+bore_lf = p_j(SS_model.out_data_folder, bore_levels_file + ".h5")
+bore_if = p_j(SS_model.out_data_folder, bore_info_file + ".h5")
 
 if os.path.exists(bore_lf) & os.path.exists(bore_if):
     bore_data_levels = SS_model.load_dataframe(bore_lf)
     bore_data_info = SS_model.load_dataframe(bore_if)
 else:
-    bore_data_levels, bore_data_info = getBoreData.getBoreData()
-    SS_model.save_dataframe(SS_model.out_data_folder + bore_levels_file, bore_data_levels)
-    SS_model.save_dataframe(SS_model.out_data_folder + bore_info_file, bore_data_info)
-# end if
+    bore_data_levels, bore_data_info = getBoreData.getBoreData(base_path=SS_model.campaspe_data)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder,
+                                bore_levels_file), bore_data_levels)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_info_file), bore_data_info)
+# End if
 
 # getBoreDepth ... assuming that midpoint of screen interval
 # is representative location and assign to layer accordingly
 bore_data_info['depth'] = (bore_data_info['TopElev'] + bore_data_info['BottomElev']) / 2.0
 bore_data_info["HydroCode"] = bore_data_info.index
 
-temp_data_loc = r"C:\Workspace\part0075\MDB modelling\\"
+# temp_data_loc = r"C:\Workspace\part0075\MDB modelling\\"
+temp_data_loc = "C:/development/campaspe/GW_data/"
 
 # For steady state model, only use bore details containing average level, not
-ngis_bore_shp = temp_data_loc + r"ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp"
+ngis_bore_shp = p_j(
+    temp_data_loc, "Campaspe_data", "ngis_shp_VIC", "ngis_shp_VIC", "NGIS_Bores.shp")
 # observation_bores = SS_model.read_points_data(ngis_bore_shp)
 
 if VERBOSE:
@@ -141,8 +179,9 @@ if VERBOSE:
 
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
-path = temp_data_loc + r"Campaspe_data\GW\Bore data\\"
-out_path = temp_data_loc + r"Campaspe_data\GW\Bore data\\"
+
+path = out_path = p_j(temp_data_loc, r"Campaspe_data", "GW", "Bore data")
+# out_path = p_j(temp_data_loc, r"Campaspe_data\GW\Bore data\\")
 out_file = "pumping wells.shp"
 
 if VERBOSE:
@@ -151,24 +190,25 @@ if VERBOSE:
 
 pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path,
                                                        out_file=out_file, out_path=out_path)
-pump_pnt_shp = temp_data_loc + r"Campaspe_data\GW\Bore data\pumping wells.shp"
+pump_pnt_shp = p_j(path, "pumping wells.shp")
 pumps_points = SS_model.read_points_data(pump_pnt_shp)
 
 if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: readHydrogeologicalProperties "
 
-file_location = temp_data_loc + r"Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
+file_location = p_j(
+    temp_data_loc, r"Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx")
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 
 if VERBOSE:
     print "************************************************************************"
     print "Get the C14 data"
 
-C14_points = SS_model.read_points_data(temp_data_loc + r"Campaspe_data\Chemistry\C14.shp")
+chem_folder = p_j(temp_data_loc, "Campaspe_data", "Chemistry")
+C14_points = SS_model.read_points_data(p_j(chem_folder, "C14.shp"))
 
-C14data = temp_data_loc + r"Campaspe_data\Chemistry\C14_locs.xlsx"
-df_C14 = pd.read_excel(C14data)
+df_C14 = pd.read_excel(p_j(chem_folder, "C14_locs.xlsx"))
 df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
 df_C14.dropna(inplace=True)
 
@@ -177,33 +217,35 @@ if VERBOSE:
     print " Executing custom script: processRiverStations "
 
 
-sw_data_loc = temp_data_loc + r"Campaspe_data\SW\All_streamflow_Campaspe_catchment\\"
+sw_data_loc = p_j(temp_data_loc, r"Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
 
 river_flow_file = "river_flow_processed"
+riv_flow_path = p_j(SS_model.out_data_folder, river_flow_file)
 # Check if this data has been processed and if not process it
-if os.path.exists(SS_model.out_data_folder + river_flow_file + '.h5'):
-    river_flow_data = SS_model.load_dataframe(SS_model.out_data_folder + river_flow_file + '.h5')
+if os.path.exists(riv_flow_path + '.h5'):
+    river_flow_data = SS_model.load_dataframe(riv_flow_path + '.h5')
 else:
     river_flow_data = processRiverStations.getFlow(path=sw_data_loc)
-    SS_model.save_dataframe(SS_model.out_data_folder + river_flow_file, river_flow_data)
+    SS_model.save_dataframe(riv_flow_path, river_flow_data)
 
 river_stage_file = "river_stage_processed"
+riv_stage_path = p_j(SS_model.out_data_folder, river_stage_file)
 # Check if this data has been processed and if not process it
-if os.path.exists(SS_model.out_data_folder + river_stage_file + '.h5'):
-    river_stage_data = SS_model.load_dataframe(SS_model.out_data_folder + river_stage_file + '.h5')
+if os.path.exists(riv_stage_path + '.h5'):
+    river_stage_data = SS_model.load_dataframe(riv_stage_path + '.h5')
 else:
     river_stage_data = processRiverStations.getStage(path=sw_data_loc)
-    SS_model.save_dataframe(SS_model.out_data_folder + river_stage_file, river_stage_data)
+    SS_model.save_dataframe(riv_stage_path, river_stage_data)
 
-river_gauges = SS_model.read_points_data(temp_data_loc +
-                                         sw_data_loc +
-                                         r"processed_river_sites_stage.shp")
+river_gauges = SS_model.read_points_data(p_j(sw_data_loc,
+                                             r"processed_river_sites_stage.shp"))
 
 if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
 
-river_path = temp_data_loc + r"Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\"
+# river_path = p_j(temp_data_loc, "Campaspe_model/GIS/GIS_preprocessed/Surface_Water/Streams/")
+river_path = p_j(temp_data_loc, "input_data", "Waterways")
 Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=river_path)
 Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=river_path)
 
@@ -211,10 +253,8 @@ if VERBOSE:
     print "************************************************************************"
     print "Load in the shapefiles defining groundwater boundaries"
 
-WGWbound_poly = SS_model.read_polyline("western_head.shp",
-                                       path=CONFIG.get_setting(['model_build', 'input_data']))
-EGWbound_poly = SS_model.read_polyline("eastern_head.shp",
-                                       path=CONFIG.get_setting(['model_build', 'input_data']))
+WGWbound_poly = SS_model.read_polyline("western_head.shp", path=model_build_input_path)
+EGWbound_poly = SS_model.read_polyline("eastern_head.shp", path=model_build_input_path)
 
 if VERBOSE:
     print '########################################################################'
@@ -224,8 +264,7 @@ if VERBOSE:
     print "************************************************************************"
     print " Defining temporal aspects of the model"
 
-start = datetime.date(2014, 01, 01)
-end = datetime.date(2015, 01, 01)
+start, end = datetime.date(2014, 01, 01), datetime.date(2015, 01, 01)
 SS_model.model_time.set_temporal_components(steady_state=False, start_time=start,
                                             end_time=end, time_step='A')
 
@@ -238,17 +277,17 @@ if VERBOSE:
 SS_model.define_structured_mesh(1000, 1000)
 
 # Read in hydrostratigraphic raster info for layer elevations:
-hu_raster_path = temp_data_loc + r"VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
+hu_raster_path = p_j(temp_data_loc, "ESRI_GRID_raw", "ESRI_GRID")
 
 # TODO RUN ON FLAG
 # Build basement file ... only need to do this once as it is time consuming so commented out
 # for future runs
-# SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
+SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b",
                    "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
 SS_model.read_rasters(hu_raster_files, path=hu_raster_path)
-hu_raster_files_reproj = [x+"_reproj.bil" for x in hu_raster_files]
+hu_raster_files_reproj = [x + "_reproj.bil" for x in hu_raster_files]
 
 # Map HGU's to grid
 if VERBOSE:
@@ -258,7 +297,7 @@ if VERBOSE:
 hu_gridded_rasters = SS_model.map_rasters_to_grid(hu_raster_files, hu_raster_path)
 
 # Build 3D grid
-model_grid_raster_files = [x+"_model_grid.bil" for x in hu_raster_files]
+model_grid_raster_files = [x + "_model_grid.bil" for x in hu_raster_files]
 
 # First two arguments of next function are arbitrary and not used ... need to rework module
 if VERBOSE:
@@ -361,15 +400,15 @@ if VERBOSE:
 interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall,
                                                feature_id='Name')
 # Adjust rainfall to m from mm and from year to days
-interp_rain = interp_rain/1000.0/365.0
+interp_rain = interp_rain / 1000.0 / 365.0
 # Adjust rainfall to recharge using 10% magic number
 
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
 for i in [1, 2, 3, 7]:
-    SS_model.parameters.create_model_parameter('rch_red_'+zone_map[i], value=0.09)
-    SS_model.parameters.parameter_options('rch_red_'+zone_map[i],
+    SS_model.parameters.create_model_parameter('rch_red_' + zone_map[i], value=0.09)
+    SS_model.parameters.parameter_options('rch_red_' + zone_map[i],
                                           PARTRANS='log',
                                           PARCHGLIM='factor',
                                           PARLBND=0.,
@@ -380,9 +419,9 @@ for i in [1, 2, 3, 7]:
 
     match = interp_rain[SS_model.model_mesh3D[1][0] == i]
     interp_rain[SS_model.model_mesh3D[1][0] == i] = match * SS_model.parameters.param[
-                                                                                'rch_red_' +
-                                                                                zone_map[i]
-                                                                            ]['PARVAL1']
+        'rch_red_' +
+        zone_map[i]
+    ]['PARVAL1']
 
 rch = {0: interp_rain}
 
@@ -397,9 +436,6 @@ if VERBOSE:
     print "************************************************************************"
     print " Mapping bores to grid "
 
-# Important bores for other component models:
-Ecology = ['83003', '89586', '82999', '5662', '44828']
-Policy = ['79234', '62589']
 
 SS_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 
@@ -411,24 +447,30 @@ for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
             # [bore_data_info["HydroCode"] == HydroCode]['depth']
             bore_depth = bore_data_info.loc[bore, 'depth']
         except:
-            if bore in Ecology:
+            if bore in Ecology_bores:
                 print 'Ecology bore not in info: ', bore
-            if bore in Policy:
+                # sys.exit('Halting model build due to bore not being found')
+            if bore in Policy_bores:
                 print 'Policy bore not in info: ', bore
+                # sys.exit('Halting model build due to bore not being found')
             continue
         if bore_depth > SS_model.model_mesh3D[0][0][row][col]:
             # print 'Bore can't be above surface!!!
-            if bore in Ecology:
+            if bore in Ecology_bores:
                 print 'Ecology bore above surf: ', bore
-            if bore in Policy:
+                # sys.exit('Halting model build due to bore not being mapped')
+            if bore in Policy_bores:
                 print 'Policy bore above surf: ', bore
+                # sys.exit('Halting model build due to bore not being mapped')
             continue
         if bore_depth <= SS_model.model_mesh3D[0][-2][row][col]:
             # print 'Ignoring bores in bedrock!!!
-            if bore in Ecology:
+            if bore in Ecology_bores:
                 print 'Ecology bore in  bedrock: ', bore
-            if bore in Policy:
+                # sys.exit('Halting model build due to bore not being mapped')
+            if bore in Policy_bores:
                 print 'Policy bore in bedrock: ', bore
+                # sys.exit('Halting model build due to bore not being mapped')
             continue
         bores_more_filter += [bore]
     # End for
@@ -439,7 +481,10 @@ if VERBOSE:
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
-ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology]
+ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]
+
+bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
+               for x in final_bores.index]
 
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
                for x in final_bores.index]
@@ -464,33 +509,33 @@ bores_in_layers = SS_model.map_points_to_raster_layers(bore_points, final_bores[
 # Map bores to layers to create initial head maps for different hydrogeological units
 interp_heads = {}
 
-for i in xrange(len(hu_raster_files_reproj)/2):
+for i in xrange(len(hu_raster_files_reproj) / 2):
     bores_layer = np.array(bore_points)[np.array(bores_in_layers[i])]
-    print 'Creating head map for: ', hu_raster_files[2*i]
+    print 'Creating head map for: ', hu_raster_files[2 * i]
     if bores_layer.shape[0] < 4:
-        interp_heads[hu_raster_files[2*i]] = np.full(SS_model.model_mesh3D[1].shape[1:], np.NaN)
+        interp_heads[hu_raster_files[2 * i]] = np.full(SS_model.model_mesh3D[1].shape[1:], np.NaN)
     else:
         bores_head_layer = np.array(
-                            final_bores["mean level"].tolist()
-                           )[np.array(bores_in_layers[i])]
+            final_bores["mean level"].tolist()
+        )[np.array(bores_in_layers[i])]
         unique_bores = np.unique(bores_layer)
 
         b = np.ascontiguousarray(bores_layer).view(np.dtype(
-                                                    (np.void, bores_layer.dtype.itemsize *
-                                                     bores_layer.shape[1])))
+            (np.void, bores_layer.dtype.itemsize *
+             bores_layer.shape[1])))
         _, idx = np.unique(b, return_index=True)
 
         unique_bores = bores_layer[idx]
 
-        interp_heads[hu_raster_files[2*i]] = SS_model.interpolate_points2mesh(
-                                                bores_layer,
-                                                bores_head_layer,
-                                                use='griddata',
-                                                method='linear')
+        interp_heads[hu_raster_files[2 * i]] = SS_model.interpolate_points2mesh(
+            bores_layer,
+            bores_head_layer,
+            use='griddata',
+            method='linear')
 
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
 
-for i in xrange(len(hu_raster_files_reproj)/2):
+for i in xrange(len(hu_raster_files_reproj) / 2):
     initial_heads_SS[i] = SS_model.model_mesh3D[1][0]  # (interp_heads[hu_raster_files[2]]) # 2*i
 
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 400.)
@@ -531,7 +576,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
         active = False
         for i in xrange(SS_model.model_mesh3D[1].shape[0]):
             if well_depth < SS_model.model_mesh3D[0][i][row][col] and \
-               well_depth > SS_model.model_mesh3D[0][i+1][row][col]:
+               well_depth > SS_model.model_mesh3D[0][i + 1][row][col]:
                 active_layer = i
                 active = True
                 break
@@ -544,7 +589,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
 
         # Well sits in the mesh, so assign to well boundary condition
         well_name[i] = well
-        i = i+1
+        i = i + 1
         try:
             wel[0] += [[active_layer, row, col, 0.]]
         except:
@@ -610,12 +655,12 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
             # print 'No data to place pump at depth ... ignoring ', pump
             continue
         pump_depth = SS_model.model_mesh3D[0][0][row][col] - pumping_data.loc[
-                                                                pump,
-                                                                'Top screen depth (m)']
+            pump,
+            'Top screen depth (m)']
         active = False
-        for i in xrange(SS_model.model_mesh3D[0].shape[0]-1):
+        for i in xrange(SS_model.model_mesh3D[0].shape[0] - 1):
             if pump_depth < SS_model.model_mesh3D[0][i][row][col] and \
-               pump_depth > SS_model.model_mesh3D[0][i+1][row][col]:
+               pump_depth > SS_model.model_mesh3D[0][i + 1][row][col]:
                 active_layer = i
                 active = True
                 break
@@ -712,8 +757,6 @@ if VERBOSE:
 # Added in 406203 as it represents stage just downstream of the weir,
 #   NB not currently included in list of gauges online
 
-sw_stream_gauges = ['406201', '406203', '406218', '406202', '406265']
-
 use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
               'CAMPASPE RIVER @ DOAKS RESERVE',
               'CAMPASPE RIVER @ AXEDALE',
@@ -741,7 +784,7 @@ Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clip
 filter_gauges = []
 for riv_gauge in Campaspe_river_gauges:
     # if riv_gauge[1][0] in use_gauges:
-    if str(riv_gauge[1][0]) in sw_stream_gauges:
+    if str(riv_gauge[1][0]) in Stream_gauges:
         filter_gauges += [riv_gauge]
 
 SS_model.map_polyline_to_grid(Campaspe_river_poly)
@@ -778,11 +821,12 @@ for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.sh
 new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)
 new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)
 
-stages = np.full((len(new_riv)), np.nan, dtype=np.float64)
-beds = np.full((len(new_riv)), np.nan, dtype=np.float64)
+new_riv_len = (len(new_riv))
+stages = np.full(new_riv_len, np.nan, dtype=np.float64)
+beds = np.full(new_riv_len, np.nan, dtype=np.float64)
 
 # Identify cells that correspond to river gauges
-riv_gauge_logical = np.full((len(new_riv)), False, dtype=np.bool)
+riv_gauge_logical = np.full(new_riv_len, False, dtype=np.bool)
 
 # To account for fact that river shapefile and gauges shapefile are not perfect
 # we get the closest river cell to the gauge cell
@@ -820,7 +864,7 @@ for index, riv in enumerate(new_riv):
     if index == 0:
         new_riv[index] += [0.0]
     else:
-        new_riv[index] += [new_riv[index-1][3] + new_riv[index-1][1]]
+        new_riv[index] += [new_riv[index - 1][3] + new_riv[index - 1][1]]
     # End if
 # End for
 
@@ -834,6 +878,9 @@ stages[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, stages[ri
 beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_gauge_logical])
 
 # Create observations for stage or discharge at those locations
+
+# TODO: GENERALISE THE TWO LOOPS BELOW THAT DOES THE SAME THING FOR CAMPASPE AND MURRAY
+# locations = ['Campaspe_Riv_model.shp', 'River_Murray_model.shp']
 
 for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
     row = riv_cell[0][0]
@@ -885,7 +932,9 @@ SS_model.parameters.parameter_options('Kv_RM',
 simple_river = []
 riv_width_avg = 10.0  # m
 riv_bed_thickness = 0.10  # m
-for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
+
+poly_mapped_murray_model = SS_model.polyline_mapped['River_Murray_model.shp']
+for riv_cell in poly_mapped_murray_model:
     row = riv_cell[0][0]
     col = riv_cell[0][1]
 
@@ -933,7 +982,8 @@ SS_model.parameters.parameter_options('MGHBcond',
 
 
 MurrayGHB = []
-for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
+dx = SS_model.gridHeight
+for MurrayGHB_cell in poly_mapped_murray_model:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
 
@@ -946,8 +996,8 @@ for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
         if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
             continue
         # End if
-        dx = SS_model.gridHeight
-        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
+
+        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay + 1][row][col]
         MGHBconductance = dx * dz * SS_model.parameters.param['MGHBcond']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
