@@ -101,3 +101,9 @@ target/
 *.mtc1
 *.out
 *.synctex.gz
+
+testbox/integrated/model_build/input_data/
+
+00_Campaspe_Cascade/packaged/
+
+testbox/integrated/data/model_GW_link_Integrated/

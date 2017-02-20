@@ -6,19 +6,19 @@ import sys
 import numpy as np
 import flopy
 
-sys.path.append('C:\Workspace\part0075\GIT_REPOS')
+#sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
 # Configuration Loader
-from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
+
 # import flopy.utils.binaryfile as bf
 
 
 # MM is short for model manager
 
-
-def run(model_folder, data_folder, mf_exe_folder, param_file=None):
+def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True):
     """Model Runner."""
 
     MM = GWModelManager()
@@ -28,11 +28,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    #if param_file:
-    #    MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+    if param_file:
+        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=False)
 
-    print "************************************************************************"
-    print " Instantiate MODFLOW model "
+    if verbose:
+        print "************************************************************************"
+        print " Instantiate MODFLOW model "
 
     ###########################################################################
     ###########################################################################
@@ -40,26 +41,24 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
 
-    modflow_model.executable = mf_exe_folder
-
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
-    modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 1 day here
+    modflow_model.perlen = 40000 * 365  # 
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
     modflow_model.steady = True # This is to tell FloPy that is a transient model
     
-    modflow_model.buildMODFLOW()
+    modflow_model.buildMODFLOW(transport=True, write=True)
 
-    #modflow_model.buildMT3D()
-
-    mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name+'_transport', ftlfilename='mt3d_link.ftl', 
-                           modflowmodel=modflow_model.mf, model_ws=modflow_model.data_folder, 
-                           exe_name='MT3D-USGS_64.exe')
+    mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name + '_transport', 
+                           ftlfilename='mt3d_link.ftl', 
+                           modflowmodel=modflow_model.mf, 
+                           model_ws=modflow_model.data_folder, 
+                           exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
 
     #Add the BTN package to the model
     ibound = modflow_model.model_data.model_mesh3D[1]        
     ibound[ibound == -1] = 0
-    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, ncomp=1, mcomp=1, 
-                       cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
+    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, ncomp=1, 
+                       mcomp=1, cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
                        timprs=None, savucn=1, nprobs=0, 
                        chkmas=1, nprmas=1, dt0=10000.0, ttsmax=100000.0)
@@ -72,10 +71,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
                        npsink=8, dchmoc=0.01)
 
     #Add the DSP package to the model
-    flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=10., trpt=0.1, trpv=0.1, dmcoef=0.0)
+    flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=10., trpt=0.1, trpv=0.1, 
+                       dmcoef=0.0)
 
     #Add the RCT package to the model
-    flopy.mt3d.Mt3dRct(mt, isothm=1, ireact=1, igetsc=0, rc1=np.log(2)/(5730.0*365.0))
+    flopy.mt3d.Mt3dRct(mt, isothm=1, ireact=1, igetsc=0, 
+                       rc1=np.log(2)/(5730.0*365.0))
 
     #Add the GCG package to the model
     flopy.mt3d.Mt3dGcg(mt, mxiter=1000, iter1=100, isolve=1, 
@@ -110,7 +111,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
         #    self.model_data.boundaries.bc[boundary]['bc_array']
 
         if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'general head':
-            modflow_model.model_data.boundaries.bc[boundary]['bc_array']
+            #modflow_model.model_data.boundaries.bc[boundary]['bc_array']
             for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
                 for ghb in modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key]:
                     ssm_data[key].append((ghb[0], ghb[1], ghb[2], 0.0, itype['GHB']))
@@ -134,17 +135,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
         
         for key in river.keys():
             for riv in river[key]:
-                ssm_data[key].append((riv[0], riv[1], riv[2], 100.0, itype['RIV']))
+                ssm_data[key].append((riv[0], riv[1], riv[2], 100.0, itype['RIV'])) 
 
                
     flopy.mt3d.Mt3dSsm(mt, stress_period_data=ssm_data, crch=crch)
     
-    # Add LMT package to the MODFLOW model to allow linking with MT3DMS
-    flopy.modflow.ModflowLmt(modflow_model.mf)
-
     mt.write_input()
     
-    success, buff = mt.run_model()
+    success, buff = mt.run_model(silent=True)
     
 #    import flopy.utils.binaryfile as bf
 #    #
@@ -156,9 +154,15 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 #        plt.figure()
 #        plt.imshow(arry[i], vmin=vmin, vmax=vmax, interpolation='none')
 
-    #modflow_model.viewConcsByZone()
 
 if __name__ == "__main__":
+
+    # Get general model config information
+    CONFIG = ConfigLoader('../../config/model_config.json')\
+                    .set_environment("01_steady_state")
+    
+    verbose = False
+                    
     args = sys.argv
     if len(args) > 1:
         model_folder = sys.argv[1]
@@ -170,10 +174,10 @@ if __name__ == "__main__":
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
         data_folder = model_config['data_folder']
-        mf_exe_folder = model_config['mf_exe_folder']
+        mt_exe_folder = model_config['mt_exe_folder']
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file)
+        run(model_folder, data_folder, mt_exe_folder, param_file=param_file, verbose=verbose)
     else:
-        run(model_folder, data_folder, mf_exe_folder)
+        run(model_folder, data_folder, mt_exe_folder, verbose=verbose)
