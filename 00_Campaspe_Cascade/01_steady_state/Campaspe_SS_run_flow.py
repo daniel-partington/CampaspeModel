@@ -291,7 +291,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
 
             #modflow_model = flopyInterface.ModflowModel(m, data_folder=data_folder)
             modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
-            modflow_model.perlen = 100 #40000 * 365  # This is the period of time which is set to 40000 yrs
+            modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
             modflow_model.nstp = 100 #1 # This is the number of sub-steps to do in each stress period
             modflow_model.steady = False #True # This is to tell FloPy that is a transient model
                 
