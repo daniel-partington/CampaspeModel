@@ -24,7 +24,7 @@ for fil in files:
     
 # Now go through all items in the directory and copy folder pilot_points "package.pkl"    
 
-pp_folds = [x for x in [y for y in glob.glob(path + '/*/**/***')] if 'pilot_points' in x]       
+pp_folds = [x for x in [y for y in glob.glob(path + '/*/**/***')] if (('pilot_points' in x) & ('.pkl' not in x))]       
     
 for folder in pp_folds:
     folder2 = folder.split('\\')[-2]
@@ -32,5 +32,5 @@ for folder in pp_folds:
     if os.path.exists(to_dir):
         shutil.rmtree(to_dir)
         
-    ignore_patterns = ('*.in','grid.spc','reg*.dat','*.ref','*.fig', '*.ref', '*.inf', 'struct.dat', 'debug1.dat')
+    ignore_patterns = ('*.in','grid.spc','reg*.dat','*.ref','*.fig', '*.ref', '*.inf', 'struct.dat', 'debug1.dat', '*.exe')
     shutil.copytree(folder, to_dir, ignore=shutil.ignore_patterns(*ignore_patterns))                        
