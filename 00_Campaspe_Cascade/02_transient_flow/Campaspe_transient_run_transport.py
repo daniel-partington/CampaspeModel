@@ -23,7 +23,7 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 # MM is short for model manager
 
 
-def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True):
+def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True):
     """Model Runner."""
 
     MM = GWModelManager()
@@ -45,22 +45,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
     ###########################################################################
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
+    modflow_model.buildMODFLOW(transport=True, write=True)
 
-    modflow_model.executable = mf_exe_folder
-
-    modflow_model.buildMODFLOW()
-
-    #print modflow_model.model_data.observations.obs_group.keys()
-    #sys.exit()
     if verbose:
         print "************************************************************************"
         print " Instantiate MT3D model "
-    
-    mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name+'_transport', ftlfilename='mt3d_link.ftl', 
-                           modflowmodel=modflow_model.mf, model_ws=modflow_model.data_folder, 
-                           exe_name='MT3D-USGS_64.exe')
-
-    
+        
+    mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name + '_transport', 
+                           ftlfilename='mt3d_link.ftl', 
+                           modflowmodel=modflow_model.mf, 
+                           model_ws=modflow_model.data_folder, 
+                           exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
+        
     if verbose:
         print "************************************************************************"
         print " Set initial conc from ss solution "
@@ -178,11 +174,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
 
     flopy.mt3d.Mt3dSsm(mt, stress_period_data=ssm_data, crch=crch)
     
-    if verbose:
-        print(" Add LMT package to the MODFLOW model to allow linking with MT3DMS")
-
-    flopy.modflow.ModflowLmt(modflow_model.mf)
-
     mt.write_input()
     
     success, buff = mt.run_model(silent=True)
@@ -226,6 +217,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
+        run = run(model_folder, data_folder, mt_exe_folder, param_file=param_file, verbose=verbose)
     else:
-        run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose)
+        run = run(model_folder, data_folder, mt_exe_folder, verbose=verbose)
