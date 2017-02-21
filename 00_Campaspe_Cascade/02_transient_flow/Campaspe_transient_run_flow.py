@@ -280,7 +280,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
 
     path=os.path.join(data_folder,"model_01_steady_state\\")
     fname="01_steady_state"
-    headobj = bf.HeadFile(path + fname +'.hds')
+    headobj = bf.HeadFile(os.path.join(path, fname + '.hds'))
     times = headobj.get_times()        
     head = headobj.get_data(totim=times[-1])
     
