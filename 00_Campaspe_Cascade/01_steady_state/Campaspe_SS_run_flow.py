@@ -148,75 +148,51 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
         print " Updating River Murray GHB boundary"
 
     MurrayGHB = []
-    for MurrayGHB_cell in mapped_river:
-        row = MurrayGHB_cell[0][0]
-        col = MurrayGHB_cell[0][1]
-        # print m.model_mesh3D
-        for lay in range(m.model_mesh3D[1].shape[0]):
-            if m.model_mesh3D[1][0][row][col] == -1:
-                continue
-            if lay == 0:
-                continue
-            MurrayGHBstage = m.model_mesh3D[0][0][row][
-                col] + m.parameters.param['MGHB_stage']['PARVAL1']
-            dx = m.gridHeight
-            dz = m.model_mesh3D[0][lay][row][col] - \
-                m.model_mesh3D[0][lay + 1][row][col]
-            MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
-            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+#    for MurrayGHB_cell in mapped_river:
+#        row = MurrayGHB_cell[0][0]
+#        col = MurrayGHB_cell[0][1]
+#        # print m.model_mesh3D
+#        for lay in range(m.model_mesh3D[1].shape[0]):
+#            
+#            if m.model_mesh3D[1][0][row][col] == -1:
+#                continue
+#            if lay == 0:
+#                continue
+#            
+#            MurrayGHBstage = m.model_mesh3D[0][0][row][
+#                col] + m.parameters.param['MGHB_stage']['PARVAL1']
+#            
+#            if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
+#                continue
+#
+#            dx = m.gridHeight
+#            dz = m.model_mesh3D[0][lay][row][col] - \
+#                m.model_mesh3D[0][lay + 1][row][col]
+#            MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
+#            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+
+    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
+    for MurrayGHB_cell in MurrayGHB_cells:
+        lay, row, col = MurrayGHB_cell
+        MurrayGHBstage = m.model_mesh3D[0][0][row][
+            col] + m.parameters.param['MGHB_stage']['PARVAL1']
+        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
+            continue
+        dx = m.gridHeight
+        dz = m.model_mesh3D[0][lay][row][col] - \
+            m.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+        
 
     ghb = {}
     ghb[0] = MurrayGHB
-
-#    print "************************************************************************"
-#    print " Updating Western GHB boundary"
-#
-#    mapped_west = loadObj(model_folder, name, r"western_head_model.shp_mapped.pkl")
-#
-#    WestGHB = []
-#    for WestGHB_cell in mapped_west:
-#        row = WestGHB_cell[0][0]
-#        col = WestGHB_cell[0][1]
-#        for lay in range(m.model_mesh3D[1].shape[0]):
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            WestGHBstage = m.model_mesh3D[0][0][row][
-#                col] + m.parameters.param['WGHB_stage']['PARVAL1']
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - \
-#                m.model_mesh3D[0][lay + 1][row][col]
-#            WGHBconductance = dx * dz * m.parameters.param['WGHBcond']['PARVAL1']
-#            WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
-#
-#    ghb[0] += WestGHB
-#
-#    print "************************************************************************"
-#    print " Updating Eastern GHB boundary"
-#
-#    mapped_east = loadObj(model_folder, name, r"eastern_head_model.shp_mapped.pkl")
-#
-#    EastGHB = []
-#    for EastGHB_cell in mapped_east:
-#        row = EastGHB_cell[0][0]
-#        col = EastGHB_cell[0][1]
-#        for lay in range(m.model_mesh3D[1].shape[0]):
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            EastGHBstage = m.model_mesh3D[0][0][row][
-#                col] + m.parameters.param['EGHB_stage']['PARVAL1']
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - \
-#                m.model_mesh3D[0][lay + 1][row][col]
-#            EGHBconductance = dx * dz * m.parameters.param['EGHBcond']['PARVAL1']
-#            EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
-#
-#    ghb[0] += EastGHB
 
     if verbose:
         print "************************************************************************"
         print " Updating GHB boundary"
 
-    #m.boundaries.assign_boundary_array('GHB', ghb)
+    m.boundaries.assign_boundary_array('GHB', ghb)
 
 
     """
@@ -251,7 +227,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
             print " Set initial head "
     
         if os.path.exists(os.path.join(data_folder, '01_steady_state.hds')):
-            print(" Trying last head solution as initial condition")
+            if verbose:
+                print(" Trying last head solution as initial condition")
+
             filename = os.path.join(data_folder, '01_steady_state.hds')
             head = modflow_model.getFinalHeads(str(filename))
             modflow_model.strt = head
@@ -278,15 +256,19 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
         if converge:
             break
         
-        print(" Trying new initial conditions")
+        if verbose:
+            print(" Trying new initial conditions")
 
     if not converge:
         retries = 5 #5
-        print(" Modifying recharge")
+        if verbose:
+            print(" Modifying recharge")
+
         for i in range(retries):
             
             rech_steps = [0.1, 0.08, 0.05, 0.02, 0.01]
-            print(" Trying recharge reduction of: {}".format(rech_steps[i]))
+            if verbose:
+                print(" Trying recharge reduction of: {}".format(rech_steps[i]))
             interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
         
             for k in [1, 2, 3, 7]:
@@ -322,10 +304,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
             converge = modflow_model.checkCovergence()
     
             if not converge:
-                print("Absolute failure to find solution")
+                if verbose:
+                    print("Absolute failure to find solution")
+                #end if
                 break
             else:
-                print("Testing steady state solution from transient solution")
+                if verbose:
+                    print("Testing steady state solution from transient solution")
+                #end if
                 shutil.copy(os.path.join(modflow_model.data_folder, modflow_model.name + '.hds'), 
                             os.path.join(data_folder, 'init{}.hds'.format(rech_steps[i])))
                 
@@ -363,9 +349,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, verbose=True)
                     break
                 
     #modflow_model.waterBalance()
-    modflow_model.viewGHB()
+    #modflow_model.viewGHB()
     #modflow_model.viewHeads()
-    modflow_model.viewHeadLayer(figsize=(20,10))
+    #modflow_model.viewHeadLayer(figsize=(20,10))
+
     #riv_exch = modflow_model.getRiverFlux('Campaspe River')
     #for key in riv_exch.keys():
     #    print 'Campaspe River net flux: ' + str(round(sum([x[0] for x in riv_exch[key]]))) + ' m3/d'
@@ -396,6 +383,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=True) #False)
+        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=False)
     else:
         run(model_folder, data_folder, mf_exe_folder)

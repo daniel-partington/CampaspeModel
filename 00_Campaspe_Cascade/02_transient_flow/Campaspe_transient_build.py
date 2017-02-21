@@ -166,7 +166,6 @@ else:
     river_stage_data = processRiverStations.getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
     tr_model.save_dataframe(tr_model.out_data_folder + river_stage_file, river_stage_data)
 
-#river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\20_gauges\Site_info.shp")
 river_gauges = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\processed_river_sites_stage.shp")
 
 print "************************************************************************"
@@ -232,7 +231,6 @@ hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_G
 #tr_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
-#hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
 tr_model.read_rasters(hu_raster_files, path=hu_raster_path)
 hu_raster_files_reproj = [x+"_reproj.bil" for x in hu_raster_files]
 
@@ -970,7 +968,7 @@ tr_model.parameters.parameter_options('MGHBcond',
 
 
 MurrayGHB = []
-MGHBcond = 5E-3 #m/day
+Active_MurrayGHB_cells = []
 for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
@@ -978,10 +976,98 @@ for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
     for lay in range(tr_model.model_mesh3D[1].shape[0]):    
         if tr_model.model_mesh3D[1][0][row][col] == -1:
             continue
+        #MurrayGHBstage = (tr_model.model_mesh3D[0][lay+1][row][col] + tr_model.model_mesh3D[0][lay][row][col])/2. + tr_model.parameters.param['MGHB_stage']['PARVAL1']
         MurrayGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['MGHB_stage']['PARVAL1']
-        dx = tr_model.model_mesh3D[0][0][0][1] - tr_model.model_mesh3D[0][0][0][0]
-        MGHBconductance = dx * tr_model.parameters.param['MGHBcond']['PARVAL1']
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+        if MurrayGHBstage < tr_model.model_mesh3D[0][0][row][col]:
+            continue
+        if lay == 0:
+            continue
+        
+        Active_MurrayGHB_cells += [[lay, row, col]]
+
+# Now make sure that no cells are being caught surrounded by other GHB cells
+Final_MurrayGHB_cells = []
+for active_cell in Active_MurrayGHB_cells:
+    # check if active GHB cell has any active non GHB cells N,E,S,W, above or below         
+    lay, row, col = 0, 1, 2
+    shape = tr_model.model_mesh3D[1].shape
+    active_non_GHB = False
+    zone = tr_model.model_mesh3D[1]
+    
+    ac = active_cell
+    # Check above:
+    ref_cell = [ac[lay] - 1, ac[row], ac[col]]        
+#    # Make sure not at top boundary    
+#    if active_cell[lay] != 0:
+#        # Make sure above cell is active
+#        if zone[ac[lay] - 1, ac[row], ac[col]] != -1:
+#            # Make sure if active that is is not another GHB cell
+#            if ref_cell not in Active_MurrayGHB_cells:
+#                active_non_GHB = True
+#
+#    # Check below:
+#    ref_cell = [ac[lay] + 1, ac[row], ac[col]]        
+#    if active_cell[lay] != shape[lay] - 1:
+#        if zone[ac[lay] + 1, ac[row], ac[col]] != -1:
+#            if ref_cell not in Active_MurrayGHB_cells:
+#                active_non_GHB = True
+                
+    # Check north:
+    ref_cell = [ac[lay], ac[row] + 1, ac[col]]        
+    if active_cell[row] != 0:
+        if zone[ac[lay], ac[row] + 1, ac[col]] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check east:
+    ref_cell = [ac[lay], ac[row], ac[col] + 1]        
+    if active_cell[col] != shape[col] - 1:
+        if zone[ac[lay], ac[row], ac[col] + 1] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check south:
+    ref_cell = [ac[lay], ac[row] - 1, ac[col]]        
+    if active_cell[row] != shape[row] - 1:
+        if zone[ac[lay], ac[row] - 1, ac[col]] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check west:
+    ref_cell = [ac[lay], ac[row], ac[col] - 1]        
+    if active_cell[col] != 0:
+        if zone[ac[lay], ac[row], ac[col] - 1] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    if active_non_GHB:
+        Final_MurrayGHB_cells += [active_cell]                
+                
+#for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
+for MurrayGHB_cell in Final_MurrayGHB_cells:
+    #row = MurrayGHB_cell[0][0]
+    #col = MurrayGHB_cell[0][1]
+
+    lay = MurrayGHB_cell[0]
+    row = MurrayGHB_cell[1]
+    col = MurrayGHB_cell[2]
+    #print tr_model.model_mesh3D
+#    for lay in range(tr_model.model_mesh3D[1].shape[0]):    
+#        if tr_model.model_mesh3D[1][0][row][col] == -1:
+#            continue
+        #MurrayGHBstage = (tr_model.model_mesh3D[0][lay+1][row][col] + tr_model.model_mesh3D[0][lay][row][col])/2. + tr_model.parameters.param['MGHB_stage']['PARVAL1']
+#        if lay == 0:
+            # To avoid having river cells in the same cells as GHB cells.
+#            continue
+        
+    MurrayGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['MGHB_stage']['PARVAL1']
+    if MurrayGHBstage < tr_model.model_mesh3D[0][0][row][col]:
+        continue
+    dx = tr_model.gridHeight
+    dz = tr_model.model_mesh3D[0][lay][row][col] - tr_model.model_mesh3D[0][lay+1][row][col]
+    MGHBconductance = dx * dz * tr_model.parameters.param['MGHBcond']['PARVAL1']
+    MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+
 
 ghb = {}
 ghb[0] = MurrayGHB
@@ -1065,11 +1151,11 @@ print "************************************************************************"
 #for EastGHB_cell in tr_model.polyline_mapped['eastern_head_model.shp']:
 #    row = EastGHB_cell[0][0]
 #    col = EastGHB_cell[0][1]
-#    #print SS_model.model_mesh3D
+#    #print tr_model.model_mesh3D
 #    for lay in range(tr_model.model_mesh3D[1].shape[0]):    
 #        if tr_model.model_mesh3D[1][lay][row][col] == -1:
 #            continue
-#        #EastGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['EGHB_stage']['PARVAL1']
+#        #EastGHBstage = (tr_model.model_mesh3D[0][lay+1][row][col] + tr_model.model_mesh3D[0][lay][row][col])/2. + tr_model.parameters.param['EGHB_stage']['PARVAL1']
 #        EastGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['EGHB_stage']['PARVAL1']
 #        dx = tr_model.model_mesh3D[0][0][0][1] - tr_model.model_mesh3D[0][0][0][0]
 #        EGHBconductance = dx * tr_model.parameters.param['EGHBcond']['PARVAL1']

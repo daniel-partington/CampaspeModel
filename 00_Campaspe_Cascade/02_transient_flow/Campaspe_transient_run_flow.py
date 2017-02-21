@@ -85,20 +85,31 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
         print "************************************************************************"
         print " Updating Murray River boundary"
     
-    mapped_river = m.polyline_mapped["River_Murray_model.shp"]
+    #mapped_river = m.polyline_mapped["River_Murray_model.shp"]
     
     simple_river = []
     riv_width_avg = 10.0 #m
     riv_bed_thickness = 0.10 #m
-    for riv_cell in mapped_river: #m.polyline_mapped['Campaspe_Riv_model.shp']:
-        row = riv_cell[0][0]
-        col = riv_cell[0][1]
-        if m.model_mesh3D[1][0][row][col] == -1:
-            continue
-        stage = m.model_mesh3D[0][0][row][col]
+#    for riv_cell in mapped_river: #m.polyline_mapped['Campaspe_Riv_model.shp']:
+#        row = riv_cell[0][0]
+#        col = riv_cell[0][1]
+#        if m.model_mesh3D[1][0][row][col] == -1:
+#            continue
+#        stage = m.model_mesh3D[0][0][row][col]
+#        bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['RMstage']['PARVAL1']
+#        cond = riv_cell[1] * riv_width_avg * m.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
+#        simple_river += [[0, row, col, stage, cond, bed]]
+
+    riv_cells = [[x[1], x[2], x[3]] for x in m.boundaries.bc['Murray River']['bc_array'][0]]
+    for riv_cell in riv_cells:
+        row, col, stage = riv_cell
         bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['RMstage']['PARVAL1']
+        if bed < m.model_mesh3D[0][1][row][col]:
+            bed = m.model_mesh3D[0][0][row][col] + 0.01
+        #end if
         cond = riv_cell[1] * riv_width_avg * m.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
         simple_river += [[0, row, col, stage, cond, bed]]
+
     
     riv = {}
     riv[0] = simple_river
@@ -132,24 +143,36 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
         print "************************************************************************"
         print " Updating Murray River GHB boundary"
     
-    mapped_river = m.load_obj(os.path.join(model_folder, r"River_Murray_model.shp_mapped.pkl"))
-    
     MurrayGHB = []
-    for MurrayGHB_cell in mapped_river:
-        row = MurrayGHB_cell[0][0]
-        col = MurrayGHB_cell[0][1]
-        #print m.model_mesh3D
-        for lay in range(m.model_mesh3D[1].shape[0]):    
-            if m.model_mesh3D[1][0][row][col] == -1:
-                continue
-            MurrayGHBstage = m.model_mesh3D[0][0][row][col] + m.parameters.param['MGHB_stage']['PARVAL1']
-            dx = m.gridHeight
-            dz = m.model_mesh3D[0][lay][row][col] - m.model_mesh3D[0][lay+1][row][col]
-            MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
-            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+#    for MurrayGHB_cell in mapped_river:
+#        row = MurrayGHB_cell[0][0]
+#        col = MurrayGHB_cell[0][1]
+#        #print m.model_mesh3D
+#        for lay in range(m.model_mesh3D[1].shape[0]):    
+#            if m.model_mesh3D[1][0][row][col] == -1:
+#                continue
+#            MurrayGHBstage = m.model_mesh3D[0][0][row][col] + m.parameters.param['MGHB_stage']['PARVAL1']
+#            dx = m.gridHeight
+#            dz = m.model_mesh3D[0][lay][row][col] - m.model_mesh3D[0][lay+1][row][col]
+#            MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
+#            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+
+    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
+    for MurrayGHB_cell in MurrayGHB_cells:
+        lay, row, col = MurrayGHB_cell
+        MurrayGHBstage = m.model_mesh3D[0][0][row][
+            col] + m.parameters.param['MGHB_stage']['PARVAL1']
+        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
+            continue
+        dx = m.gridHeight
+        dz = m.model_mesh3D[0][lay][row][col] - \
+            m.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     
     ghb = {}
     ghb[0] = MurrayGHB
+
     
 #    print "************************************************************************"
 #    print " Updating Western GHB boundary"
@@ -282,15 +305,16 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
 
     #modflow_model.checkMODFLOW()  # Note this is slow af, so use only in setting up model
 
-    modflow_model.runMODFLOW(silent=verbose)
+    modflow_model.runMODFLOW(silent=True)
 
     converge = modflow_model.checkCovergence()
 
     if converge:
-        print('Awww shnap, it workshhh')
-        #break
+        if verbose:
+            print('model converged')
+            #break
     
-    modflow_model.writeObservations()
+        modflow_model.writeObservations()
 
     Campaspe_riv_flux = modflow_model.getRiverFlux('Campaspe River')
     net_riv_flux =  np.sum(np.array([x[0] for x in Campaspe_riv_flux[max(Campaspe_riv_flux.keys())]]))
@@ -298,7 +322,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
     with open(modflow_model.data_folder + os.path.sep + 'observations_net_riv_flux.txt', 'w') as f:
         f.write('%f\n' %net_riv_flux)  
         
-    modflow_model.compareAllObs()
+    #modflow_model.compareAllObs()
         
     #if ss_converge:
     #    if tr_converge:
@@ -311,9 +335,9 @@ if __name__ == "__main__":
 
     # Get general model config information
     CONFIG = ConfigLoader('../../config/model_config.json')\
-                    .set_environment("01_steady_state")
+                    .set_environment("02_transient_flow")
 
-    verbose=True
+    verbose = False
                     
     args = sys.argv
     if len(args) > 1:
@@ -328,6 +352,7 @@ if __name__ == "__main__":
         data_folder = model_config['data_folder']
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
+        
 
     if param_file:
         run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
