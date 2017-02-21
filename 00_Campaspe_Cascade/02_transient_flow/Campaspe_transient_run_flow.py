@@ -23,7 +23,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
     if param_file:
-        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
         print "************************************************************************"
@@ -84,8 +84,6 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
     if verbose:
         print "************************************************************************"
         print " Updating Murray River boundary"
-    
-    #mapped_river = m.polyline_mapped["River_Murray_model.shp"]
     
     simple_river = []
     riv_width_avg = 10.0 #m
@@ -224,7 +222,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
         print "************************************************************************"
         print " Updating Drains boundary"
     
-    mapped_drains = m.load_obj(os.path.join(model_folder,"Drain_Clip_model.shp_mapped.pkl"))
+    mapped_drains = m.polyline_mapped['Drain_Clip_model.shp']
     
     simple_drain = []
     drain_width_avg = 3.0 #m
