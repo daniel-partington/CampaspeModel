@@ -368,6 +368,8 @@ if __name__ == "__main__":
     CONFIG = ConfigLoader('../../config/model_config.json')\
                     .set_environment("01_steady_state")
 
+    verbose = False
+                    
     args = sys.argv
     if len(args) > 1:
         model_folder = sys.argv[1]
@@ -383,6 +385,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=False)
+        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
     else:
-        run(model_folder, data_folder, mf_exe_folder)
+        run(model_folder, data_folder, mf_exe_folder, verbose=verbose)

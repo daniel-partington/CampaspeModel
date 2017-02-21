@@ -357,4 +357,4 @@ if __name__ == "__main__":
     if param_file:
         run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
     else:
-        run = run(model_folder, data_folder, mf_exe_folder, verbose= verbose)
+        run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose)
