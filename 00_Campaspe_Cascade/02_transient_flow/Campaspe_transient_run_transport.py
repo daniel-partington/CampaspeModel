@@ -61,8 +61,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         print "************************************************************************"
         print " Set initial conc from ss solution "
 
-    path=os.path.join(data_folder,"model_01_steady_state\\")
-    concobj = bf.UcnFile(path + 'MT3D001.UCN')
+    path=os.path.join(data_folder,"model_01_steady_state")
+    concobj = bf.UcnFile(os.path.join(path, 'MT3D001.UCN'))
     times = concobj.get_times()        
     conc_init = concobj.get_data(totim=times[-1])
     
