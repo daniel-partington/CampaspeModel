@@ -22,8 +22,8 @@ Interface.pcs_EPSG = "EPSG:28355"
 
 SS_model = GWModelBuilder(name="GW_link_Integrated", 
                           data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\",
-                          model_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\GW_link_Integrated\\",
-                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\data_build\\",
+                          model_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\test2\GW_link_Integrated2\\",
+                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\test2\data_build2\\",
                           GISInterface=Interface,
                           model_type='Modflow',
                           mesh_type='structured')
@@ -41,6 +41,7 @@ SS_model = GWModelBuilder(name="GW_link_Integrated",
 # Complimentary models requirements, i.e. bore and gauge data that should be 
 # referenceable to this model for parsing specific outputs and receiving inputs:
 
+external_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data"   
 
 model_linking = r"../testbox/integrated/data/model_linking.csv"
 with open(model_linking, 'r') as f:
@@ -87,10 +88,10 @@ rain_info_file = "rain_processed"
 if os.path.exists(SS_model.out_data_folder + rain_info_file + '.h5'):
     long_term_historic_rainfall = SS_model.load_dataframe(SS_model.out_data_folder + rain_info_file + '.h5')
 else:
-    long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations, path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\")
+    long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations, path=os.path.join(external_data_folder,"Climate\\"))
     SS_model.save_dataframe(SS_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
 
-rain_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\Rain_gauges.shp")
+rain_gauges = SS_model.read_points_data(os.path.join(external_data_folder,"Climate\Rain_gauges.shp"))
 
 # $%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%
 # INCLUDE NSW bores in this next part too for better head representation at the border, i.e. Murray River
@@ -139,33 +140,33 @@ print 'Final number of bores within the data boundary that have level data and s
 
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
-path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"    
-out_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"
+path = os.path.join(external_data_folder,r"GW\Bore data\\")    
+out_path = os.path.join(external_data_folder,r"GW\Bore data\\")
 out_file = "pumping wells.shp"
 
 print "************************************************************************"
 print " Executing custom script: get_GW_licence_info "
 
 pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
-pumps_points = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\pumping wells.shp")
+pumps_points = SS_model.read_points_data(os.path.join(external_data_folder,r"GW\Bore data\pumping wells.shp"))
 
 print "************************************************************************"
 print " Executing custom script: readHydrogeologicalProperties "
 
-file_location = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
+file_location = os.path.join(external_data_folder,r"GW\Aquifer properties\Hydrogeologic_variables.xlsx")
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 
 print "************************************************************************"
 print "Get the C14 data"
 
-C14_points = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14.shp")    
+C14_points = SS_model.read_points_data(os.path.join(external_data_folder,r"Chemistry\C14.shp"))    
 
 #C14_wells_info_file = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_bore_depth.csv"
 #df_C14_info = pd.read_csv(C14_wells_info_file)    
 #df_C14_info = df_C14_info.dropna()
 #df_C14_info = df_C14_info.set_index('Bore_id')    
 
-C14data = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_locs.xlsx"
+C14data = os.path.join(external_data_folder,r"Chemistry\C14_locs.xlsx")
 df_C14 = pd.read_excel(C14data)
 df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
 df_C14.dropna(inplace=True)
@@ -178,7 +179,7 @@ river_flow_file = "river_flow_processed"
 if os.path.exists(SS_model.out_data_folder + river_flow_file + '.h5'):
     river_flow_data = SS_model.load_dataframe(SS_model.out_data_folder + river_flow_file + '.h5')
 else:
-    river_flow_data = processRiverStations.getFlow(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
+    river_flow_data = processRiverStations.getFlow(path=os.path.join(external_data_folder,r"SW\All_streamflow_Campaspe_catchment\\"))
     SS_model.save_dataframe(SS_model.out_data_folder + river_flow_file, river_flow_data)
 
 river_stage_file = "river_stage_processed"
@@ -186,11 +187,11 @@ river_stage_file = "river_stage_processed"
 if os.path.exists(SS_model.out_data_folder + river_stage_file + '.h5'):
     river_stage_data = SS_model.load_dataframe(SS_model.out_data_folder + river_stage_file + '.h5')
 else:
-    river_stage_data = processRiverStations.getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
+    river_stage_data = processRiverStations.getStage(path=os.path.join(external_data_folder,r"SW\All_streamflow_Campaspe_catchment\\"))
     SS_model.save_dataframe(SS_model.out_data_folder + river_stage_file, river_stage_data)
 
 #river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\20_gauges\Site_info.shp")
-river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\processed_river_sites_stage.shp")
+river_gauges = SS_model.read_points_data(os.path.join(external_data_folder,r"SW\All_streamflow_Campaspe_catchment\processed_river_sites_stage.shp"))
 
 print "************************************************************************"
 print "Load in the river shapefiles"
@@ -232,7 +233,8 @@ SS_model.model_time.set_temporal_components(steady_state=False, start_time=start
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-SS_model.define_structured_mesh(1000, 1000)
+resolution = 10000
+SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_GRID\\"
@@ -257,6 +259,7 @@ model_grid_raster_files = [x+"_model_grid.bil" for x in hu_raster_files]
 # First two arguments of next function are arbitrary and not used ... need to rework module
 print "************************************************************************"
 print " Building 3D mesh "
+
 SS_model.build_3D_mesh_from_rasters(model_grid_raster_files, SS_model.out_data_folder_grid, 1.0, 1000.0)
 # Cleanup any isolated cells:
 SS_model.reclassIsolatedCells()
