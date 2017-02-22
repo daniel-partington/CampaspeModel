@@ -12,7 +12,7 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 
-def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
+def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
@@ -22,7 +22,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
-    if param_file is not None
+    if param_file != "":
         m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
