@@ -22,7 +22,7 @@ def run(model_folder, data_folder, mf_exe, param_file=None, verbose=True):
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
-    if param_file:
+    if param_file is not None
         m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
