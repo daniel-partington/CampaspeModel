@@ -340,6 +340,8 @@ if __name__ == "__main__":
         mf_exe_folder = sys.argv[3]
         if len(args) > 4:
             param_file = sys.argv[4]
+        else:
+            param_file = ""
     else:
         # Get general model config information
         CONFIG = ConfigLoader('../../config/model_config.json')\
