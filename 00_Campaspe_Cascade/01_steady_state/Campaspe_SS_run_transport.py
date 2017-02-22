@@ -156,10 +156,6 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
 
 if __name__ == "__main__":
-
-    # Get general model config information
-    CONFIG = ConfigLoader('../../config/model_config.json')\
-                    .set_environment("01_steady_state")
     
     verbose = False
                     
@@ -167,10 +163,13 @@ if __name__ == "__main__":
     if len(args) > 1:
         model_folder = sys.argv[1]
         data_folder = sys.argv[2]
-        mf_exe_folder = sys.argv[3]
+        mt_exe_folder = sys.argv[3]
         if len(args) > 4:
             param_file = sys.argv[4]
     else:
+        # Get general model config information
+        CONFIG = ConfigLoader('../../config/model_config.json')\
+                        .set_environment("01_steady_state")
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
         data_folder = model_config['data_folder']
