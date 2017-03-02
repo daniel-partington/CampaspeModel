@@ -47,8 +47,8 @@
 		  "mt_exe_folder": "MT3D-USGS_64.exe"
 	  },	  
 	  "part0075": {
-		  "grid_resolution": "5000m",
-		  "data_folder": "/home/part0075/MDBmodelling/testbox/PEST5000/master",
+		  "grid_resolution": "1000m",
+		  "data_folder": "/home/part0075/MDBmodelling/testbox/PEST1000/master",
 		  "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
 		  "param_file": "",
 		  "working_dir": "",
@@ -69,8 +69,8 @@
 		  "mt_exe_folder": "MT3D-USGS_64.exe"
 	  },	  
 	  "part0075": {
-		  "grid_resolution": "5000m",
-		  "data_folder": "/home/part0075/MDBmodelling/testbox/PEST5000/master",
+		  "grid_resolution": "1000m",
+		  "data_folder": "/home/part0075/MDBmodelling/testbox/PEST1000/master",
 		  "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
 		  "param_file": "",
 		  "working_dir": "",
