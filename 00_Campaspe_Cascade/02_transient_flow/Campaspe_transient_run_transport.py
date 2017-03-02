@@ -30,6 +30,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
 
     name = MM.GW_build.keys()[0]
+    m = MM.GW_build[name]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
@@ -71,12 +72,12 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
     ibound = modflow_model.model_data.model_mesh3D[1]        
     ibound[ibound == -1] = 0
-    prsity = MM.GW_build[name].parameters.param['porosity']['PARVAL1']
+    prsity = m.parameters.param['porosity']['PARVAL1']
     flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, prsity=prsity,
                        sconc=conc_init, ncomp=1, mcomp=1, 
                        cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
-                       timprs=None, savucn=1, nprobs=0, 
+                       timprs=None, savucn=1, nprobs=0, laycon=1,
                        chkmas=1, nprmas=1, dt0=10000.0, ttsmax=100000.0)
 
     if verbose:
@@ -91,7 +92,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     if verbose:
         print("Add the DSP package to the model")
 
-    al = MM.GW_build[name].parameters.param['disp']['PARVAL1']
+    al = m.parameters.param['disp']['PARVAL1']
     flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=al, trpt=0.1, trpv=0.1, dmcoef=0.0)
 
     if verbose:
