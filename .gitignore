@@ -2,6 +2,8 @@ too_big_to_git/
 
 dont_git/*
 
+*.mat
+
 # ipython notebook checkpoints
 *-checkpoint.ipynb
 
