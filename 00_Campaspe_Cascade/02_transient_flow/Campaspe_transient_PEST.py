@@ -34,15 +34,10 @@ if __name__ ==  "__main__":
     if len(args) > 1:
         model_folder = sys.argv[1]
         data_folder = sys.argv[2]
-        mf_exe_folder = sys.argv[3]
-        if len(args) > 4:
-            param_file = sys.argv[4]
     else:
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
         data_folder = model_config['data_folder']
-        mf_exe_folder = model_config['mf_exe_folder']
-        param_file = model_config['param_file']    
     
     pest_folder = data_folder     
     
