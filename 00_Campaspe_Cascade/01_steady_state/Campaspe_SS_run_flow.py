@@ -44,15 +44,15 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         # if key ==7:
         #    continue
 #        Kh[Zone == key] = m.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
-        for index2, param in enumerate(m.parameters.param_set['Kh_' + zone_map[key]]):
+        for index2, param in enumerate(m.parameters.param_set['kh_' + zone_map[key]]):
             if index2 == 0:
                 points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
             else: 
                 points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
             
-        Kv[Zone == key] = m.parameters.param['Kv_' + zone_map[key]]['PARVAL1']
-        Sy[Zone == key] = m.parameters.param['Sy_' + zone_map[key]]['PARVAL1']
-        SS[Zone == key] = m.parameters.param['SS_' + zone_map[key]]['PARVAL1']
+        Kv[Zone == key] = m.parameters.param['kv_' + zone_map[key]]['PARVAL1']
+        Sy[Zone == key] = m.parameters.param['sy_' + zone_map[key]]['PARVAL1']
+        SS[Zone == key] = m.parameters.param['ss_' + zone_map[key]]['PARVAL1']
 
     hk = m.pilot_points['hk']
     zones = len(zone_map.keys())
@@ -83,7 +83,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         col = riv_cell[0][1]
         if m.model_mesh3D[1][0][row][col] == -1:
             continue
-        cond += [riv_cell[1] * riv_width_avg * m.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness]
+        cond += [riv_cell[1] * riv_width_avg * m.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness]
 
     riv = m.boundaries.bc['Campaspe River']['bc_array'].copy()
     for key in riv.keys():
@@ -107,9 +107,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             continue
         stage = m.model_mesh3D[0][0][row][col] - 0.01
         bed = m.model_mesh3D[0][0][row][col] - 0.1 - \
-            m.parameters.param['RMstage']['PARVAL1']
+            m.parameters.param['rmstage']['PARVAL1']
         cond = riv_cell[1] * riv_width_avg * \
-            m.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
+            m.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
         simple_river += [[0, row, col, stage, cond, bed]]
 
     riv = {}
@@ -125,7 +125,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 
     for i in [1, 2, 3, 7]:
         interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[m.model_mesh3D[
-            1][0] == i] * m.parameters.param['SSrch_' + zone_map[i]]['PARVAL1']
+            1][0] == i] * m.parameters.param['ssrch_' + zone_map[i]]['PARVAL1']
 
     for i in [4, 5, 6, ]:
         interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[
@@ -175,13 +175,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
     for MurrayGHB_cell in MurrayGHB_cells:
         lay, row, col = MurrayGHB_cell
         MurrayGHBstage = m.model_mesh3D[0][0][row][
-            col] + m.parameters.param['MGHB_stage']['PARVAL1']
+            col] + m.parameters.param['mghb_stage']['PARVAL1']
         if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
             continue
         dx = m.gridHeight
         dz = m.model_mesh3D[0][lay][row][col] - \
             m.model_mesh3D[0][lay + 1][row][col]
-        MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
+        MGHBconductance = dx * dz * m.parameters.param['mghbcond']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
         
 
@@ -320,7 +320,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             
                 for k in [1, 2, 3, 7]:
                     interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[m.model_mesh3D[
-                        1][0] == k] * m.parameters.param['SSrch_' + zone_map[k]]['PARVAL1']
+                        1][0] == k] * m.parameters.param['ssrch_' + zone_map[k]]['PARVAL1']
             
                 for k in [4, 5, 6, ]:
                     interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[

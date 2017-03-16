@@ -26,7 +26,7 @@ if __name__ ==  "__main__":
 
 # Get general model config information
     CONFIG = ConfigLoader('../../config/model_config.json')\
-                    .set_environment("01_steady_state")
+                    .set_environment("02_transient_flow")
 
     verbose=True
                     

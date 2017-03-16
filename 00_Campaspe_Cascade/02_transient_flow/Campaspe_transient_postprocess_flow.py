@@ -171,45 +171,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     ghb[0] = MurrayGHB
 
     
-#    print "************************************************************************"
-#    print " Updating Western GHB boundary"
-#    
-#    mapped_west = m.load_obj(os.path.join(model_folder, r"western_head_model.shp_mapped.pkl"))
-#    
-#    WestGHB = []
-#    for WestGHB_cell in mapped_west:
-#        row = WestGHB_cell[0][0]
-#        col = WestGHB_cell[0][1]
-#        for lay in range(m.model_mesh3D[1].shape[0]):    
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            WestGHBstage = m.model_mesh3D[0][0][row][col] + m.parameters.param['WGHB_stage']['PARVAL1']
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - m.model_mesh3D[0][lay+1][row][col]
-#            WGHBconductance = dx * dz * m.parameters.param['WGHBcond']['PARVAL1']
-#            WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
-#    
-#    ghb[0] += WestGHB
-#    
-#    print "************************************************************************"
-#    print " Updating Eastern GHB boundary"
-#    
-#    mapped_east = m.load_obj(os.path.join(model_folder, r"eastern_head_model.shp_mapped.pkl"))
-#    
-#    EastGHB = []
-#    for EastGHB_cell in mapped_east:
-#        row = EastGHB_cell[0][0]
-#        col = EastGHB_cell[0][1]
-#        for lay in range(m.model_mesh3D[1].shape[0]):    
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            EastGHBstage = m.model_mesh3D[0][0][row][col] + m.parameters.param['EGHB_stage']['PARVAL1']
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - m.model_mesh3D[0][lay+1][row][col]
-#            EGHBconductance = dx * dz * m.parameters.param['EGHBcond']['PARVAL1']
-#            EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
-#    
-#    ghb[0] += EastGHB
+
     
     if verbose:
         print "************************************************************************"
@@ -298,87 +260,10 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     modflow_model.executable = mf_exe_folder
 
-    modflow_model.buildMODFLOW(transport=True, write=True)
+    modflow_model.buildMODFLOW(transport=True, write=False)
 
-    #modflow_model.checkMODFLOW()  # Note this is slow af, so use only in setting up model
-
-    modflow_model.runMODFLOW(silent=True)
-
-    converge = modflow_model.checkCovergence()
-
-    if converge:
-        if verbose:
-            print('model converged')
-            #break
-    
-        modflow_model.writeObservations()
-
-    Campaspe_riv_flux = modflow_model.getRiverFlux('Campaspe River')
-
-    # 1. Final year of fluxes along entire River
-    final_stress_periods = max(Campaspe_riv_flux.keys())
-    ## 1.1 Annual average
-    net_riv_flux_annual = 0
-    for key in range(final_stress_periods - 11, final_stress_periods + 1):
-        net_riv_flux_annual += np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]])) 
-    ### Convert to average from sum 
-    net_riv_flux_annual = net_riv_flux_annual / 12.0
-    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_a.txt'), 'w') as f:
-        f.write('{}\n'.format(net_riv_flux_annual))  
-    
-    ## 1.2 Seasonal average
-    net_riv_flux_season = {}
-    for index, key in enumerate(range(final_stress_periods - 11, final_stress_periods + 1)):
-        season = index//3
-        if season not in net_riv_flux_season.keys():
-            net_riv_flux_season[season] = 0.0
-        net_riv_flux_season[season] += np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]]))
-    ### Convert to average from sum 
-    net_riv_flux_season = {k: net_riv_flux_season[k] / 3.0 for k in net_riv_flux_season.keys()}
-    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_s.txt'), 'w') as f:
-        for key in net_riv_flux_season.keys():
-            f.write('{}\n'.format(net_riv_flux_season[key]))  
-    
-    ## 1.3 Monthly average (no averaging required)
-    net_riv_flux_month = {}
-    for key in range(final_stress_periods - 11, final_stress_periods + 1):
-        net_riv_flux_month[key] = np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]]))
-    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_m.txt'), 'w') as f:
-        for key in net_riv_flux_month.keys():
-            f.write('{}\n'.format(net_riv_flux_month[key]))  
-
-    # 2. Final year of fluxes along reaches of river between gauges
-    ## 2.1 Annual average
-    
-    ## 2.2 Seasonal average
-    
-    ## 2.3 Monthly average (no averaging required)
-
-    # 3. Final year of fluxes along each river cell in the model
-    ## 3.1 Annual average
-    for index, key in enumerate(range(final_stress_periods - 11, final_stress_periods + 1)):
-        if index == 0:
-            cell_riv_flux_annual = np.array([x[0] for x in Campaspe_riv_flux[key]]) 
-        else:
-            cell_riv_flux_annual += np.array([x[0] for x in Campaspe_riv_flux[key]]) 
-    ### Convert to average from sum 
-    cell_riv_flux_annual = cell_riv_flux_annual / 12.0
-    with open(os.path.join(modflow_model.data_folder, 'observations_cell_riv_flux_annual_whole.txt'), 'w') as f:
-        for el in cell_riv_flux_annual:
-            f.write('{}\n'.format(net_riv_flux_annual))  
-    
-    ## 3.2 Seasonal average
-    
-    ## 3.3 Monthly average (no averaging required)
-    
+    modflow_model.compareAllObs()
         
-    #modflow_model.compareAllObs()
-        
-    #if ss_converge:
-    #    if tr_converge:
-    #        modflow_model.writeObservations()
-
-
     return modflow_model
 
 if __name__ == "__main__":
