@@ -294,6 +294,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
             modflow_model.nstp = 100 #1 # This is the number of sub-steps to do in each stress period
             modflow_model.steady = False #True # This is to tell FloPy that is a transient model
+            modflow_model.headtol = 1E-4 # Initially relax head convergence criteria to get convergence
                 
             modflow_model.buildMODFLOW(transport=True)
         
@@ -335,7 +336,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
                 modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
                 modflow_model.steady = True #True # This is to tell FloPy that is a transient model
-        
                 filename = os.path.join(data_folder, 'init{}.hds'.format(rech_steps[i]))
                 head = modflow_model.getFinalHeads(str(filename))
                 modflow_model.strt = head
