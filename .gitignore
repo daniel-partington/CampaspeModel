@@ -103,3 +103,11 @@ target/
 *.synctex.gz
 
 testbox/integrated/model_build/
+
+00_Campaspe_Cascade/packaged/
+
+testbox/integrated/data/model_GW_link_Integrated/
+
+testbox/integrated/model_build/data_build/
+
+testbox/integrated/datastructured_model_grid_1000m/
