@@ -1,7 +1,10 @@
 import sys
 import os
-sys.path.append('C:\Workspace\part0075\GIT_REPOS')
+#sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 from HydroModelBuilder.GWModelManager import GWModelManager
+
+# Configuration Loader
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 # MM is short for model manager
 def run(model_folder, pest_folder):
@@ -21,8 +24,21 @@ def run(model_folder, pest_folder):
 
 if __name__ ==  "__main__":
 
-    grid_resolution = '5000'
-    model_folder = r"C:\Workspace\part0075\MDB modelling\testbox\00_Campaspe_Cascade\02_transient_flow\structured_model_grid_" + grid_resolution + r"m\\" 
-    pest_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master"     
+# Get general model config information
+    CONFIG = ConfigLoader('../../config/model_config.json')\
+                    .set_environment("02_transient_flow")
+
+    verbose=True
+                    
+    args = sys.argv
+    if len(args) > 1:
+        model_folder = sys.argv[1]
+        data_folder = sys.argv[2]
+    else:
+        model_config = CONFIG.model_config
+        model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
+        data_folder = model_config['data_folder']
+    
+    pest_folder = data_folder     
     
     run(model_folder, pest_folder)

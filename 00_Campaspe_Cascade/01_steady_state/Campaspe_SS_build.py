@@ -36,13 +36,14 @@ SS_model = GWModelBuilder(name="01_steady_state",
 print "************************************************************************"
 print " Setting model boundary "
 
-SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp",
+SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp", 
                                                    shapefile_path=SS_model.data_folder)
 
 # Set data boundary for model data
 print "************************************************************************"
 print " Setting spatial data boundary "
-SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file,
+SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file, 
+                                                  shapefile_path=SS_model.data_folder,
                                                   buffer_dist=20000)
 
 # Setup recharge:
@@ -202,7 +203,7 @@ print '########################################################################'
 # as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 1000
+resolution = 5000
 SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
@@ -241,7 +242,7 @@ SS_model.build_3D_mesh_from_rasters(model_grid_raster_files,
 SS_model.reclassIsolatedCells()
 
 print "************************************************************************"
-print " Assign properties to mesh based on zonal information"
+print " Assign properties to mesh based on pilot points and zonal information"
 
 # create list of HGU's from hu_raster_files
 HGU = list(set([x.split('_')[0] for x in hu_raster_files]))
@@ -253,95 +254,121 @@ HGU_map = {'bse': 'Bedrock', 'utb': 'Newer Volcanics Basalts',
            'qa': 'Coonambidgal Sands', 'utqa': 'Shepparton Sands',
            'utam': 'Shepparton Sands'}
 
-HGU_zone = {'bse': 6, 'utb': 1,
-            'utaf': 4, 'lta': 5,
-            'qa': 0, 'utqa': 2,
-            'utam': 3}
+HGU_zone = {'bse':6, 'utb':1, 
+           'utaf':4, 'lta':5, 
+           'qa':0, 'utqa':2,
+           'utam':3}
+           
+zone_HGU = {HGU_zone[x]:x for x in HGU_zone.keys()}
+           
+pilot_points = True
+           
+if pilot_points:       
+    # Set up pilot points:
+    SS_model.create_pilot_points('hk')           
+    hk = SS_model.pilot_points['hk']
+    
+    # Create some references to data inside the model builder object
+    mesh_array = SS_model.model_mesh3D
+    cell_centers = SS_model.model_mesh_centroids
+    model_boundary = SS_model.model_boundary
+    zones = len(np.unique(SS_model.model_mesh3D[1])) - 1
+    
+    # Create dict of zones and properties
+    zone_prop_dict={zone: HGU_props['Kh mean'][HGU_map[HGU[zone]]] for zone in range(zones)}
+    # Define some parameters for pilot point distribution
+    if resolution == 1000:
+        skip=[0, 0, 6, 0, 6, 6, 6] 
+        skip_active=[49, 20, 0, 34, 0, 0, 0]
+    elif resolution == 500:
+        skip=[0, 0, 12, 0, 12, 12, 12] 
+        skip_active=[100, 40, 0, 70, 0, 0, 0]
+    else:
+        skip=[0,  0, 3, 0, 2, 3, 3] 
+        skip_active=[3, 20, 0, 4, 0, 0, 0]
+    
+    
+    # Generate the pilot points 
+    hk.generate_points_from_mesh(mesh_array, cell_centers, 
+        skip=skip, 
+        skip_active=skip_active,
+        zone_prop_dict=zone_prop_dict)
+    
+    # Create some necessary files fro pilot points utilities
+    hk.write_settings_fig()
+    hk.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
+    hk.write_struct_file(mesh_array, nugget=0.0, 
+                      transform='log',numvariogram=1, variogram=0.15, 
+                      vartype=2, bearing=0.0, a=20000.0, anisotropy=1.0)
+    
+    # These search_radius values have been tested on the 1000m grid, would be good
+    # to add in other resolution lists as they are developed
+    if resolution == 1000:
+        search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
+    else:
+        search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
+        
+    prefixes=['kh_' + zone_HGU[x] for x in range(zones)]
+    hk.setup_pilot_points_by_zones(mesh_array, zones, search_radius, prefixes=prefixes)    
 
-# Set up pilot points:
-SS_model.create_pilot_points('hk')
-hk = SS_model.pilot_points['hk']
+    hk.generate_cov_mat_by_zones(zones)    
 
-# Create some references to data inside the model builder object
-mesh_array = SS_model.model_mesh3D
-cell_centers = SS_model.model_mesh_centroids
-model_boundary = SS_model.model_boundary
-zones = len(np.unique(SS_model.model_mesh3D[1])) - 1
+    #print("Running pyfac2real")
+    hk.run_pyfac2real_by_zones(zones)
 
-# Create dict of zones and properties
-zone_prop_dict = {zone: HGU_props['Kh mean'][HGU_map[HGU[zone]]] for zone in range(zones)}
-# Define some parameters for pilot point distribution
-if resolution == 1000:
-    skip = [0, 0, 6, 0, 6, 6, 6]
-    skip_active = [49, 20, 0, 34, 0, 0, 0]
-else:
-    skip = [0,  0, 3, 0, 2, 3, 3]
-    skip_active = [3, 20, 0, 4, 0, 0, 0]
-
-# Generate the pilot points
-hk.generate_points_from_mesh(mesh_array, cell_centers,
-                             skip=skip,
-                             skip_active=skip_active,
-                             zone_prop_dict=zone_prop_dict)
-
-# Create some necessary files fro pilot points utilities
-hk.write_settings_fig()
-hk.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
-hk.write_struct_file(mesh_array, nugget=0.0,
-                     transform='log', numvariogram=1, variogram=0.15,
-                     vartype=2, bearing=0.0, a=20000.0, anisotropy=1.0)
-
-# These search_radius values have been tested on the 1000m grid, would be good
-# to add in other resolution lists as they are developed
-if resolution == 1000:
-    search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
-else:
-    search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
-
-hk.setup_pilot_points_by_zones(mesh_array, zones, search_radius)
-hk.run_pyfac2real_by_zones(zones)
-
+    SS_model.save_pilot_points()
+          
 for unit in HGU:
-    SS_model.parameters.create_model_parameter_set('Kh_' + unit,
-                                                   value=HGU_props['Kh mean'][HGU_map[unit]],
-                                                   num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
-    SS_model.parameters.parameter_options_set('Kh_' + unit,
-                                              PARTRANS='log',
-                                              PARCHGLIM='factor',
-                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10.,
-                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10.,
-                                              PARGP='cond',
-                                              SCALE=1,
+    if pilot_points:
+        SS_model.parameters.create_model_parameter_set('kh_' + unit, 
+                                                       value=HGU_props['Kh mean'][HGU_map[unit]], 
+                                                       num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
+        SS_model.parameters.parameter_options_set('kh_' + unit, 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                              PARGP='cond_' + unit, 
+                                              SCALE=1, 
                                               OFFSET=0)
-    SS_model.parameters.create_model_parameter(
-        'Kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
-    SS_model.parameters.parameter_options('Kv_' + unit,
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10.,
-                                          PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10.,
-                                          PARGP='cond',
-                                          SCALE=1,
+    else:
+        SS_model.parameters.create_model_parameter('kh_' + unit, 
+                                                   value=HGU_props['Kh mean'][HGU_map[unit]])
+        SS_model.parameters.parameter_options('kh_' + unit, 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                              PARGP='cond_' + unit, 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        
+    SS_model.parameters.create_model_parameter('kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
+    SS_model.parameters.parameter_options('kv_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10., 
+                                          PARGP='cond_' + unit, 
+                                          SCALE=1, 
                                           OFFSET=0)
-    SS_model.parameters.create_model_parameter(
-        'Sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
-    SS_model.parameters.parameter_options('Sy_' + unit,
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=0.,
-                                          PARUBND=0.8,
-                                          PARGP='spec_yield',
-                                          SCALE=1,
+    SS_model.parameters.create_model_parameter('sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
+    SS_model.parameters.parameter_options('sy_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=1.0E-3, 
+                                          PARUBND=0.8, 
+                                          PARGP='sy_' + unit, 
+                                          SCALE=1, 
                                           OFFSET=0)
-    SS_model.parameters.create_model_parameter(
-        'SS_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
-    SS_model.parameters.parameter_options('SS_' + unit,
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10.,
-                                          PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10.,
-                                          PARGP='spec_stor',
-                                          SCALE=1,
+    SS_model.parameters.create_model_parameter('ss_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
+    SS_model.parameters.parameter_options('ss_' + unit, 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
+                                          PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
+                                          PARGP='ss_' + unit, 
+                                          SCALE=1, 
                                           OFFSET=0)
 
 # This needs to be automatically generated from with the map_raster2mesh routine ...
@@ -352,12 +379,14 @@ Kv = SS_model.model_mesh3D[1].astype(float)
 Sy = SS_model.model_mesh3D[1].astype(float)
 SS = SS_model.model_mesh3D[1].astype(float)
 for key in zone_map.keys():
-    #Kh[Kh == key] = SS_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
-    Kv[Kv == key] = SS_model.parameters.param['Kv_' + zone_map[key]]['PARVAL1']
-    Sy[Sy == key] = SS_model.parameters.param['Sy_' + zone_map[key]]['PARVAL1']
-    SS[SS == key] = SS_model.parameters.param['SS_' + zone_map[key]]['PARVAL1']
+    if not pilot_points:
+        Kh[Kh == key] = SS_model.parameters.param['kh_' + zone_map[key]]['PARVAL1']
+    Kv[Kv == key] = SS_model.parameters.param['kv_' + zone_map[key]]['PARVAL1']
+    Sy[Sy == key] = SS_model.parameters.param['sy_' + zone_map[key]]['PARVAL1']
+    SS[SS == key] = SS_model.parameters.param['ss_' + zone_map[key]]['PARVAL1']
 
-Kh = hk.val_array
+if pilot_points:
+    Kh = hk.val_array
 
 SS_model.properties.assign_model_properties('Kh', Kh)
 SS_model.properties.assign_model_properties('Kv', Kv)
@@ -376,19 +405,18 @@ interp_rain = interp_rain / 1000.0 / 365.0
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
-for i in [1, 2, 3, 7]:
-    SS_model.parameters.create_model_parameter('SSrch_' + zone_map[i], value=0.01)
-    SS_model.parameters.parameter_options('SSrch_' + zone_map[i],
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=0.,
-                                          PARUBND=0.9,
-                                          PARGP='rech_mult',
-                                          SCALE=1,
+for i in [1,2,3,7]:
+    SS_model.parameters.create_model_parameter('ssrch_'+zone_map[i], value=0.01)
+    SS_model.parameters.parameter_options('ssrch_'+zone_map[i], 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=0., 
+                                          PARUBND=0.9, 
+                                          PARGP='rech_mult', 
+                                          SCALE=1, 
                                           OFFSET=0)
 
-    interp_rain[SS_model.model_mesh3D[1][0] == i] = interp_rain[SS_model.model_mesh3D[
-        1][0] == i] * SS_model.parameters.param['SSrch_' + zone_map[i]]['PARVAL1']
+    interp_rain[SS_model.model_mesh3D[1][0]==i] = interp_rain[SS_model.model_mesh3D[1][0]==i] * SS_model.parameters.param['ssrch_' + zone_map[i]]['PARVAL1']
 
 rch = {}
 rch[0] = interp_rain
@@ -595,23 +623,23 @@ for riv_gauge in Campaspe_river_gauges:
         filter_gauges += [riv_gauge]
 
 SS_model.map_polyline_to_grid(Campaspe_river_poly)
-#SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
-# SS_model.parameters.parameter_options('bed_depress',
-#                                      PARTRANS='log',
-#                                      PARCHGLIM='factor',
-#                                      PARLBND=0.001,
-#                                      PARUBND=0.1,
-#                                      PARGP='spec_stor',
-#                                      SCALE=1,
-#                                      OFFSET=0)
-SS_model.parameters.create_model_parameter('Kv_riv', value=5E-3)
-SS_model.parameters.parameter_options('Kv_riv',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=1E-8,
-                                      PARUBND=20,
-                                      PARGP='spec_stor',
-                                      SCALE=1,
+SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
+SS_model.parameters.parameter_options('bed_depress', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='camp_riv', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+SS_model.parameters.create_model_parameter('kv_riv', value=5E-3)
+SS_model.parameters.parameter_options('kv_riv', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='camp_riv', 
+                                      SCALE=1, 
                                       OFFSET=0)
 
 simple_river = []
@@ -648,11 +676,8 @@ new_riv_cells = [x[0] for x in new_riv]
 filter_gauge_loc = [new_riv_cells[x]
                     for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
 
-# Set up the gauges as observations
-
-#SS_model.observations.set_as_observations('Campase_riv_gauges', CampaspeRiv_obs_time_series, CampaspeRiv_points3D, domain='surface', obs_type='stage', units='m')
-
-
+#SS_model.observations.set_as_observations('Campase_riv_gauges', CampaspeRiv_obs_time_series, CampaspeRiv_points3D, domain='surface', obs_type='stage', units='m') 
+                    
 for index, riv in enumerate(new_riv):
     # Create logical array to identify those which are gauges and those which are not
     if riv[0] in filter_gauge_loc:
@@ -701,7 +726,7 @@ for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.sh
         bed = bed_temp
 
     cond = riv_cell[1] * riv_width_avg * \
-        SS_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
+        SS_model.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 #    stage = stages[index] #SS_model.model_mesh3D[0][0][row][col]
@@ -832,23 +857,23 @@ print " Mapping Murray River to grid"
 
 SS_model.map_polyline_to_grid(Murray_river_poly)
 
-SS_model.parameters.create_model_parameter('RMstage', value=0.01)
-SS_model.parameters.parameter_options('RMstage',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=0.001,
-                                      PARUBND=0.1,
-                                      PARGP='spec_stor',
-                                      SCALE=1,
+SS_model.parameters.create_model_parameter('rmstage', value=0.01)
+SS_model.parameters.parameter_options('rmstage', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='murr_riv', 
+                                      SCALE=1, 
                                       OFFSET=0)
-SS_model.parameters.create_model_parameter('Kv_RM', value=5E-3)
-SS_model.parameters.parameter_options('Kv_RM',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=1E-8,
-                                      PARUBND=20,
-                                      PARGP='spec_stor',
-                                      SCALE=1,
+SS_model.parameters.create_model_parameter('kv_rm', value=5E-3)
+SS_model.parameters.parameter_options('kv_rm', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=20, 
+                                      PARGP='murr_riv', 
+                                      SCALE=1, 
                                       OFFSET=0)
 
 
@@ -862,9 +887,8 @@ for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
         continue
     # print SS_model.model_mesh3D
     stage = SS_model.model_mesh3D[0][0][row][col]
-    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['RMstage']['PARVAL1']
-    cond = riv_cell[1] * riv_width_avg * \
-        SS_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
+    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['rmstage']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * SS_model.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {}
@@ -880,27 +904,31 @@ SS_model.boundaries.assign_boundary_array('Murray River', riv)
 print "************************************************************************"
 print " Setting up Murray River GHB boundary"
 
-SS_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
-SS_model.parameters.parameter_options('MGHB_stage',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=-20.0,
-                                      PARUBND=50,
-                                      PARGP='ghb',
-                                      SCALE=1,
+SS_model.parameters.create_model_parameter('mghb_stage', value=0.01)
+SS_model.parameters.parameter_options('mghb_stage', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=-20.0, 
+                                      PARUBND=50, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
                                       OFFSET=0)
-SS_model.parameters.create_model_parameter('MGHBcond', value=5E-3)
-SS_model.parameters.parameter_options('MGHBcond',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=1E-8,
-                                      PARUBND=50,
-                                      PARGP='ghb',
-                                      SCALE=1,
+SS_model.parameters.create_model_parameter('mghbcond', value=5E-3)
+SS_model.parameters.parameter_options('mghbcond', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1E-8, 
+                                      PARUBND=50, 
+                                      PARGP='ghb', 
+                                      SCALE=1, 
                                       OFFSET=0)
 
+
+# First find which cells should make up the boundary based on the mapping 
+# from the Murray river polyline to the grid
 
 MurrayGHB = []
+Active_MurrayGHB_cells = []
 for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
@@ -909,14 +937,96 @@ for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
         if SS_model.model_mesh3D[1][0][row][col] == -1:
             continue
         #MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
-        MurrayGHBstage = SS_model.model_mesh3D[0][0][row][
-            col] + SS_model.parameters.param['MGHB_stage']['PARVAL1']
+        MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
         if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
             continue
-        dx = SS_model.gridHeight
-        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay + 1][row][col]
-        MGHBconductance = dx * dz * SS_model.parameters.param['MGHBcond']['PARVAL1']
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+        if lay == 0:
+            continue
+        
+        Active_MurrayGHB_cells += [[lay, row, col]]
+
+# Now make sure that no cells are being caught surrounded by other GHB cells
+Final_MurrayGHB_cells = []
+for active_cell in Active_MurrayGHB_cells:
+    # check if active GHB cell has any active non GHB cells N,E,S,W, above or below         
+    lay, row, col = 0, 1, 2
+    shape = SS_model.model_mesh3D[1].shape
+    active_non_GHB = False
+    zone = SS_model.model_mesh3D[1]
+    
+    ac = active_cell
+    # Check above:
+    ref_cell = [ac[lay] - 1, ac[row], ac[col]]        
+#    # Make sure not at top boundary    
+#    if active_cell[lay] != 0:
+#        # Make sure above cell is active
+#        if zone[ac[lay] - 1, ac[row], ac[col]] != -1:
+#            # Make sure if active that is is not another GHB cell
+#            if ref_cell not in Active_MurrayGHB_cells:
+#                active_non_GHB = True
+#
+#    # Check below:
+#    ref_cell = [ac[lay] + 1, ac[row], ac[col]]        
+#    if active_cell[lay] != shape[lay] - 1:
+#        if zone[ac[lay] + 1, ac[row], ac[col]] != -1:
+#            if ref_cell not in Active_MurrayGHB_cells:
+#                active_non_GHB = True
+                
+    # Check north:
+    ref_cell = [ac[lay], ac[row] + 1, ac[col]]        
+    if active_cell[row] != 0:
+        if zone[ac[lay], ac[row] + 1, ac[col]] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check east:
+    ref_cell = [ac[lay], ac[row], ac[col] + 1]        
+    if active_cell[col] != shape[col] - 1:
+        if zone[ac[lay], ac[row], ac[col] + 1] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check south:
+    ref_cell = [ac[lay], ac[row] - 1, ac[col]]        
+    if active_cell[row] != shape[row] - 1:
+        if zone[ac[lay], ac[row] - 1, ac[col]] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check west:
+    ref_cell = [ac[lay], ac[row], ac[col] - 1]        
+    if active_cell[col] != 0:
+        if zone[ac[lay], ac[row], ac[col] - 1] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    if active_non_GHB:
+        Final_MurrayGHB_cells += [active_cell]                
+                
+#for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
+for MurrayGHB_cell in Final_MurrayGHB_cells:
+    #row = MurrayGHB_cell[0][0]
+    #col = MurrayGHB_cell[0][1]
+
+    lay = MurrayGHB_cell[0]
+    row = MurrayGHB_cell[1]
+    col = MurrayGHB_cell[2]
+    #print SS_model.model_mesh3D
+#    for lay in range(SS_model.model_mesh3D[1].shape[0]):    
+#        if SS_model.model_mesh3D[1][0][row][col] == -1:
+#            continue
+        #MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
+#        if lay == 0:
+            # To avoid having river cells in the same cells as GHB cells.
+#            continue
+        
+    MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
+    if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+        continue
+    dx = SS_model.gridHeight
+    dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
+    MGHBconductance = dx * dz * SS_model.parameters.param['mghbcond']['PARVAL1']
+    MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
 ghb = {}
 ghb[0] = MurrayGHB

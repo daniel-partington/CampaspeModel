@@ -2,6 +2,8 @@ too_big_to_git/
 
 dont_git/*
 
+*.mat
+
 # ipython notebook checkpoints
 *-checkpoint.ipynb
 
@@ -102,10 +104,11 @@ target/
 *.out
 *.synctex.gz
 
-testbox/integrated/model_build/input_data/
 
 00_Campaspe_Cascade/packaged/
 
 testbox/integrated/data/model_GW_link_Integrated/
 
 testbox/integrated/model_build/data_build/
+
+testbox/integrated/model_build/

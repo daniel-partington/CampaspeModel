@@ -25,6 +25,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     MM.load_GW_model(os.path.join(model_folder, r"01_steady_state_packaged.pkl"))
 
     name = MM.GW_build.keys()[0]
+    m = MM.GW_build[name]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
@@ -57,10 +58,11 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     #Add the BTN package to the model
     ibound = modflow_model.model_data.model_mesh3D[1]        
     ibound[ibound == -1] = 0
-    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, ncomp=1, 
-                       mcomp=1, cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
+    prsity = m.parameters.param['porosity']['PARVAL1']
+    flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, prsity=prsity,
+                       ncomp=1, mcomp=1, cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
-                       timprs=None, savucn=1, nprobs=0, 
+                       timprs=None, savucn=1, nprobs=0,  laycon=1,
                        chkmas=1, nprmas=1, dt0=10000.0, ttsmax=100000.0)
 
     #Add the ADV package to the model
@@ -71,7 +73,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                        npsink=8, dchmoc=0.01)
 
     #Add the DSP package to the model
-    flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=10., trpt=0.1, trpv=0.1, 
+    al = m.parameters.param['disp']['PARVAL1']
+    flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=al, trpt=0.1, trpv=0.1, 
                        dmcoef=0.0)
 
     #Add the RCT package to the model
@@ -156,10 +159,6 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
 
 if __name__ == "__main__":
-
-    # Get general model config information
-    CONFIG = ConfigLoader('../../config/model_config.json')\
-                    .set_environment("01_steady_state")
     
     verbose = False
                     
@@ -167,10 +166,16 @@ if __name__ == "__main__":
     if len(args) > 1:
         model_folder = sys.argv[1]
         data_folder = sys.argv[2]
-        mf_exe_folder = sys.argv[3]
+        mt_exe_folder = sys.argv[3]
         if len(args) > 4:
             param_file = sys.argv[4]
+        else:
+            param_file = ""
+
     else:
+        # Get general model config information
+        CONFIG = ConfigLoader('../../config/model_config.json')\
+                        .set_environment("01_steady_state")
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
         data_folder = model_config['data_folder']

@@ -1,6 +1,6 @@
 import datetime
 import os
-import time
+import sys
 
 import numpy as np
 import pandas as pd
@@ -55,6 +55,9 @@ model_params = {
     "mesh_type": "structured"
 }
 SS_model = GWModelBuilder(**model_params)
+
+print CONFIG.get_setting(['model_build', 'data_build'])
+sys.exit()
 
 # Define the units for the project for consistency and to allow converions on input data
 # SS_model.length = 'm'
@@ -717,16 +720,16 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
 
         # Now fill in the well dictionary with the values of pumping at relevant stress periods
         # where Q is not 0.0
-        for index, time in enumerate(pumping_data_ts.iterrows()):
+        for index, timestep in enumerate(pumping_data_ts.iterrows()):
             # if index >= SS_model.model_time.t['steps']:
             #     continue
             # if time[1]['m3/day used'] != 0.0 :
-            if time[1][pump] == 0:
+            if timestep[1][pump] == 0:
                 continue
             try:
-                wel[index] += [[active_layer, row, col, -time[1][pump] / total_pumping_rate]]
+                wel[index] += [[active_layer, row, col, -timestep[1][pump] / total_pumping_rate]]
             except:
-                wel[index] = [[active_layer, row, col, -time[1][pump] / total_pumping_rate]]
+                wel[index] = [[active_layer, row, col, -timestep[1][pump] / total_pumping_rate]]
             # End try
         # End for
 
