@@ -103,5 +103,3 @@ target/
 *.mtc1
 *.out
 *.synctex.gz
-
-testbox/integrated/model_build/
