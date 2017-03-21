@@ -17,10 +17,11 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 p_j = os.path.join
 dir_name = os.path.dirname
-CONFIG = ConfigLoader(p_j(dir_name(dir_name(__file__)), "config", "model_config.json"))\
+CONFIG = ConfigLoader(p_j(dir_name(dir_name(os.path.realpath(__file__))),
+                          "config", "model_config.json"))\
     .set_environment("GW_link_Integrated")
 
-VERBOSE = True
+VERBOSE = False
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
@@ -32,25 +33,24 @@ Interface = GDALInterface()
 Interface.projected_coordinate_system = Proj_CS
 Interface.pcs_EPSG = "EPSG:28355"
 
+get_conf_set = CONFIG.get_setting
 model_config = CONFIG.model_config
 model_folder = p_j(model_config['model_folder'], model_config['grid_resolution'])
 data_folder = model_config['data_folder']
 mf_exe_folder = model_config['mf_exe_folder']
 param_file = model_config['param_file']
-
-# climate_path = "C:/development/campaspe/GW_data/Campaspe_data/Climate/"
-climate_path = p_j(CONFIG.get_setting(['model_build', 'campaspe_data']), 'Climate')
+climate_path = p_j(get_conf_set(['model_build', 'campaspe_data']), 'Climate')
 
 bore_levels_file = "bore_levels"
 bore_info_file = "bore_info"
-model_build_input_path = CONFIG.get_setting(['model_build', 'input_data'])
+model_build_input_path = get_conf_set(['model_build', 'input_data'])
 
 model_params = {
     "name": "GW_link_Integrated",
     "data_folder": model_build_input_path,
-    "campaspe_data": CONFIG.get_setting(['model_build', 'campaspe_data']),
+    "campaspe_data": get_conf_set(['model_build', 'campaspe_data']),
     "model_data_folder": model_config['data_folder'],
-    "out_data_folder": CONFIG.get_setting(['model_build', 'data_build']),
+    "out_data_folder": get_conf_set(['model_build', 'data_build']),
     "GISInterface": Interface,
     "model_type": "Modflow",
     "mesh_type": "structured"
@@ -58,12 +58,8 @@ model_params = {
 SS_model = GWModelBuilder(**model_params)
 
 # Define the units for the project for consistency and to allow converions on input data
-# SS_model.length = 'm'
-# SS_model.time = 'd'
 
 # ******************************************************************************
-# ******************************************************************************
-#
 # Complimentary models requirements, i.e. bore and gauge data that should be
 # referenceable to this model for parsing specific outputs and receiving inputs:
 
@@ -218,7 +214,7 @@ if VERBOSE:
     print " Executing custom script: processRiverStations "
 
 
-sw_data_loc = p_j(temp_data_loc, r"Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
+sw_data_loc = p_j(temp_data_loc, "Campaspe_data/SW/All_streamflow_Campaspe_catchment")
 
 river_flow_file = "river_flow_processed"
 riv_flow_path = p_j(SS_model.out_data_folder, river_flow_file)
@@ -245,7 +241,6 @@ if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
 
-# river_path = p_j(temp_data_loc, "Campaspe_model/GIS/GIS_preprocessed/Surface_Water/Streams/")
 river_path = p_j(temp_data_loc, "input_data", "Waterways")
 Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=river_path)
 Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=river_path)
@@ -1019,8 +1014,7 @@ if VERBOSE:
 
 SS_model.map_obs_loc2mesh3D(method='nearest')
 
-if VERBOSE:
-    print "************************************************************************"
-    print " Package up groundwater model builder object"
+print "************************************************************************"
+print " Package up groundwater model builder object"
 
 SS_model.package_model()
