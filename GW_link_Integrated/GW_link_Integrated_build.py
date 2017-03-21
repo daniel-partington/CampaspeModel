@@ -1,5 +1,6 @@
 import datetime
 import os
+import sys
 
 import numpy as np
 import pandas as pd
@@ -26,19 +27,23 @@ VERBOSE = False
 Proj_CS = osr.SpatialReference()
 
 # 28355 is the code for gda94 mga zone 55; http://spatialreference.org/ref/epsg/gda94-mga-zone-55/
-Proj_CS.ImportFromEPSG(28355)
+epsg_code = 28355
+Proj_CS.ImportFromEPSG(epsg_code)
 
 Interface = GDALInterface()
 Interface.projected_coordinate_system = Proj_CS
-Interface.pcs_EPSG = "EPSG:28355"
+Interface.pcs_EPSG = "EPSG:{}".format(epsg_code)
 
 get_conf_set = CONFIG.get_setting
 model_config = CONFIG.model_config
-# model_folder = model_config['model_folder'] + model_config['grid_resolution']
 data_folder = model_config['data_folder']
 mf_exe_folder = model_config['mf_exe_folder']
 param_file = model_config['param_file']
 climate_path = p_j(get_conf_set(['model_build', 'campaspe_data']), 'Climate')
+
+temp_data_path = get_conf_set(['model_build', 'temp_data'])
+river_path = p_j(temp_data_path, "input_data", "Waterways")
+sw_data_path = p_j(temp_data_path, "Campaspe_data/SW/All_streamflow_Campaspe_catchment")
 
 bore_levels_file = "bore_levels"
 bore_info_file = "bore_info"
@@ -137,9 +142,10 @@ if os.path.exists(bore_lf) & os.path.exists(bore_if):
     bore_data_info = SS_model.load_dataframe(bore_if)
 else:
     bore_data_levels, bore_data_info = getBoreData.getBoreData(base_path=SS_model.campaspe_data)
-    SS_model.save_dataframe(p_j(SS_model.out_data_folder,
-                                bore_levels_file), bore_data_levels)
-    SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_info_file), bore_data_info)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_levels_file),
+                            bore_data_levels)
+    SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_info_file),
+                            bore_data_info)
 # End if
 
 # getBoreDepth ... assuming that midpoint of screen interval
@@ -147,12 +153,9 @@ else:
 bore_data_info['depth'] = (bore_data_info['TopElev'] + bore_data_info['BottomElev']) / 2.0
 bore_data_info["HydroCode"] = bore_data_info.index
 
-# temp_data_loc = r"C:\Workspace\part0075\MDB modelling\\"
-temp_data_loc = "C:/development/campaspe/GW_data/"
-
 # For steady state model, only use bore details containing average level, not
 ngis_bore_shp = p_j(
-    temp_data_loc, "Campaspe_data", "ngis_shp_VIC", "ngis_shp_VIC", "NGIS_Bores.shp")
+    temp_data_path, "Campaspe_data", "ngis_shp_VIC", "ngis_shp_VIC", "NGIS_Bores.shp")
 # observation_bores = SS_model.read_points_data(ngis_bore_shp)
 
 if VERBOSE:
@@ -176,7 +179,7 @@ if VERBOSE:
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
 
-path = out_path = p_j(temp_data_loc, "Campaspe_data", "GW", "Bore data")
+path = out_path = p_j(temp_data_path, "Campaspe_data", "GW", "Bore data")
 out_file = "pumping wells.shp"
 
 if VERBOSE:
@@ -193,14 +196,14 @@ if VERBOSE:
     print " Executing custom script: readHydrogeologicalProperties "
 
 file_location = p_j(
-    temp_data_loc, "Campaspe_data/GW/Aquifer properties/Hydrogeologic_variables.xlsx")
+    temp_data_path, "Campaspe_data/GW/Aquifer properties/Hydrogeologic_variables.xlsx")
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 
 if VERBOSE:
     print "************************************************************************"
     print "Get the C14 data"
 
-chem_folder = p_j(temp_data_loc, "Campaspe_data", "Chemistry")
+chem_folder = p_j(temp_data_path, "Campaspe_data", "Chemistry")
 C14_points = SS_model.read_points_data(p_j(chem_folder, "C14.shp"))
 
 df_C14 = pd.read_excel(p_j(chem_folder, "C14_locs.xlsx"))
@@ -211,16 +214,13 @@ if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: processRiverStations "
 
-
-sw_data_loc = p_j(temp_data_loc, "Campaspe_data/SW/All_streamflow_Campaspe_catchment")
-
 river_flow_file = "river_flow_processed"
 riv_flow_path = p_j(SS_model.out_data_folder, river_flow_file)
 # Check if this data has been processed and if not process it
 if os.path.exists(riv_flow_path + '.h5'):
     river_flow_data = SS_model.load_dataframe(riv_flow_path + '.h5')
 else:
-    river_flow_data = processRiverStations.getFlow(path=sw_data_loc)
+    river_flow_data = processRiverStations.getFlow(path=sw_data_path)
     SS_model.save_dataframe(riv_flow_path, river_flow_data)
 # End if
 
@@ -230,17 +230,16 @@ riv_stage_path = p_j(SS_model.out_data_folder, river_stage_file)
 if os.path.exists(riv_stage_path + '.h5'):
     river_stage_data = SS_model.load_dataframe(riv_stage_path + '.h5')
 else:
-    river_stage_data = processRiverStations.getStage(path=sw_data_loc)
+    river_stage_data = processRiverStations.getStage(path=sw_data_path)
     SS_model.save_dataframe(riv_stage_path, river_stage_data)
 
-river_gauges = SS_model.read_points_data(p_j(sw_data_loc,
+river_gauges = SS_model.read_points_data(p_j(sw_data_path,
                                              r"processed_river_sites_stage.shp"))
 
 if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
 
-river_path = p_j(temp_data_loc, "input_data", "Waterways")
 Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=river_path)
 Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=river_path)
 
@@ -277,7 +276,7 @@ if VERBOSE:
 SS_model.define_structured_mesh(int(res), int(res))
 
 # Read in hydrostratigraphic raster info for layer elevations:
-hu_raster_path = p_j(temp_data_loc, "ESRI_GRID_raw", "ESRI_GRID")
+hu_raster_path = p_j(temp_data_path, "ESRI_GRID_raw", "ESRI_GRID")
 
 # TODO RUN ON FLAG
 # Build basement file ... only need to do this once as it is time consuming so commented out
@@ -325,54 +324,55 @@ HGU_map = {'bse': 'Bedrock', 'utb': 'Newer Volcanics Basalts',
            'qa': 'Coonambidgal Sands', 'utqa': 'Shepparton Sands',
            'utam': 'Shepparton Sands'}
 
+SSparams = SS_model.parameters
 for unit in HGU:
-    SS_model.parameters.create_model_parameter('Kh_' + unit,
-                                               value=HGU_props['Kh mean'][HGU_map[unit]])
+    SSparams.create_model_parameter('Kh_' + unit,
+                                    value=HGU_props['Kh mean'][HGU_map[unit]])
 
-    SS_model.parameters.parameter_options('Kh_' + unit,
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10.,
-                                          PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10.,
-                                          PARGP='cond',
-                                          SCALE=1,
-                                          OFFSET=0)
+    SSparams.parameter_options('Kh_' + unit,
+                               PARTRANS='log',
+                               PARCHGLIM='factor',
+                               PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10.,
+                               PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10.,
+                               PARGP='cond',
+                               SCALE=1,
+                               OFFSET=0)
 
-    SS_model.parameters.create_model_parameter('Kv_' + unit,
-                                               value=HGU_props['Kz mean'][HGU_map[unit]])
+    SSparams.create_model_parameter('Kv_' + unit,
+                                    value=HGU_props['Kz mean'][HGU_map[unit]])
 
-    SS_model.parameters.parameter_options('Kv_' + unit,
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10.,
-                                          PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10.,
-                                          PARGP='cond',
-                                          SCALE=1,
-                                          OFFSET=0)
+    SSparams.parameter_options('Kv_' + unit,
+                               PARTRANS='log',
+                               PARCHGLIM='factor',
+                               PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10.,
+                               PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10.,
+                               PARGP='cond',
+                               SCALE=1,
+                               OFFSET=0)
 
-    SS_model.parameters.create_model_parameter('Sy_' + unit,
-                                               value=HGU_props['Sy mean'][HGU_map[unit]])
+    SSparams.create_model_parameter('Sy_' + unit,
+                                    value=HGU_props['Sy mean'][HGU_map[unit]])
 
-    SS_model.parameters.parameter_options('Sy_' + unit,
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=0.,
-                                          PARUBND=0.8,
-                                          PARGP='spec_yield',
-                                          SCALE=1,
-                                          OFFSET=0)
+    SSparams.parameter_options('Sy_' + unit,
+                               PARTRANS='log',
+                               PARCHGLIM='factor',
+                               PARLBND=0.,
+                               PARUBND=0.8,
+                               PARGP='spec_yield',
+                               SCALE=1,
+                               OFFSET=0)
 
-    SS_model.parameters.create_model_parameter('SS_' + unit,
-                                               value=HGU_props['SS mean'][HGU_map[unit]])
+    SSparams.create_model_parameter('SS_' + unit,
+                                    value=HGU_props['SS mean'][HGU_map[unit]])
 
-    SS_model.parameters.parameter_options('SS_' + unit,
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10.,
-                                          PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10.,
-                                          PARGP='spec_stor',
-                                          SCALE=1,
-                                          OFFSET=0)
+    SSparams.parameter_options('SS_' + unit,
+                               PARTRANS='log',
+                               PARCHGLIM='factor',
+                               PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10.,
+                               PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10.,
+                               PARGP='spec_stor',
+                               SCALE=1,
+                               OFFSET=0)
 
 # This needs to be automatically generated from with the map_raster2mesh routine ...
 zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
@@ -386,15 +386,16 @@ Kh = Kv = Sy = SS = mesh3D_1.astype(float)
 # SS = mesh3D_1.astype(float)
 for key in zone_map.keys():
     z_map_key = zone_map[key]
-    Kh[Kh == key] = SS_model.parameters.param['Kh_' + z_map_key]['PARVAL1']
-    Kv[Kv == key] = SS_model.parameters.param['Kv_' + z_map_key]['PARVAL1']
-    Sy[Sy == key] = SS_model.parameters.param['Sy_' + z_map_key]['PARVAL1']
-    SS[SS == key] = SS_model.parameters.param['SS_' + z_map_key]['PARVAL1']
+    Kh[Kh == key] = SSparams.param['Kh_' + z_map_key]['PARVAL1']
+    Kv[Kv == key] = SSparams.param['Kv_' + z_map_key]['PARVAL1']
+    Sy[Sy == key] = SSparams.param['Sy_' + z_map_key]['PARVAL1']
+    SS[SS == key] = SSparams.param['SS_' + z_map_key]['PARVAL1']
 
-SS_model.properties.assign_model_properties('Kh', Kh)
-SS_model.properties.assign_model_properties('Kv', Kv)
-SS_model.properties.assign_model_properties('Sy', Sy)
-SS_model.properties.assign_model_properties('SS', SS)
+SSprop_assign = SS_model.properties.assign_model_properties
+SSprop_assign('Kh', Kh)
+SSprop_assign('Kv', Kv)
+SSprop_assign('Sy', Sy)
+SSprop_assign('SS', SS)
 
 if VERBOSE:
     print "************************************************************************"
@@ -406,25 +407,24 @@ interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_r
 interp_rain = interp_rain / 1000.0 / 365.0
 # Adjust rainfall to recharge using 10% magic number
 
-SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
-SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
+SSbounds = SS_model.boundaries
+SSbounds.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
+SSbounds.assign_boundary_array('Rainfall', interp_rain)
 
 for i in [1, 2, 3, 7]:
-    SS_model.parameters.create_model_parameter('rch_red_' + zone_map[i], value=0.09)
-    SS_model.parameters.parameter_options('rch_red_' + zone_map[i],
-                                          PARTRANS='log',
-                                          PARCHGLIM='factor',
-                                          PARLBND=0.,
-                                          PARUBND=0.9,
-                                          PARGP='rech_mult',
-                                          SCALE=1,
-                                          OFFSET=0)
+    SSparams.create_model_parameter('rch_red_' + zone_map[i], value=0.09)
+    SSparams.parameter_options('rch_red_' + zone_map[i],
+                               PARTRANS='log',
+                               PARCHGLIM='factor',
+                               PARLBND=0.,
+                               PARUBND=0.9,
+                               PARGP='rech_mult',
+                               SCALE=1,
+                               OFFSET=0)
 
     match = interp_rain[mesh3D_1[0] == i]
-    interp_rain[mesh3D_1[0] == i] = match * SS_model.parameters.param[
-        'rch_red_' +
-        zone_map[i]
-    ]['PARVAL1']
+    interp_rain[mesh3D_1[0] == i] = match * SSparams.param['rch_red_' + zone_map[i]]['PARVAL1']
+# End for
 
 rch = {0: interp_rain}
 
@@ -432,8 +432,8 @@ if VERBOSE:
     print "************************************************************************"
     print " Creating recharge boundary "
 
-SS_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=True)
-SS_model.boundaries.assign_boundary_array('Rain_reduced', rch)
+SSbounds.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=True)
+SSbounds.assign_boundary_array('Rain_reduced', rch)
 
 if VERBOSE:
     print "************************************************************************"
@@ -607,8 +607,8 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
     # End for
 # End for
 
-SS_model.boundaries.create_model_boundary_condition('C14_wells', 'wells', bc_static=True)
-SS_model.boundaries.assign_boundary_array('C14_wells', wel)
+SSbounds.create_model_boundary_condition('C14_wells', 'wells', bc_static=True)
+SSbounds.assign_boundary_array('C14_wells', wel)
 
 C14_obs_time_series = df_C14.copy(deep=True)
 C14_obs_time_series = C14_obs_time_series[['Bore_id', 'a14C(pMC)']]
@@ -626,15 +626,16 @@ if VERBOSE:
     print " Mapping pumping wells to grid "
 
 SS_model.map_points_to_grid(pumps_points, feature_id='OLD ID')
-SS_model.parameters.create_model_parameter('pump_use', value=0.6)
-SS_model.parameters.parameter_options('pump_use',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=0.2,
-                                      PARUBND=1.,
-                                      PARGP='pumping',
-                                      SCALE=1,
-                                      OFFSET=0)
+
+SSparams.create_model_parameter('pump_use', value=0.6)
+SSparams.parameter_options('pump_use',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=0.2,
+                           PARUBND=1.,
+                           PARGP='pumping',
+                           SCALE=1,
+                           OFFSET=0)
 
 # Convert pumping_data to time series
 
@@ -745,8 +746,8 @@ if VERBOSE:
     print "************************************************************************"
     print " Creating pumping boundary "
 
-SS_model.boundaries.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
-SS_model.boundaries.assign_boundary_array('licenced_wells', wel)
+SSbounds.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
+SSbounds.assign_boundary_array('licenced_wells', wel)
 
 if VERBOSE:
     print "************************************************************************"
@@ -800,24 +801,24 @@ for riv_gauge in Campaspe_river_gauges:
 # End for
 
 SS_model.map_polyline_to_grid(Campaspe_river_poly)
-SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
-SS_model.parameters.parameter_options('bed_depress',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=0.001,
-                                      PARUBND=0.1,
-                                      PARGP='spec_stor',
-                                      SCALE=1,
-                                      OFFSET=0)
-SS_model.parameters.create_model_parameter('Kv_riv', value=5E-3)
-SS_model.parameters.parameter_options('Kv_riv',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=1E-8,
-                                      PARUBND=20,
-                                      PARGP='spec_stor',
-                                      SCALE=1,
-                                      OFFSET=0)
+SSparams.create_model_parameter('bed_depress', value=0.01)
+SSparams.parameter_options('bed_depress',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=0.001,
+                           PARUBND=0.1,
+                           PARGP='spec_stor',
+                           SCALE=1,
+                           OFFSET=0)
+SSparams.create_model_parameter('Kv_riv', value=5E-3)
+SSparams.parameter_options('Kv_riv',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=1E-8,
+                           PARUBND=20,
+                           PARGP='spec_stor',
+                           SCALE=1,
+                           OFFSET=0)
 
 simple_river = []
 riv_width_avg = 10.0  # m
@@ -912,8 +913,8 @@ if VERBOSE:
     print "************************************************************************"
     print " Creating Campaspe river boundary"
 
-SS_model.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
-SS_model.boundaries.assign_boundary_array('Campaspe River', riv)
+SSbounds.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
+SSbounds.assign_boundary_array('Campaspe River', riv)
 
 if VERBOSE:
     print "************************************************************************"
@@ -921,24 +922,24 @@ if VERBOSE:
 
 SS_model.map_polyline_to_grid(Murray_river_poly)
 
-SS_model.parameters.create_model_parameter('RMstage', value=0.01)
-SS_model.parameters.parameter_options('RMstage',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=0.001,
-                                      PARUBND=0.1,
-                                      PARGP='spec_stor',
-                                      SCALE=1,
-                                      OFFSET=0)
-SS_model.parameters.create_model_parameter('Kv_RM', value=5E-3)
-SS_model.parameters.parameter_options('Kv_RM',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=1E-8,
-                                      PARUBND=20,
-                                      PARGP='spec_stor',
-                                      SCALE=1,
-                                      OFFSET=0)
+SSparams.create_model_parameter('RMstage', value=0.01)
+SSparams.parameter_options('RMstage',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=0.001,
+                           PARUBND=0.1,
+                           PARGP='spec_stor',
+                           SCALE=1,
+                           OFFSET=0)
+SSparams.create_model_parameter('Kv_RM', value=5E-3)
+SSparams.parameter_options('Kv_RM',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=1E-8,
+                           PARUBND=20,
+                           PARGP='spec_stor',
+                           SCALE=1,
+                           OFFSET=0)
 
 simple_river = []
 riv_width_avg = 10.0  # m
@@ -965,31 +966,31 @@ if VERBOSE:
     print "************************************************************************"
     print " Creating Murray River boundary"
 
-SS_model.boundaries.create_model_boundary_condition('Murray River', 'river', bc_static=True)
-SS_model.boundaries.assign_boundary_array('Murray River', riv)
+SSbounds.create_model_boundary_condition('Murray River', 'river', bc_static=True)
+SSbounds.assign_boundary_array('Murray River', riv)
 
 if VERBOSE:
     print "************************************************************************"
     print " Setting up Murray River GHB boundary"
 
-SS_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
-SS_model.parameters.parameter_options('MGHB_stage',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=-20.0,
-                                      PARUBND=50,
-                                      PARGP='ghb',
-                                      SCALE=1,
-                                      OFFSET=0)
-SS_model.parameters.create_model_parameter('MGHBcond', value=5E-3)
-SS_model.parameters.parameter_options('MGHBcond',
-                                      PARTRANS='log',
-                                      PARCHGLIM='factor',
-                                      PARLBND=1E-8,
-                                      PARUBND=50,
-                                      PARGP='ghb',
-                                      SCALE=1,
-                                      OFFSET=0)
+SSparams.create_model_parameter('MGHB_stage', value=0.01)
+SSparams.parameter_options('MGHB_stage',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=-20.0,
+                           PARUBND=50,
+                           PARGP='ghb',
+                           SCALE=1,
+                           OFFSET=0)
+SSparams.create_model_parameter('MGHBcond', value=5E-3)
+SSparams.parameter_options('MGHBcond',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=1E-8,
+                           PARUBND=50,
+                           PARGP='ghb',
+                           SCALE=1,
+                           OFFSET=0)
 
 
 MurrayGHB = []
@@ -1003,13 +1004,13 @@ for MurrayGHB_cell in poly_mapped_murray_model:
             continue
 
         MurrayGHBstage = (mesh3D_0[0][row][col] +
-                          SS_model.parameters.param['MGHB_stage']['PARVAL1'])
+                          SSparams.param['MGHB_stage']['PARVAL1'])
         if MurrayGHBstage < mesh3D_0[0][row][col]:
             continue
         # End if
 
         dz = mesh3D_0[lay][row][col] - mesh3D_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * SS_model.parameters.param['MGHBcond']['PARVAL1']
+        MGHBconductance = dx * dz * SSparams.param['MGHBcond']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
 # End for
@@ -1020,8 +1021,8 @@ if VERBOSE:
     print "************************************************************************"
     print " Creating GHB boundary"
 
-SS_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
-SS_model.boundaries.assign_boundary_array('GHB', ghb)
+SSbounds.create_model_boundary_condition('GHB', 'general head', bc_static=True)
+SSbounds.assign_boundary_array('GHB', ghb)
 
 if VERBOSE:
     print "************************************************************************"
