@@ -92,23 +92,23 @@ def getBoreDataGMW():
     WaterLevel = df_set['Water Levels']
     water_level_bores = pd.unique(WaterLevel['Bore ID'])
 
-
-def join_paths(base, *args):
-    return os.path.join(base, *args)
-# End join_paths()
+p_j = os.path.join
 
 
-def getBoreData(get='transient', base_path="C:/Workspace/part0075/MDB modelling/"):
+def getBoreData(get='transient', base_path=None):
     '''
     Function to process National Groundwater Information System (NGIS) data
     to extract bores with level readings and that have clear info on
     the construction, i.e. top and bottom of screen.
     '''
 
-    VIC_level_data = join_paths(base_path, "ngis_shp_VIC_2016", "level_VIC.csv")
-    VIC_salinity_data = join_paths(base_path, "ngis_shp_VIC_2016", "salinity_VIC.csv")
-    #NSW_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\level_NSW.csv"
-    #NSW_salinity_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\salinity_NSW.csv"
+    # For legacy/compatibility reasons
+    if base_path is None:
+        base_path = "C:/Workspace/part0075/MDB modelling/"
+    # End if
+
+    VIC_level_data = p_j(base_path, "ngis_shp_VIC_2016", "level_VIC.csv")
+    VIC_salinity_data = p_j(base_path, "ngis_shp_VIC_2016", "salinity_VIC.csv")
 
     fields_level = ['bore_id', 'bore_date', 'obs_point_datum', 'result', 'quality_flag', 'hydroid']
     fields_salinity = ['bore_id', 'bore_date', 'uom', 'result']
@@ -128,17 +128,17 @@ def getBoreData(get='transient', base_path="C:/Workspace/part0075/MDB modelling/
     #del dfVIC_salinity
     #del dfNSW_salinity
 
-    df_ConstructionLog_VIC = dbf2df.dbf2df(join_paths(base_path,
-                                                      "ngis_shp_VIC_2016",
-                                                      "ngis_shp_VIC",
-                                                      "NGIS_ConstructionLog.dbf"),
+    df_ConstructionLog_VIC = dbf2df.dbf2df(p_j(base_path,
+                                               "ngis_shp_VIC_2016",
+                                               "ngis_shp_VIC",
+                                               "NGIS_ConstructionLog.dbf"),
                                            cols=["BoreID", "HydroCode",
                                                  "TopElev", "BottomElev", "Constructi"])
 
     df_HydrogeologicUnit_VIC = dbf2df.dbf2df(
-        join_paths(base_path, "ngis_shp_VIC_2016", "ngis_shp_VIC", "NGIS_HydrogeologicUnit.dbf"), cols=["HGUNumber", "HGCCode"])
+        p_j(base_path, "ngis_shp_VIC_2016", "ngis_shp_VIC", "NGIS_HydrogeologicUnit.dbf"), cols=["HGUNumber", "HGCCode"])
     df_BoreholeLog_VIC = dbf2df.dbf2df(
-        join_paths(base_path, "ngis_shp_VIC_2016", "ngis_shp_VIC", "NGIS_BoreholeLog.dbf"), cols=["HydroCode", "HGUNumber"])
+        p_j(base_path, "ngis_shp_VIC_2016", "ngis_shp_VIC", "NGIS_BoreholeLog.dbf"), cols=["HydroCode", "HGUNumber"])
 
     df_ConstructionLog_VIC["BoreID"] = df_ConstructionLog_VIC["BoreID"].astype(str)
     df_BoreholeLog_VIC["HydroCode"] = df_BoreholeLog_VIC["HydroCode"].astype(str)
