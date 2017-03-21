@@ -176,8 +176,7 @@ if VERBOSE:
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
 
-path = out_path = p_j(temp_data_loc, r"Campaspe_data", "GW", "Bore data")
-# out_path = p_j(temp_data_loc, r"Campaspe_data\GW\Bore data\\")
+path = out_path = p_j(temp_data_loc, "Campaspe_data", "GW", "Bore data")
 out_file = "pumping wells.shp"
 
 if VERBOSE:
@@ -194,7 +193,7 @@ if VERBOSE:
     print " Executing custom script: readHydrogeologicalProperties "
 
 file_location = p_j(
-    temp_data_loc, r"Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx")
+    temp_data_loc, "Campaspe_data/GW/Aquifer properties/Hydrogeologic_variables.xlsx")
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 
 if VERBOSE:
@@ -223,6 +222,7 @@ if os.path.exists(riv_flow_path + '.h5'):
 else:
     river_flow_data = processRiverStations.getFlow(path=sw_data_loc)
     SS_model.save_dataframe(riv_flow_path, river_flow_data)
+# End if
 
 river_stage_file = "river_stage_processed"
 riv_stage_path = p_j(SS_model.out_data_folder, river_stage_file)
@@ -536,7 +536,7 @@ for i in xrange(len(hu_raster_files_reproj) / 2):
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
 
 for i in xrange(len(hu_raster_files_reproj) / 2):
-    initial_heads_SS[i] = SS_model.model_mesh3D[1][0]  # (interp_heads[hu_raster_files[2]]) # 2*i
+    initial_heads_SS[i] = SS_model.model_mesh3D[1][0]
 
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 400.)
 
@@ -568,6 +568,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
         except:
             print 'Well was excluded due to lack of information: ', int(well)
             continue
+        # End try
 
         well_depth = SS_model.model_mesh3D[0][0][row][col] - well_depth
 
@@ -580,12 +581,17 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
                 active_layer = i
                 active = True
                 break
+            # End if
+        # End for
+
         if active is False:
             # print 'Well not placed: ', pump
             continue
+        # End if
 
         if SS_model.model_mesh3D[1][active_layer][row][col] == -1:
             continue
+        # End if
 
         # Well sits in the mesh, so assign to well boundary condition
         well_name[i] = well
@@ -617,7 +623,6 @@ if VERBOSE:
     print " Mapping pumping wells to grid "
 
 SS_model.map_points_to_grid(pumps_points, feature_id='OLD ID')
-
 SS_model.parameters.create_model_parameter('pump_use', value=0.6)
 SS_model.parameters.parameter_options('pump_use',
                                       PARTRANS='log',
@@ -650,13 +655,15 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
             continue
         # End if
 
-        pump_depth = SS_model.model_mesh3D[0][0][row][col] - pumping_data.loc[
+        mesh3D_0 = SS_model.model_mesh3D[0]
+
+        pump_depth = mesh3D_0[0][row][col] - pumping_data.loc[
             pump,
             'Top screen depth (m)']
         active = False
-        for i in xrange(SS_model.model_mesh3D[0].shape[0] - 1):
-            if pump_depth < SS_model.model_mesh3D[0][i][row][col] and \
-               pump_depth > SS_model.model_mesh3D[0][i + 1][row][col]:
+        for i in xrange(mesh3D_0.shape[0] - 1):
+            if pump_depth < mesh3D_0[i][row][col] and \
+               pump_depth > mesh3D_0[i + 1][row][col]:
                 active_layer = i
                 active = True
                 break
@@ -682,6 +689,8 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
 
         if isinstance(pump_install, datetime.time):
             pump_install = datetime.date(1950, 01, 01)
+        # End if
+
         pump_date_index2 = pd.date_range(start=pump_install,
                                          end=datetime.datetime(2004, 06, 30),
                                          freq='AS-JUL')
@@ -728,6 +737,8 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
                 wel[index] = [[active_layer, row, col, -timestep[1][pump] / total_pumping_rate]]
             # End try
         # End for
+    # End for
+# End for
 
 if VERBOSE:
     print "************************************************************************"
@@ -986,17 +997,19 @@ for MurrayGHB_cell in poly_mapped_murray_model:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
 
+    mesh3D_0 = SS_model.model_mesh3D[0]
+
     for lay in xrange(SS_model.model_mesh3D[1].shape[0]):
         if SS_model.model_mesh3D[1][0][row][col] == -1:
             continue
 
-        MurrayGHBstage = (SS_model.model_mesh3D[0][0][row][col] +
+        MurrayGHBstage = (mesh3D_0[0][row][col] +
                           SS_model.parameters.param['MGHB_stage']['PARVAL1'])
-        if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+        if MurrayGHBstage < mesh3D_0[0][row][col]:
             continue
         # End if
 
-        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay + 1][row][col]
+        dz = mesh3D_0[lay][row][col] - mesh3D_0[lay + 1][row][col]
         MGHBconductance = dx * dz * SS_model.parameters.param['MGHBcond']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
