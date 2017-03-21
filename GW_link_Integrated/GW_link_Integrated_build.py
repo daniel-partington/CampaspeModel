@@ -38,12 +38,13 @@ data_folder = model_config['data_folder']
 mf_exe_folder = model_config['mf_exe_folder']
 param_file = model_config['param_file']
 
-climate_path = "C:/development/campaspe/GW_data/Campaspe_data/Climate/"
+# climate_path = "C:/development/campaspe/GW_data/Campaspe_data/Climate/"
+climate_path = p_j(CONFIG.get_setting(['model_build', 'campaspe_data']), 'Climate')
 
 bore_levels_file = "bore_levels"
 bore_info_file = "bore_info"
-
 model_build_input_path = CONFIG.get_setting(['model_build', 'input_data'])
+
 model_params = {
     "name": "GW_link_Integrated",
     "data_folder": model_build_input_path,
@@ -55,9 +56,6 @@ model_params = {
     "mesh_type": "structured"
 }
 SS_model = GWModelBuilder(**model_params)
-
-print CONFIG.get_setting(['model_build', 'data_build'])
-sys.exit()
 
 # Define the units for the project for consistency and to allow converions on input data
 # SS_model.length = 'm'
