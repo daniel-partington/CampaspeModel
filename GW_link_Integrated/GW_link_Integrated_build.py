@@ -377,10 +377,13 @@ for unit in HGU:
 # This needs to be automatically generated from with the map_raster2mesh routine ...
 zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
-Kh = SS_model.model_mesh3D[1].astype(float)
-Kv = SS_model.model_mesh3D[1].astype(float)
-Sy = SS_model.model_mesh3D[1].astype(float)
-SS = SS_model.model_mesh3D[1].astype(float)
+mesh3D_0 = SS_model.model_mesh3D[0]
+mesh3D_1 = SS_model.model_mesh3D[1]
+
+Kh = Kv = Sy = SS = mesh3D_1.astype(float)
+# Kv = mesh3D_1.astype(float)
+# Sy = mesh3D_1.astype(float)
+# SS = mesh3D_1.astype(float)
 for key in zone_map.keys():
     z_map_key = zone_map[key]
     Kh[Kh == key] = SS_model.parameters.param['Kh_' + z_map_key]['PARVAL1']
@@ -417,8 +420,8 @@ for i in [1, 2, 3, 7]:
                                           SCALE=1,
                                           OFFSET=0)
 
-    match = interp_rain[SS_model.model_mesh3D[1][0] == i]
-    interp_rain[SS_model.model_mesh3D[1][0] == i] = match * SS_model.parameters.param[
+    match = interp_rain[mesh3D_1[0] == i]
+    interp_rain[mesh3D_1[0] == i] = match * SS_model.parameters.param[
         'rch_red_' +
         zone_map[i]
     ]['PARVAL1']
@@ -454,7 +457,7 @@ for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
                 print 'Policy bore not in info: ', bore
                 # sys.exit('Halting model build due to bore not being found')
             continue
-        if bore_depth > SS_model.model_mesh3D[0][0][row][col]:
+        if bore_depth > mesh3D_0[0][row][col]:
             # print 'Bore can't be above surface!!!
             if bore in Ecology_bores:
                 print 'Ecology bore above surf: ', bore
@@ -463,7 +466,7 @@ for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
                 print 'Policy bore above surf: ', bore
                 # sys.exit('Halting model build due to bore not being mapped')
             continue
-        if bore_depth <= SS_model.model_mesh3D[0][-2][row][col]:
+        if bore_depth <= mesh3D_0[-2][row][col]:
             # print 'Ignoring bores in bedrock!!!
             if bore in Ecology_bores:
                 print 'Ecology bore in  bedrock: ', bore
@@ -513,7 +516,7 @@ for i in xrange(len(hu_raster_files_reproj) / 2):
     bores_layer = np.array(bore_points)[np.array(bores_in_layers[i])]
     print 'Creating head map for: ', hu_raster_files[2 * i]
     if bores_layer.shape[0] < 4:
-        interp_heads[hu_raster_files[2 * i]] = np.full(SS_model.model_mesh3D[1].shape[1:], np.NaN)
+        interp_heads[hu_raster_files[2 * i]] = np.full(mesh3D_1.shape[1:], np.NaN)
     else:
         bores_head_layer = np.array(
             final_bores["mean level"].tolist()
@@ -533,12 +536,12 @@ for i in xrange(len(hu_raster_files_reproj) / 2):
             use='griddata',
             method='linear')
 
-initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
+initial_heads_SS = np.full(mesh3D_1.shape, 0.)
 
 for i in xrange(len(hu_raster_files_reproj) / 2):
-    initial_heads_SS[i] = SS_model.model_mesh3D[1][0]
+    initial_heads_SS[i] = mesh3D_1[0]
 
-initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 400.)
+initial_heads_SS = np.full(mesh3D_1.shape, 400.)
 
 # interp_heads[hu_raster_files[0]])
 SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)
@@ -570,14 +573,14 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
             continue
         # End try
 
-        well_depth = SS_model.model_mesh3D[0][0][row][col] - well_depth
+        well_depth = mesh3D_0[0][row][col] - well_depth
 
         df_C14.set_value(df_C14['Bore_id'] == int(well), 'z', well_depth)
 
         active = False
-        for i in xrange(SS_model.model_mesh3D[1].shape[0]):
-            if well_depth < SS_model.model_mesh3D[0][i][row][col] and \
-               well_depth > SS_model.model_mesh3D[0][i + 1][row][col]:
+        for i in xrange(mesh3D_1.shape[0]):
+            if well_depth < mesh3D_0[i][row][col] and \
+               well_depth > mesh3D_0[i + 1][row][col]:
                 active_layer = i
                 active = True
                 break
@@ -589,7 +592,7 @@ for C14wells in SS_model.points_mapped['C14_clipped.shp']:
             continue
         # End if
 
-        if SS_model.model_mesh3D[1][active_layer][row][col] == -1:
+        if mesh3D_1[active_layer][row][col] == -1:
             continue
         # End if
 
@@ -654,8 +657,6 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
             # print 'No data to place pump at depth ... ignoring ', pump
             continue
         # End if
-
-        mesh3D_0 = SS_model.model_mesh3D[0]
 
         pump_depth = mesh3D_0[0][row][col] - pumping_data.loc[
             pump,
@@ -827,7 +828,7 @@ new_riv = SS_model.polyline_mapped['Campaspe_Riv_model.shp']
 for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
     row = riv_cell[0][0]
     col = riv_cell[0][1]
-    new_riv[index] += [SS_model.model_mesh3D[0][0][row][col]]
+    new_riv[index] += [mesh3D_0[0][row][col]]
 
 new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)
 new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)
@@ -895,7 +896,7 @@ for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.sh
     row = riv_cell[0][0]
     col = riv_cell[0][1]
 
-    if SS_model.model_mesh3D[1][0][row][col] == -1:
+    if mesh3D_1[0][row][col] == -1:
         continue
     # End if
 
@@ -948,12 +949,12 @@ for riv_cell in poly_mapped_murray_model:
     row = riv_cell[0][0]
     col = riv_cell[0][1]
 
-    if SS_model.model_mesh3D[1][0][row][col] == -1:
+    if mesh3D_1[0][row][col] == -1:
         continue
     # End if
 
-    stage = SS_model.model_mesh3D[0][0][row][col]
-    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['RMstage']['PARVAL1']
+    stage = mesh3D_0[0][row][col]
+    bed = mesh3D_0[0][row][col] - SS_model.parameters.param['RMstage']['PARVAL1']
     cond = (riv_cell[1] * riv_width_avg *
             SS_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness)
     simple_river += [[0, row, col, stage, cond, bed]]
@@ -997,10 +998,8 @@ for MurrayGHB_cell in poly_mapped_murray_model:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
 
-    mesh3D_0 = SS_model.model_mesh3D[0]
-
-    for lay in xrange(SS_model.model_mesh3D[1].shape[0]):
-        if SS_model.model_mesh3D[1][0][row][col] == -1:
+    for lay in xrange(mesh3D_1.shape[0]):
+        if mesh3D_1[0][row][col] == -1:
             continue
 
         MurrayGHBstage = (mesh3D_0[0][row][col] +
