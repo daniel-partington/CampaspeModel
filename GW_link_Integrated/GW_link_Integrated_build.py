@@ -74,8 +74,7 @@ SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp",
 # Set data boundary for model data
 print "************************************************************************"
 print " Setting spatial data boundary "
-SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file, 
-                                                    buffer_dist=20000)
+SS_model.set_data_boundary_from_polygon_shapefile(buffer_dist=20000)
 
 # Setup recharge:
 # ... read in climate data using Custom_Scripts
@@ -233,7 +232,7 @@ SS_model.model_time.set_temporal_components(steady_state=False, start_time=start
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 10000
+resolution = 20000
 SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
