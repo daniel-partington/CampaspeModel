@@ -1,6 +1,5 @@
 import datetime
 import os
-import sys
 
 import numpy as np
 import pandas as pd
@@ -35,7 +34,7 @@ Interface.pcs_EPSG = "EPSG:28355"
 
 get_conf_set = CONFIG.get_setting
 model_config = CONFIG.model_config
-model_folder = p_j(model_config['model_folder'], model_config['grid_resolution'])
+# model_folder = model_config['model_folder'] + model_config['grid_resolution']
 data_folder = model_config['data_folder']
 mf_exe_folder = model_config['mf_exe_folder']
 param_file = model_config['param_file']
@@ -264,13 +263,18 @@ start, end = datetime.date(2014, 01, 01), datetime.date(2015, 01, 01)
 SS_model.model_time.set_temporal_components(steady_state=False, start_time=start,
                                             end_time=end, time_step='A')
 
+res = model_config['grid_resolution']
+if res.endswith('m'):
+    res = res[:-1]
+# End if
+
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon
 # shapefile GDAL object
 if VERBOSE:
     print "************************************************************************"
-    print " Defining structured mesh"
+    print " Defining structured mesh at {res}x{res}".format(res=res)
 
-SS_model.define_structured_mesh(1000, 1000)
+SS_model.define_structured_mesh(int(res), int(res))
 
 # Read in hydrostratigraphic raster info for layer elevations:
 hu_raster_path = p_j(temp_data_loc, "ESRI_GRID_raw", "ESRI_GRID")
@@ -641,15 +645,11 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
     col = pump_cell[0][1]
     layers = [0]
     for pump in pump_cell[1]:
-        # HydroCode = pumping_data.loc[pump, 'Works ID']
-        # if HydroCode not in bore_data_info.index:
-        #     print HydroCode, ' not in index of bore_data_info'
-        #     continue
-        # pump_depth = bore_data_info.loc[HydroCode, 'depth']
-        #     [bore_data_info["HydroCode"] == HydroCode]['depth']
         if pumping_data.loc[pump, 'Top screen depth (m)'] == 0.:
             # print 'No data to place pump at depth ... ignoring ', pump
             continue
+        # End if
+
         pump_depth = SS_model.model_mesh3D[0][0][row][col] - pumping_data.loc[
             pump,
             'Top screen depth (m)']
@@ -660,6 +660,9 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
                 active_layer = i
                 active = True
                 break
+            # End if
+        # End for
+
         if active is False:
             # print 'Well not placed: ', pump
             continue
@@ -670,6 +673,7 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
             pump_shallow += [True]
         else:
             pump_shallow += [False]
+        # End if
 
         p14_15 = pumping_data.loc[pump, 'Use 2014/15'] / 365. * 1000.
         pump_rates = [p14_15]
@@ -714,11 +718,10 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
         # Now fill in the well dictionary with the values of pumping at relevant stress periods
         # where Q is not 0.0
         for index, timestep in enumerate(pumping_data_ts.iterrows()):
-            # if index >= SS_model.model_time.t['steps']:
-            #     continue
-            # if time[1]['m3/day used'] != 0.0 :
             if timestep[1][pump] == 0:
                 continue
+            # End try
+
             try:
                 wel[index] += [[active_layer, row, col, -timestep[1][pump] / total_pumping_rate]]
             except:
@@ -779,9 +782,10 @@ Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clip
 
 filter_gauges = []
 for riv_gauge in Campaspe_river_gauges:
-    # if riv_gauge[1][0] in use_gauges:
     if str(riv_gauge[1][0]) in Stream_gauges:
         filter_gauges += [riv_gauge]
+    # End if
+# End for
 
 SS_model.map_polyline_to_grid(Campaspe_river_poly)
 SS_model.parameters.create_model_parameter('bed_depress', value=0.01)
@@ -852,8 +856,6 @@ for index, riv in enumerate(new_riv):
 
         stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] ==
                                                                filter_gauges[gauge_ind[0]][1][0]]
-
-        # river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
         beds[index] = stages[index] - 1.0
 
     # Add chainage to new_riv array:
@@ -884,6 +886,7 @@ for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.sh
 
     if SS_model.model_mesh3D[1][0][row][col] == -1:
         continue
+    # End if
 
     stage = stages[index]
     bed = beds[index]
@@ -1018,3 +1021,5 @@ print "************************************************************************"
 print " Package up groundwater model builder object"
 
 SS_model.package_model()
+
+print "Packaged into {}".format(SS_model.out_data_folder_grid)
