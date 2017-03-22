@@ -341,16 +341,19 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     if verbose:
         print "************************************************************************"
-        print " Set initial head "
+        print " Setting initial head "
 
-    # TODO: Copy in initial heads file on first run
     fname = 'model_{}'.format(name)
-    headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
-
-    times = headobj.get_times()
-    head = headobj.get_data(totim=times[-1])
-
-    this_model.initial_conditions.set_as_initial_condition("Head", head)
+    if os.path.exists(os.path.join(data_folder, fname, name) + '.hds'):
+        headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
+        times = headobj.get_times()
+        head = headobj.get_data(totim=times[-1])
+        this_model.initial_conditions.set_as_initial_condition("Head", head)
+    else:
+        if verbose:
+            print "Using initial head conditions"
+        # End if
+    # End if
 
     if verbose:
         print "************************************************************************"
@@ -475,7 +478,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # to set
     for trigger_bore in trigger_head_bores:
         # NOTE: This returns the head in mAHD
-        trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
+        # trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
+        trigger_heads[trigger_bore] = np.random.rand()
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
