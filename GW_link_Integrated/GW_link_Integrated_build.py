@@ -101,6 +101,10 @@ if VERBOSE:
     print "************************************************************************"
     print " Setting spatial data boundary "
 
+# TODO: Fix - this process, when run for the first time, errors and crashes the script.
+#       I suspect that it attempts to create the buffer file(s) and then moves on to the next
+#       step which relies on the outputted file. Because it has not finished writing the file out,
+#       it crashes.
 SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file,
                                                   buffer_dist=20000)
 
@@ -197,17 +201,6 @@ if VERBOSE:
 file_location = p_j(
     temp_data_path, "Campaspe_data/GW/Aquifer properties/Hydrogeologic_variables.xlsx")
 HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
-
-if VERBOSE:
-    print "************************************************************************"
-    print "Get the C14 data"
-
-chem_folder = p_j(temp_data_path, "Campaspe_data", "Chemistry")
-C14_points = SS_model.read_points_data(p_j(chem_folder, "C14.shp"))
-
-df_C14 = pd.read_excel(p_j(chem_folder, "C14_locs.xlsx"))
-df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
-df_C14.dropna(inplace=True)
 
 if VERBOSE:
     print "************************************************************************"
@@ -544,81 +537,6 @@ initial_heads_SS = np.full(mesh3D_1.shape, 400.)
 
 # interp_heads[hu_raster_files[0]])
 SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)
-
-# Map river polyline feature to grid including length of river in cell
-print "************************************************************************"
-print "Create observation wells for C14"
-
-SS_model.map_points_to_grid(C14_points, feature_id='Bore_id')
-
-# Create another column in the pandas dataframe for the C14 data for the depth
-# at which the sample was taken in mAHD ... which will be calculated in the next
-# for loop
-
-df_C14['z'] = 'null'
-
-i = 0
-wel = {}
-well_name = {}
-for C14wells in SS_model.points_mapped['C14_clipped.shp']:
-    row = C14wells[0][0]
-    col = C14wells[0][1]
-    for well in C14wells[1]:
-        try:
-            well_depth = df_C14.loc[df_C14[df_C14['Bore_id'] == int(well)].index.tolist()[0],
-                                    'avg_screen(m)']
-        except:
-            print 'Well was excluded due to lack of information: ', int(well)
-            continue
-        # End try
-
-        well_depth = mesh3D_0[0][row][col] - well_depth
-
-        df_C14.set_value(df_C14['Bore_id'] == int(well), 'z', well_depth)
-
-        active = False
-        for i in xrange(mesh3D_1.shape[0]):
-            if well_depth < mesh3D_0[i][row][col] and \
-               well_depth > mesh3D_0[i + 1][row][col]:
-                active_layer = i
-                active = True
-                break
-            # End if
-        # End for
-
-        if active is False:
-            # print 'Well not placed: ', pump
-            continue
-        # End if
-
-        if mesh3D_1[active_layer][row][col] == -1:
-            continue
-        # End if
-
-        # Well sits in the mesh, so assign to well boundary condition
-        well_name[i] = well
-        i = i + 1
-        try:
-            wel[0] += [[active_layer, row, col, 0.]]
-        except:
-            wel[0] = [[active_layer, row, col, 0.]]
-        # End try
-    # End for
-# End for
-
-SSbounds.create_model_boundary_condition('C14_wells', 'wells', bc_static=True)
-SSbounds.assign_boundary_array('C14_wells', wel)
-
-C14_obs_time_series = df_C14.copy(deep=True)
-C14_obs_time_series = C14_obs_time_series[['Bore_id', 'a14C(pMC)']]
-C14_obs_time_series.rename(columns={'Bore_id': 'name', 'a14C(pMC)': 'value'}, inplace=True)
-C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']]
-C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
-C14_bore_points3D.rename(columns={'zone55_easting': 'Easting', 'zone55_northing': 'Northing'},
-                         inplace=True)
-
-SS_model.observations.set_as_observations('C14', C14_obs_time_series, C14_bore_points3D,
-                                          domain='porous', obs_type='concentration', units='pMC')
 
 if VERBOSE:
     print "************************************************************************"
