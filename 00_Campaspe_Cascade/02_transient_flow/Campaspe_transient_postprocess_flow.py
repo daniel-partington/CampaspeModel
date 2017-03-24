@@ -262,9 +262,15 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     modflow_model.buildMODFLOW(transport=True, write=False)
 
-    modflow_model.compareAllObs()
+    #modflow_model.compareAllObs()
+    
+    #modflow_model.viewHeadsByZone()
+   
+    plots = {}
+    
+    plots['wb'] = modflow_model.waterBalanceTS(plot=True)
         
-    return modflow_model
+    return modflow_model, plots
 
 if __name__ == "__main__":
 

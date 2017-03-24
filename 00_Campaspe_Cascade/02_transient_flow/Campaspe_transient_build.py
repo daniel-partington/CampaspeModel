@@ -361,8 +361,8 @@ print " Interpolating rainfall data to grid "
 long_term_historic_rainfall = long_term_historic_rainfall.ix[start:end]
 
 #However if the time period for the model is longer we need to reindex the dataseries
-model_date_index = pd.date_range(start,end, freq='M')
-long_term_historic_rainfall = long_term_historic_rainfall.reindex(model_date_index)
+#model_date_index = pd.date_range(start,end, freq='M')
+long_term_historic_rainfall = long_term_historic_rainfall.reindex(date_index)
 # Fill the nan values with the mean value of rainfall for recorded data
 long_term_historic_rainfall = long_term_historic_rainfall.fillna(long_term_historic_rainfall.mean())
 
@@ -752,7 +752,7 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
         #date_index = pd.date_range(start=tr_model.model_time.t['start_time'], end=tr_model.model_time.t['end_time'], freq=tr_model.model_time.t['time_step'])
         date_index = pd.date_range(start=start_pumping, end=end, freq='M')
         pumping_data_ts = pumping_data_ts.reindex(date_index)    
-        pumping_data_ts = pumping_data_ts.ix[start_pumping:end]
+        #pumping_data_ts = pumping_data_ts.ix[start_pumping:end]
         pumping_data_ts = pumping_data_ts.fillna(0.0)
 
         # Now fill in the well dictionary with the values of pumping at relevant stress periods where Q is not 0.0
