@@ -478,8 +478,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # to set
     for trigger_bore in trigger_head_bores:
         # NOTE: This returns the head in mAHD
-        # trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
-        trigger_heads[trigger_bore] = np.random.rand()
+        trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and

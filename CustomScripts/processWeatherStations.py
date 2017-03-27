@@ -28,7 +28,7 @@ def processWeatherStations(weather_stations, path='', frequency='A'):
         weather_station_details[station] = [station_number, station_latlong, station_elev]
 
         # Read in time series data:
-        weather_dfs[station] = pd.read_csv(path + station + '.txt',
+        weather_dfs[station] = pd.read_csv(os.path.join(path, station + ".txt"),
                                            index_col=0,
                                            skiprows=[41],
                                            parse_dates=True,
