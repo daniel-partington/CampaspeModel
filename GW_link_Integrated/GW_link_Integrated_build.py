@@ -897,7 +897,6 @@ for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
 riv = {}
 riv[0] = simple_river
 
-# print SS_model.polyline_mapped
 print "************************************************************************"
 print " Creating Murray River boundary"
 
@@ -947,102 +946,6 @@ for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
 
 ghb = {}
 ghb[0] = MurrayGHB
-
-# print "************************************************************************"
-# print " Mapping Western GW boundary to grid"
-#
-# SS_model.map_polyline_to_grid(WGWbound_poly)
-#
-# print "************************************************************************"
-# print " Setting up Western GHB boundary"
-#
-#SS_model.parameters.create_model_parameter('WGHB_stage', value=0.01)
-# SS_model.parameters.parameter_options('WGHB_stage',
-#                                      PARTRANS='log',
-#                                      PARCHGLIM='factor',
-#                                      PARLBND=-20.0,
-#                                      PARUBND=50,
-#                                      PARGP='ghb',
-#                                      SCALE=1,
-#                                      OFFSET=0)
-#SS_model.parameters.create_model_parameter('WGHBcond', value=5E-3)
-# SS_model.parameters.parameter_options('WGHBcond',
-#                                      PARTRANS='log',
-#                                      PARCHGLIM='factor',
-#                                      PARLBND=1E-8,
-#                                      PARUBND=50,
-#                                      PARGP='ghb',
-#                                      SCALE=1,
-#                                      OFFSET=0)
-#
-#
-#WestGHB = []
-# for WestGHB_cell in SS_model.polyline_mapped['western_head_model.shp']:
-#    row = WestGHB_cell[0][0]
-#    col = WestGHB_cell[0][1]
-#    #print SS_model.model_mesh3D
-#    for lay in range(SS_model.model_mesh3D[1].shape[0]):
-#        if SS_model.model_mesh3D[1][lay][row][col] == -1:
-#            continue
-#        #WestGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['WGHB_stage']['PARVAL1']
-#        WestGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['WGHB_stage']['PARVAL1']
-#        if WestGHBstage < SS_model.model_mesh3D[0][0][row][col]:
-#            continue
-#        dx = SS_model.gridHeight
-#        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
-#        WGHBconductance = dx * dz * SS_model.parameters.param['WGHBcond']['PARVAL1']
-#        WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
-#
-#ghb[0] += WestGHB
-#
-#
-# print "************************************************************************"
-# print " Mapping Eastern GW boundary to grid"
-#
-# SS_model.map_polyline_to_grid(EGWbound_poly)
-#
-# print "************************************************************************"
-# print " Setting up Eastern GHB boundary"
-#
-#SS_model.parameters.create_model_parameter('EGHB_stage', value=0.01)
-# SS_model.parameters.parameter_options('EGHB_stage',
-#                                      PARTRANS='log',
-#                                      PARCHGLIM='factor',
-#                                      PARLBND=-20,
-#                                      PARUBND=20,
-#                                      PARGP='ghb',
-#                                      SCALE=1,
-#                                      OFFSET=0)
-#SS_model.parameters.create_model_parameter('EGHBcond', value=5E-3)
-# SS_model.parameters.parameter_options('EGHBcond',
-#                                      PARTRANS='log',
-#                                      PARCHGLIM='factor',
-#                                      PARLBND=1E-8,
-#                                      PARUBND=50,
-#                                      PARGP='ghb',
-#                                      SCALE=1,
-#                                      OFFSET=0)
-#
-#
-#EastGHB = []
-# for EastGHB_cell in SS_model.polyline_mapped['eastern_head_model.shp']:
-#    row = EastGHB_cell[0][0]
-#    col = EastGHB_cell[0][1]
-#    #print SS_model.model_mesh3D
-#    for lay in range(SS_model.model_mesh3D[1].shape[0]):
-#        if SS_model.model_mesh3D[1][lay][row][col] == -1:
-#            continue
-#        #EastGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['EGHB_stage']['PARVAL1']
-#        EastGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['EGHB_stage']['PARVAL1']
-#        if EastGHBstage < SS_model.model_mesh3D[0][0][row][col]:
-#            continue
-#
-#        dx = SS_model.gridHeight
-#        dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
-#        EGHBconductance = dx * dz * SS_model.parameters.param['EGHBcond']['PARVAL1']
-#        EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
-#
-#ghb[0] += EastGHB
 
 print "************************************************************************"
 print " Creating GHB boundary"
