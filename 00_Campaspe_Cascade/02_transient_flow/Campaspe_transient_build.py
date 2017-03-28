@@ -723,7 +723,7 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
         pump_install = pumping_data.loc[pump, 'Construction date']
         if isinstance(pump_install, datetime.time):
             pump_install = datetime.date(1950,01,01)    
-        pump_date_index2 = pd.date_range(start=pump_install, end=datetime.datetime(2004,06,30), freq='AS-JUL')
+        pump_date_index2 = pd.date_range(start=pump_install, end=datetime.datetime(2005,06,30), freq='AS-JUL')
 
         #pump_allocation = pumping_data.loc[pump, 'Annual Volume'] / 365. * 1000.
 
@@ -752,18 +752,19 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
         #date_index = pd.date_range(start=tr_model.model_time.t['start_time'], end=tr_model.model_time.t['end_time'], freq=tr_model.model_time.t['time_step'])
         date_index = pd.date_range(start=start_pumping, end=end, freq='M')
         pumping_data_ts = pumping_data_ts.reindex(date_index)    
-        #pumping_data_ts = pumping_data_ts.ix[start_pumping:end]
+        pumping_data_ts = pumping_data_ts.ix[start_pumping:end]
         pumping_data_ts = pumping_data_ts.fillna(0.0)
 
         # Now fill in the well dictionary with the values of pumping at relevant stress periods where Q is not 0.0
         for index, time in enumerate(pumping_data_ts.iterrows()):
             if index >= tr_model.model_time.t['steps']: 
+                print index
                 continue
             #if time[1]['m3/day used'] != 0.0 :
             try:
-                wel[wells_start + index] += [[active_layer, row, col, -time[1][pump]]]
+                wel[wells_start - 1 + index] += [[active_layer, row, col, -time[1][pump]]]
             except:
-                wel[wells_start + index] = [[active_layer, row, col, -time[1][pump]]]
+                wel[wells_start - 1 + index] = [[active_layer, row, col, -time[1][pump]]]
                 
 print "************************************************************************"
 print " Creating pumping boundary "
@@ -797,7 +798,7 @@ inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
                  'AXE CREEK @ STRATHFIELDSAYE']
 
 tr_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
-#SS_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
+#tr_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
 
 Campaspe_river_gauges = tr_model.points_mapped['processed_river_sites_stage_clipped.shp']
 
