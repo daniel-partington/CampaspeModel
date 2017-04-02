@@ -1,9 +1,7 @@
 import os
 import json
 import datetime
-import collections
 from osgeo import ogr
-import numpy as np
 import pandas as pd
 
 from GIS import io
@@ -71,7 +69,6 @@ def aggregate(ts, start_date):
     ts.resample("M", label='left').mean().iteritems()], key=lambda d: d['date'])
 
 
-@utils.cache.money()
 def read_relevant_sites(sites_folder, clipped_and_projected_folder, model_projection, projected_boundary_file, model_start, model_end):
 
     sites = pd.read_csv(os.path.join(sites_folder, "Site Details.csv"), 

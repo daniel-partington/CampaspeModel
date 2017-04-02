@@ -4,12 +4,10 @@ import subprocess
 import numpy as np
 from osgeo import ogr
 from osgeo import osr
-from utils import cache
 
 """
 see www.gdal.org/ogr2ogr.html
 """
-@cache.money()
 def ogr2ogr(src_datasource_name, dst_datasource_name, layer_name_list=[], **kwargs):
     if os.path.exists(dst_datasource_name):
         os.remove(dst_datasource_name)

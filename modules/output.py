@@ -6,15 +6,14 @@ import flopy
 import flopy.utils.binaryfile as bf
 
 def load():
-    stress_period_data = {(0, 0): ['save head',
-                               'save drawdown',
-                               'save budget',
-                               'print head',
-                               'print budget']}
+    stress_period_data = {(0, 0): [
+        'print head', 'print budget', 'save head', 'save budget'
+    ]}
 
     return {
-        "stress_period_data":stress_period_data,
-        "compact": True
+        "stress_period_data": stress_period_data,
+        "compact": True,
+        # "extension": ['oc', 'hds', 'ddn', 'cbc', 'ibo'],
      }
 
 
@@ -31,12 +30,16 @@ def qoi(mf):
     # Create the headfile and budget file objects
     headobj = bf.HeadFile(os.path.join(model_dir, modelname+'.hds'))
     # times = headobj.get_times()
-    cbb = bf.CellBudgetFile(os.path.join(model_dir, modelname+'.cbc'))
-
+    if os.path.exists(os.path.join(model_dir, modelname+'.cbc')):
+        cbb = bf.CellBudgetFile(os.path.join(model_dir, modelname+'.cbc')) # MODFLOW-NWT have budgets?
+    else:
+        cbb = None
     return headobj, cbb
 
 
 def read_and_plot(mf, shape, dels, Ls):
+    model_dir = mf.model_ws
+    modelname = mf.name
     headobj, cbb = qoi(mf)
 
     nlay, nrow, ncol = shape
@@ -64,9 +67,6 @@ def read_and_plot(mf, shape, dels, Ls):
         print('  max: ', head.max())
         print('  std: ', head.std())
 
-        # Extract flow right face and flow front face
-        frf = cbb.get_data(text='FLOW RIGHT FACE', totim=time)[0]
-        fff = cbb.get_data(text='FLOW FRONT FACE', totim=time)[0]
 
         #Create the plot
         #plt.subplot(1, len(mytimes), iplot + 1, aspect='equal')
@@ -80,7 +80,12 @@ def read_and_plot(mf, shape, dels, Ls):
         qm = modelmap.plot_bc('GHB', alpha=0.5)
         cs = modelmap.contour_array(head, levels=levels)
         plt.clabel(cs, inline=1, fontsize=10, fmt='%1.1f', zorder=11)
-        quiver = modelmap.plot_discharge(frf, fff, head=head)
+        
+        # Extract flow right face and flow front face
+        if cbb:
+            frf = cbb.get_data(text='FLOW RIGHT FACE', totim=time)[0]
+            fff = cbb.get_data(text='FLOW FRONT FACE', totim=time)[0]
+            quiver = modelmap.plot_discharge(frf, fff, head=head)
 
 
         mfc = 'None'
@@ -90,12 +95,12 @@ def read_and_plot(mf, shape, dels, Ls):
                  markeredgewidth=0.5,
                  markeredgecolor='black', markerfacecolor=mfc, zorder=9)
         plt.text(wpt[0]+25, wpt[1]-25, 'well', size=12, zorder=12)
-        plt.show()
+        plt.savefig(os.path.join(model_dir, modelname+'1.png'))
 
-    plt.show()
+    plt.savefig(os.path.join(model_dir, modelname+'2.png'))
 
     # Plot the head versus time
-    idx = (0, nrow/2 - 1, ncol/2 - 1)
+    idx = (0, nrow / 2 - 1, ncol/2 - 1)
     ts = headobj.get_ts(idx)
     plt.subplot(1, 1, 1)
     ttl = 'Head at cell ({0},{1},{2})'.format(idx[0] + 1, idx[1] + 1, idx[2] + 1)
@@ -103,4 +108,4 @@ def read_and_plot(mf, shape, dels, Ls):
     plt.xlabel('time')
     plt.ylabel('head')
     plt.plot(ts[:, 0], ts[:, 1])
-    plt.show()
+    plt.savefig(os.path.join(model_dir, modelname+'3.png'))

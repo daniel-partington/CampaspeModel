@@ -6,7 +6,6 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from dateutil.relativedelta import relativedelta
 import datetime
 import os
-import collections
 import json
 import numpy as np
 from osgeo import ogr

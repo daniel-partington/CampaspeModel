@@ -1,7 +1,3 @@
-# TODO
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
 """
 create east and west boundary line strings and rasters from boundary polgon
 """
@@ -30,7 +26,7 @@ def cut_boundary(unprojected_boundary_geojson, model_projection, unprojected_fro
     unprojected_from_i = numpy.argmin([(d[0] - unprojected_from[0]) ** 2 + (d[1] - unprojected_from[1]) ** 2 for d in boundary_coordinates])
     unprojected_to_i = numpy.argmin([(d[0] - unprojected_to[0]) ** 2 + (d[1] - unprojected_to[1]) ** 2 for d in boundary_coordinates])
 
-    cut_boundary = json.dumps({
+    cut_boundary_collection = json.dumps({
         "type": "FeatureCollection",
         "features": [{
             "type": "Feature",
@@ -46,7 +42,7 @@ def cut_boundary(unprojected_boundary_geojson, model_projection, unprojected_fro
     
     """ for documentation """
     with open(unprojected_cut_boundary_geojson, 'w') as f:
-        f.write(cut_boundary)
+        f.write(cut_boundary_collection)
     
     """ project """
 

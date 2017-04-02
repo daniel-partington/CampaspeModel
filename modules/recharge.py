@@ -3,7 +3,6 @@ import re
 import json
 import numpy as np
 import pandas as pd
-from utils import cache
 
 from GIS import project
 from GIS import interpolate
@@ -17,7 +16,6 @@ bom_stations = [{
 }]
 
 
-@cache.money()
 def load(data_folder, model_projection, mesh_centroids, start_date, end_date):
     # load in stations
     stations = [read_bom_weather(data_folder, s) for s in bom_stations]\

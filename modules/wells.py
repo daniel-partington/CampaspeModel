@@ -23,16 +23,10 @@ def load(shape):
     return {"stress_period_data": stress_period_data}
 
 
-# TODO
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-
 import pandas
 import os 
 import json
 
-from utils import cache
 from GIS import project
 
 

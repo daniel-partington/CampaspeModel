@@ -3,6 +3,8 @@ import datetime
 
 import flopy
 
+from utils import cache
+
 from modules import boundary
 from modules import discrete
 from modules import acquifer
@@ -50,12 +52,12 @@ edge_inputs = edges.load(shape=shape,
 
 well_inputs = wells.load(shape=shape)
 
-recharge_inputs = recharge.load(data_folder=config.data_folder, 
+recharge_inputs = cache.money(recharge.load)(data_folder=config.data_folder, 
 							model_projection=boundary.model_projection, 
 							mesh_centroids=boundary_params['mesh_centroids'],
 							start_date=start_date, end_date=end_date)
 
-river_inputs = river.load(data_folder=config.data_folder, 
+river_inputs = cache.money(river.load)(data_folder=config.data_folder, 
 				clipped_and_projected_folder=config.clipped_and_projected_folder, 
 				model_projection=boundary.model_projection,
 				bbox=boundary_params['bbox'],
@@ -69,7 +71,7 @@ flopy admin
 """
 
 # Flopy objects
-mf = flopy.modflow.Modflow(config.modelname, exe_name='mf2005', model_ws=config.model_dir)
+mf = flopy.modflow.Modflow(config.modelname, exe_name='/mf2005', model_ws=config.model_dir)  # mfnwt or mf2005
 dis = flopy.modflow.ModflowDis(mf, **discrete_inputs)
 bas = flopy.modflow.ModflowBas(mf, **boundary_inputs)
 lpf = flopy.modflow.ModflowLpf(mf, **acquifer_inputs)
@@ -77,8 +79,10 @@ pcg = flopy.modflow.ModflowPcg(mf)
 ghb = flopy.modflow.ModflowGhb(mf, **edge_inputs)
 well = flopy.modflow.ModflowWel(mf, **well_inputs)
 rch = flopy.modflow.ModflowRch(mf, **recharge_inputs)
+# TODO
 # riv = flopy.modflow.ModflowRiv(mf, **river_inputs)
 oc = flopy.modflow.ModflowOc(mf, **output_control_inputs)
+
 
 # Write the model input files
 mf.write_input()
@@ -93,3 +97,15 @@ Read output and calculate QOIs
 """
 
 output.read_and_plot(mf, shape, boundary_params["dels"], boundary_params["Ls"])
+
+"""
+docker run -it \
+     -v $PWD:/shared \
+     -v /Volumes:/Volumes \
+     -e PYTHONPATH=/shared/CampaspeModel\
+     -e CACHE_DIR=/shared/CampaspeModel/too_big_to_git/cache\
+     mjasher/heat \
+    python /shared/CampaspeModel/run.py
+
+"""
+

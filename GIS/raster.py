@@ -1,7 +1,6 @@
 from osgeo import gdal
 from osgeo import ogr
 import numpy as np
-
 import io
 
 

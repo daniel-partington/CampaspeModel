@@ -2,16 +2,12 @@
 Sets up useful parameters for running debug scripts in each module
 """
 
-import sys
 import os
 import multiprocessing
 
-# install flopy and HydroModelBuilder
-sys.path.append(os.path.join(os.path.dirname(__file__), 'too_big_to_git', 'flopy'))
-sys.path.append(os.path.join(os.path.dirname(__file__), 'too_big_to_git', 'HydroModelBuilder'))
-
 # TODO shouldn't do this here
-os.environ['DATA_CAMPASPE'] = '/Users/masher/Downloads/data_campaspe/'
+# os.environ['DATA_CAMPASPE'] = '/Users/masher/Downloads/data_campaspe/'
+os.environ['DATA_CAMPASPE'] = '/Volumes/KINGSTON/downloaded_data/'
 data_folder = os.environ['DATA_CAMPASPE']
 
 modelname = 'campaspe'
