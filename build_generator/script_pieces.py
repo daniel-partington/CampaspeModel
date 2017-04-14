@@ -609,11 +609,6 @@ for i in xrange(len(hu_raster_files_reproj) / 2):
             use='griddata',
             method='linear')
 
-initial_heads_SS = np.full(mesh3D_1.shape, 0.)
-
-for i in xrange(len(hu_raster_files_reproj) / 2):
-    initial_heads_SS[i] = mesh3D_1[0]
-
 initial_heads_SS = np.full(mesh3D_1.shape, 400.)
 
 # interp_heads[hu_raster_files[0]])
