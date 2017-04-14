@@ -648,7 +648,7 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
         for index, timestep in enumerate(pumping_data_ts.iterrows()):
             if timestep[1][pump] == 0:
                 continue
-            # End try
+            # End if
 
             try:
                 wel[index] += [[active_layer, row, col, -timestep[1][pump] / total_pumping_rate]]
