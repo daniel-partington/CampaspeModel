@@ -26,6 +26,13 @@ if __name__ == '__main__':
 
     project = "GW_link_Integrated"
 
+    # Map river variable name to its shapefile
+    riv_to_shp_map = {"Campaspe": "Campaspe_Riv.shp",
+                      "Murray": "River_Murray.shp"}
+
+    gw_boundary_shps = {"WGWbound": "western_head.shp",
+                        "EGWbound": "eastern_head.shp"}
+
     # TODO: MAKE CLIMATE PATH GENERIC
     generate_build_script("test_build.py",
                           s_imports(),
@@ -34,24 +41,27 @@ if __name__ == '__main__':
                           s_gen_modelbuilder(prj_name=project,
                                              model_type="Modflow",
                                              mesh_type="structured",
-                                             climate_path="C:/Workspace/part0075/MDB modelling/Campaspe_data/Climate/"
+                                             study_area="campaspe"
                                              ),
+                          s_model_linkage(),
                           s_set_boundaries("GW_model_area.shp", 20000),
                           s_weather_stations(['Kyneton', 'Elmore', 'Rochester', 'Echuca'],
                                              "rain_processed",
                                              "Rain_gauges.shp"),
-                          s_bore_data(),
-                          s_hydrogeo_properties(),
-                          s_include_c14(),
-                          s_process_river_stations(),
-                          s_load_gw_boundary_shp(),
+                          s_bore_data("Groundwater licence information for Dan Partington bc301115.xlsx",
+                                      ),
+                          s_hydrogeo_properties("Hydrogeologic_variables.xlsx"),
+                          # s_include_c14("C14_locs.xlsx"),
+                          s_process_river_stations(riv_to_shp_map),
+                          s_load_gw_boundary_shp(gw_boundary_shps),
                           s_generate_mesh(),
                           s_interp_rainfall_to_grid(),
                           s_create_recharge_boundary(),
                           s_map_bores_to_grid(),
-                          s_create_c14_obs_well(),
+                          # s_create_c14_obs_well(),
                           s_map_pumping_wells_to_grid(),
                           s_create_pumping_boundary(),
+                          # ['406201', '406203', '406218', '406202', '406265']
                           s_map_river_to_grid(),
                           s_create_river_boundary(),
                           s_map_river_to_grid2(),
