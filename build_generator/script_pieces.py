@@ -1,3 +1,4 @@
+
 def s_imports():
     return """import os
 import datetime
@@ -114,7 +115,7 @@ rain_gauges = SS_model.read_points_data(climate_path + "{gauges_shp}")
 """.format(stn_list=station_list, nfo_file=rain_info_file, gauges_shp=rain_gauges_shp)
 
 
-def s_load_bores():
+def s_bore_data():
     return """
 # INCLUDE NSW bores in this next part too for better head representation at the border,
 # i.e. Murray River
@@ -164,11 +165,7 @@ final_bores = final_bores[final_bores['mean level'] > final_bores['BottomElev']]
 if VERBOSE:
     print 'Final number of bores within the data boundary that have level data and screen info: ', \
           final_bores.shape[0]
-"""
 
-
-def s_load_pumping_wells():
-    return """
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
 path = temp_data_loc + r"Campaspe_data\GW\Bore data\\"
@@ -197,7 +194,7 @@ HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
 """
 
 
-def s_load_carbon14_data():
+def s_include_c14():
     return """
 if VERBOSE:
     print "************************************************************************"
@@ -217,6 +214,7 @@ def s_process_river_stations():
 if VERBOSE:
     print "************************************************************************"
     print " Executing custom script: processRiverStations "
+
 
 sw_data_loc = temp_data_loc + r"Campaspe_data\SW\All_streamflow_Campaspe_catchment\\"
 
@@ -239,11 +237,7 @@ else:
 river_gauges = SS_model.read_points_data(temp_data_loc +
                                          sw_data_loc +
                                          r"processed_river_sites_stage.shp")
-"""
 
-
-def s_load_river_shp():
-    return """
 if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
@@ -267,7 +261,7 @@ EGWbound_poly = SS_model.read_polyline("eastern_head.shp",
 """
 
 
-def s_build_mesh():
+def s_generate_mesh():
     return """
 if VERBOSE:
     print '########################################################################'
@@ -324,11 +318,7 @@ SS_model.build_3D_mesh_from_rasters(model_grid_raster_files,
                                     1000.0)
 # Cleanup any isolated cells:
 SS_model.reclassIsolatedCells()
-"""
 
-
-def s_assign_mesh_properties():
-    return """
 if VERBOSE:
     print "************************************************************************"
     print " Assign properties to mesh based on zonal information"
@@ -445,7 +435,7 @@ for i in [1, 2, 3, 7]:
         zone_map[i]
     ]['PARVAL1']
 
-rch = {0: interp_rain}
+rch = {{0: interp_rain}}
 """
 
 
@@ -531,7 +521,7 @@ bores_in_layers = SS_model.map_points_to_raster_layers(bore_points, final_bores[
                                                        hu_raster_files_reproj)
 
 # Map bores to layers to create initial head maps for different hydrogeological units
-interp_heads = {}
+interp_heads = {{}}
 
 for i in xrange(len(hu_raster_files_reproj) / 2):
     bores_layer = np.array(bore_points)[np.array(bores_in_layers[i])]
@@ -556,11 +546,7 @@ for i in xrange(len(hu_raster_files_reproj) / 2):
             bores_head_layer,
             use='griddata',
             method='linear')
-"""
 
-
-def s_set_initial_heads():
-    return """
 initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 0.)
 
 for i in xrange(len(hu_raster_files_reproj) / 2):
@@ -573,13 +559,8 @@ SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)
 """
 
 
-def s_the_rest():
-    """
-    To be removed once build generator is complete
-    """
-
+def s_create_c14_obs_well():
     return """
-
 # Map river polyline feature to grid including length of river in cell
 print "************************************************************************"
 print "Create observation wells for C14"
@@ -648,7 +629,11 @@ C14_bore_points3D.rename(columns={'zone55_easting': 'Easting', 'zone55_northing'
 
 SS_model.observations.set_as_observations('C14', C14_obs_time_series, C14_bore_points3D,
                                           domain='porous', obs_type='concentration', units='pMC')
+"""
 
+
+def s_map_pumping_wells_to_grid():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Mapping pumping wells to grid "
@@ -766,14 +751,22 @@ for pump_cell in SS_model.points_mapped['pumping wells_clipped.shp']:
                 wel[index] = [[active_layer, row, col, -time[1][pump] / total_pumping_rate]]
             # End try
         # End for
+"""
 
+
+def s_create_pumping_boundary():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Creating pumping boundary "
 
 SS_model.boundaries.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
 SS_model.boundaries.assign_boundary_array('licenced_wells', wel)
+"""
 
+
+def s_map_river_to_grid():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Mapping Campaspe river to grid"
@@ -930,15 +923,26 @@ for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.sh
             SS_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness)
     simple_river += [[0, row, col, stage, cond, bed]]
 
-riv = {0: simple_river}
+riv = {{0: simple_river}}
+"""
 
+
+def s_create_river_boundary():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Creating Campaspe river boundary"
 
 SS_model.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Campaspe River', riv)
+"""
 
+
+def s_map_river_to_grid2():
+    """
+    THIS SHOULD BE MERGED INTO s_map_river_to_grid()
+    """
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Mapping Murray River to grid"
@@ -981,8 +985,13 @@ for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
             SS_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness)
     simple_river += [[0, row, col, stage, cond, bed]]
 
-riv = {0: simple_river}
+riv = {{0: simple_river}}
+"""
 
+
+def s_create_river_boundary2():
+    """MERGE INTO s_create_river_boundary()"""
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Creating Murray River boundary"
@@ -1036,20 +1045,32 @@ for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
 # End for
 
 ghb = {0: MurrayGHB}
+"""
 
+
+def s_create_GHB_boundary():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Creating GHB boundary"
 
 SS_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
 SS_model.boundaries.assign_boundary_array('GHB', ghb)
+"""
 
+
+def s_collate_obs():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Collate observations"
 
 SS_model.map_obs_loc2mesh3D(method='nearest')
+"""
 
+
+def s_package_model():
+    return """
 if VERBOSE:
     print "************************************************************************"
     print " Package up groundwater model builder object"
