@@ -47,7 +47,7 @@ tr_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp",
 print "************************************************************************"
 print " Setting spatial data boundary "
 tr_model.set_data_boundary_from_polygon_shapefile(tr_model.boundary_poly_file, 
-                                                  buffer_dist=20000)
+                                                  buffer_dist=20000, shapefile_path=tr_model.data_folder)
 
 # Setup recharge:
 # ... read in climate data using Custom_Scripts
@@ -166,7 +166,6 @@ else:
     river_stage_data = processRiverStations.getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\\")
     tr_model.save_dataframe(tr_model.out_data_folder + river_stage_file, river_stage_data)
 
-#river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\20_gauges\Site_info.shp")
 river_gauges = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\processed_river_sites_stage.shp")
 
 print "************************************************************************"
@@ -208,7 +207,7 @@ start_pumping = datetime.date(1966, 01, 01)
 end = datetime.date(2015, 12, 31)
 
 date_index_post_clearance = pd.date_range(start=start, end=end_post_clearance, freq='10A')
-date_index_post_irrigation = pd.date_range(start=start_irrigation, end=before_pumping, freq='A')
+date_index_post_irrigation = pd.date_range(start=start_irrigation, end=before_pumping, freq='4A')
 date_index_post_pumping = pd.date_range(start=start_pumping, end=end, freq='M')
 
 date_index_temp = date_index_post_clearance.append(date_index_post_irrigation)
@@ -220,7 +219,8 @@ tr_model.model_time.set_temporal_components(steady_state=False, start_time=start
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-tr_model.define_structured_mesh(5000, 5000) #10000,10000)
+resolution = 5000
+tr_model.define_structured_mesh(resolution, resolution) 
 
 # Read in hydrostratigraphic raster info for layer elevations:
 #hu_raster_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Hydrogeological_Unit_Layers\\"
@@ -230,8 +230,9 @@ hu_raster_path = r"C:\Workspace\part0075\MDB modelling\VAF_v2.0_ESRI_GRID\ESRI_G
 # Build basement file ... only need to do this once as it is time consuming so commented out for future runs
 #tr_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
-hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
-#hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
+hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
+                   "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
+                   "lta_2b", "bse_1t", "bse_2b.tif"]
 tr_model.read_rasters(hu_raster_files, path=hu_raster_path)
 hu_raster_files_reproj = [x+"_reproj.bil" for x in hu_raster_files]
 
@@ -249,6 +250,9 @@ print "************************************************************************"
 print " Building 3D mesh "
 tr_model.build_3D_mesh_from_rasters(model_grid_raster_files, tr_model.out_data_folder_grid, 1.0, 1000.0)
 
+# Cleanup any isolated cells:
+tr_model.reclassIsolatedCells()
+
 print "************************************************************************"
 print " Assign properties to mesh based on zonal information"
 
@@ -262,41 +266,68 @@ HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts',
            'qa':'Coonambidgal Sands', 'utqa':'Shepparton Sands',
            'utam':'Shepparton Sands'}
 
+HGU_zone = {'bse':6, 'utb':1, 
+            'utaf':4, 'lta':5, 
+            'qa':0, 'utqa':2,
+            'utam':3}
+
+pilot_points = True
+           
+if pilot_points:
+    pp_file = r"C:\Workspace\part0075\MDB modelling\testbox\00_Campaspe_Cascade\01_steady_state\structured_model_grid_{}m\pilot_points.pkl".format(resolution)       
+    tr_model.load_pilot_points(pp_file)
+    hk = tr_model.pilot_points['hk']
+           
 for unit in HGU:
-    tr_model.parameters.create_model_parameter('Kh_' + unit, value=HGU_props['Kh mean'][HGU_map[unit]])
-    tr_model.parameters.parameter_options('Kh_' + unit, 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
-                                          PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                          PARGP='cond', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    tr_model.parameters.create_model_parameter('Kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
-    tr_model.parameters.parameter_options('Kv_' + unit, 
+    if pilot_points:
+        tr_model.parameters.create_model_parameter_set('kh_' + unit, 
+                                                       value=HGU_props['Kh mean'][HGU_map[unit]], 
+                                                       num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
+        tr_model.parameters.parameter_options_set('kh_' + unit, 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                              PARGP='cond_' + unit, 
+                                              SCALE=1, 
+                                              OFFSET=0)
+    else:
+        tr_model.parameters.create_model_parameter('kh_' + unit, 
+                                                   value=HGU_props['Kh mean'][HGU_map[unit]])
+        tr_model.parameters.parameter_options('kh_' + unit, 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                              PARGP='cond_' + unit, 
+                                              SCALE=1, 
+                                              OFFSET=0)
+
+    tr_model.parameters.create_model_parameter('kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
+    tr_model.parameters.parameter_options('kv_' + unit, 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
                                           PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10., 
-                                          PARGP='cond', 
+                                          PARGP='cond_' + unit, 
                                           SCALE=1, 
                                           OFFSET=0)
-    tr_model.parameters.create_model_parameter('Sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
-    tr_model.parameters.parameter_options('Sy_' + unit, 
+    tr_model.parameters.create_model_parameter('sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
+    tr_model.parameters.parameter_options('sy_' + unit, 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
-                                          PARLBND=0., 
+                                          PARLBND=0.01, 
                                           PARUBND=0.8, 
-                                          PARGP='spec_yield', 
+                                          PARGP='sy_' + unit, 
                                           SCALE=1, 
                                           OFFSET=0)
-    tr_model.parameters.create_model_parameter('SS_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
-    tr_model.parameters.parameter_options('SS_' + unit, 
+    tr_model.parameters.create_model_parameter('ss_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
+    tr_model.parameters.parameter_options('ss_' + unit, 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
                                           PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                          PARGP='spec_stor', 
+                                          PARGP='ss_' + unit, 
                                           SCALE=1, 
                                           OFFSET=0)
 
@@ -308,10 +339,14 @@ Kv = tr_model.model_mesh3D[1].astype(float)
 Sy = tr_model.model_mesh3D[1].astype(float)
 SS = tr_model.model_mesh3D[1].astype(float)
 for key in zone_map.keys():
-    Kh[Kh == key] = tr_model.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
-    Kv[Kv == key] = tr_model.parameters.param['Kv_' + zone_map[key]]['PARVAL1']
-    Sy[Sy == key] = tr_model.parameters.param['Sy_' + zone_map[key]]['PARVAL1']
-    SS[SS == key] = tr_model.parameters.param['SS_' + zone_map[key]]['PARVAL1']
+    if not pilot_points:
+        Kh[Kh == key] = tr_model.parameters.param['kh_' + zone_map[key]]['PARVAL1']
+    Kv[Kv == key] = tr_model.parameters.param['kv_' + zone_map[key]]['PARVAL1']
+    Sy[Sy == key] = tr_model.parameters.param['sy_' + zone_map[key]]['PARVAL1']
+    SS[SS == key] = tr_model.parameters.param['ss_' + zone_map[key]]['PARVAL1']
+
+if pilot_points:
+    Kh = hk.val_array
 
 tr_model.properties.assign_model_properties('Kh', Kh)
 tr_model.properties.assign_model_properties('Kv', Kv)
@@ -378,8 +413,8 @@ tr_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
 # Adjust rainfall to recharge using rainfall reduction
 for i in [1,2,3,7]:
-    tr_model.parameters.create_model_parameter('SSrch_'+zone_map[i], value=0.01)
-    tr_model.parameters.parameter_options('SSrch_'+zone_map[i], 
+    tr_model.parameters.create_model_parameter('ssrch_'+zone_map[i], value=0.01)
+    tr_model.parameters.parameter_options('ssrch_'+zone_map[i], 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=0., 
@@ -416,7 +451,7 @@ tr_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 print "************************************************************************"
 print " Mapping bores to grid "
 
-tr_model.map_points_to_grid(bores_shpfile, feature_id = 'HydroCode')
+tr_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 
 print tr_model.points_mapped.keys()
 
@@ -437,7 +472,7 @@ for bores in tr_model.points_mapped["NGIS_Bores_clipped.shp"]:
             continue
         bores_more_filter += [bore]        
 
-print 'Final bores within aquifers: ', len(bores_more_filter)
+print('Final bores within aquifers: '.format(len(bores_more_filter)))
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
@@ -453,7 +488,38 @@ bores_obs_time_series = bores_obs_time_series.rename(columns={'HydroCode':'name'
 
 bores_obs_time_series['datetime'] = pd.to_datetime(bores_obs_time_series['datetime'])
 
-tr_model.observations.set_as_observations('head', bores_obs_time_series, bore_points3D, domain='porous', obs_type='head', units='mAHD', weights=1.0)
+# Perhaps some extra filtering to reduce the number of obs
+#bores_obs_time_series[bores_obs_time_series['datetime'] > datetime.datetime(2000,01,01)]
+
+# Kill all values where head observation is 0.0
+bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['value'] > 5.]
+
+bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime'] != datetime.datetime(1899,12,30)]
+
+bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime'] > datetime.datetime(2010,12,30)]
+                                              
+bores_obs_outliers_multiplier = 4.0
+
+bores_obs_group = bores_obs_time_series.groupby('name')
+bores_obs_means = bores_obs_group['value'].mean()
+bores_obs_stds = bores_obs_group['value'].std()
+
+bores_obs_cull = []
+for bore in bores_obs_time_series['name'].unique():
+    for row in bores_obs_time_series[bores_obs_time_series['name'] == bore].iterrows():                                              
+        upper = bores_obs_means.loc[bore] + bores_obs_outliers_multiplier * bores_obs_stds.loc[bore]
+        lower = bores_obs_means.loc[bore] - bores_obs_outliers_multiplier * bores_obs_stds.loc[bore]
+        if row[1]['value'] < lower or row[1]['value'] > upper:
+            bores_obs_cull += [int(row[0])]
+
+# Now to remove those bores obs that have a reading greater or less than 5 * times sigma either side of the mean
+bores_obs_time_series = bores_obs_time_series[~bores_obs_time_series.index.isin(bores_obs_cull)]
+                               
+# For the weigts of observations we need to specify them as 1/sigma, where sigma is the standard deviation of measurement error
+
+tr_model.observations.set_as_observations('head', bores_obs_time_series, bore_points3D, 
+                                          domain='porous', obs_type='head', units='mAHD', 
+                                          weights=1.0/0.2, by_zone=True)
 
 bores_in_layers = tr_model.map_points_to_raster_layers(bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
 
@@ -571,7 +637,7 @@ C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']
 C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
 C14_bore_points3D.rename(columns={'zone55_easting':'Easting', 'zone55_northing':'Northing'}, inplace=True)
 
-tr_model.observations.set_as_observations('C14', C14_obs_time_series, C14_bore_points3D, domain='porous', obs_type='concentration', units='pMC', weights=1.0)
+tr_model.observations.set_as_observations('C14', C14_obs_time_series, C14_bore_points3D, domain='porous', obs_type='concentration', units='pMC', weights=1.0/5.0)
 
 print "************************************************************************"
 print " Mapping pumping wells to grid "
@@ -677,7 +743,7 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
 
         # Now let's resample the data on a monthly basis, and we will take the mean    
         #pumping_data_ts = pumping_data_ts.resample(tr_model.model_time.t['time_step'], how='mean')
-        pumping_data_ts = pumping_data_ts.resample('M', how='mean')
+        pumping_data_ts = pumping_data_ts.resample('M').mean() #, how='mean')
 
         # Let's also get rid of NaN data and replace with backfilling
         pumping_data_ts = pumping_data_ts.fillna(method='bfill')
@@ -748,16 +814,16 @@ tr_model.parameters.parameter_options('bed_depress',
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
-                                      PARGP='spec_stor', 
+                                      PARGP='camp_riv', 
                                       SCALE=1, 
                                       OFFSET=0)
-tr_model.parameters.create_model_parameter('Kv_riv', value=5E-3)
-tr_model.parameters.parameter_options('Kv_riv', 
+tr_model.parameters.create_model_parameter('kv_riv', value=5E-3)
+tr_model.parameters.parameter_options('kv_riv', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
                                       PARUBND=20, 
-                                      PARGP='spec_stor', 
+                                      PARGP='camp_riv', 
                                       SCALE=1, 
                                       OFFSET=0)
 
@@ -845,7 +911,7 @@ for index, riv_cell in enumerate(tr_model.polyline_mapped['Campaspe_Riv_model.sh
         bed = bed_temp
 
     cond = riv_cell[1] * riv_width_avg * \
-        tr_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
+        tr_model.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 #    stage = stages[index] 
 #    bed = beds[index]
@@ -855,9 +921,27 @@ for index, riv_cell in enumerate(tr_model.polyline_mapped['Campaspe_Riv_model.sh
 riv = {}
 riv[0] = simple_river
 
-time_series = pd.DataFrame([{'name':'Net_SWGWExchange', 'value':np.nan, 'datetime':pd.to_datetime(datetime.date(2015,12,30))},])
-tr_model.observations.set_as_observations('net_riv_flux', time_series, new_riv_cells, domain='surface', 
-                            obs_type='SWGWExchange', units='m^3/d', weights=0.0, real=False)
+fy_start = end - datetime.timedelta(days=363)
+fy_end = end 
+
+# Annual average net flux along river for final year of simulation
+a_time_series = pd.DataFrame([{'name':'a_swgw', 'value':0.0, 'datetime':pd.to_datetime(datetime.date(2015,12,30))},])
+tr_model.observations.set_as_observations('nrf_a', a_time_series, new_riv_cells, domain='surface', 
+                            obs_type='swgw_a', units='m^3/d', weights=0.0, real=False)
+# Seasonal average net flux along river for final year of simulation
+entries = 4
+s_time_series = pd.DataFrame({'name':['s_swgw{}'.format(x) for x in range(0, entries)], 
+                            'value':[0.0] * entries, 
+                            'datetime':pd.date_range(start=fy_start, end=fy_end, freq='Q-NOV')})
+tr_model.observations.set_as_observations('nrf_s', s_time_series, new_riv_cells, domain='surface', 
+                            obs_type='swgw_s', units='m^3/d', weights=0.0, real=False)
+# Monthly average net flux along river for final year of simulation
+entries = 12
+m_time_series = pd.DataFrame({'name':['m_swgw{}'.format(x) for x in range(0, entries)],
+                             'value':[0.0] * entries, 
+                             'datetime':pd.date_range(start=fy_start, end=fy_end, freq='M')})
+tr_model.observations.set_as_observations('nrf_m', m_time_series, new_riv_cells, domain='surface', 
+                            obs_type='swgw_m', units='m^3/d', weights=0.0, real=False)
 
 #print tr_model.polyline_mapped
 print "************************************************************************"
@@ -871,22 +955,22 @@ print " Mapping Murray River to grid"
 
 tr_model.map_polyline_to_grid(Murray_river_poly)
 
-tr_model.parameters.create_model_parameter('RMstage', value=0.01)
-tr_model.parameters.parameter_options('RMstage', 
+tr_model.parameters.create_model_parameter('rmstage', value=0.01)
+tr_model.parameters.parameter_options('rmstage', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
                                       PARUBND=0.1, 
-                                      PARGP='spec_stor', 
+                                      PARGP='murr_riv', 
                                       SCALE=1, 
                                       OFFSET=0)
-tr_model.parameters.create_model_parameter('Kv_RM', value=5E-3)
-tr_model.parameters.parameter_options('Kv_RM', 
+tr_model.parameters.create_model_parameter('kv_rm', value=5E-3)
+tr_model.parameters.parameter_options('kv_rm', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
                                       PARUBND=20, 
-                                      PARGP='spec_stor', 
+                                      PARGP='murr_riv', 
                                       SCALE=1, 
                                       OFFSET=0)
 
@@ -901,8 +985,8 @@ for riv_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
         continue
     #print tr_model.model_mesh3D
     stage = tr_model.model_mesh3D[0][0][row][col]
-    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['RMstage']['PARVAL1']
-    cond = riv_cell[1] * riv_width_avg * tr_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
+    bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['rmstage']['PARVAL1']
+    cond = riv_cell[1] * riv_width_avg * tr_model.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {}
@@ -918,8 +1002,8 @@ tr_model.boundaries.assign_boundary_array('Murray River', riv)
 print "************************************************************************"
 print " Setting up Murray River GHB boundary"
 
-tr_model.parameters.create_model_parameter('MGHB_stage', value=0.01)
-tr_model.parameters.parameter_options('MGHB_stage', 
+tr_model.parameters.create_model_parameter('mghb_stage', value=0.01)
+tr_model.parameters.parameter_options('mghb_stage', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.001, 
@@ -927,8 +1011,8 @@ tr_model.parameters.parameter_options('MGHB_stage',
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
-tr_model.parameters.create_model_parameter('MGHBcond', value=5E-3)
-tr_model.parameters.parameter_options('MGHBcond', 
+tr_model.parameters.create_model_parameter('mghbcond', value=5E-3)
+tr_model.parameters.parameter_options('mghbcond', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
@@ -939,7 +1023,7 @@ tr_model.parameters.parameter_options('MGHBcond',
 
 
 MurrayGHB = []
-MGHBcond = 5E-3 #m/day
+Active_MurrayGHB_cells = []
 for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
@@ -947,10 +1031,98 @@ for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
     for lay in range(tr_model.model_mesh3D[1].shape[0]):    
         if tr_model.model_mesh3D[1][0][row][col] == -1:
             continue
-        MurrayGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['MGHB_stage']['PARVAL1']
-        dx = tr_model.model_mesh3D[0][0][0][1] - tr_model.model_mesh3D[0][0][0][0]
-        MGHBconductance = dx * tr_model.parameters.param['MGHBcond']['PARVAL1']
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+        #MurrayGHBstage = (tr_model.model_mesh3D[0][lay+1][row][col] + tr_model.model_mesh3D[0][lay][row][col])/2. + tr_model.parameters.param['MGHB_stage']['PARVAL1']
+        MurrayGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['mghb_stage']['PARVAL1']
+        if MurrayGHBstage < tr_model.model_mesh3D[0][0][row][col]:
+            continue
+        if lay == 0:
+            continue
+        
+        Active_MurrayGHB_cells += [[lay, row, col]]
+
+# Now make sure that no cells are being caught surrounded by other GHB cells
+Final_MurrayGHB_cells = []
+for active_cell in Active_MurrayGHB_cells:
+    # check if active GHB cell has any active non GHB cells N,E,S,W, above or below         
+    lay, row, col = 0, 1, 2
+    shape = tr_model.model_mesh3D[1].shape
+    active_non_GHB = False
+    zone = tr_model.model_mesh3D[1]
+    
+    ac = active_cell
+    # Check above:
+    ref_cell = [ac[lay] - 1, ac[row], ac[col]]        
+#    # Make sure not at top boundary    
+#    if active_cell[lay] != 0:
+#        # Make sure above cell is active
+#        if zone[ac[lay] - 1, ac[row], ac[col]] != -1:
+#            # Make sure if active that is is not another GHB cell
+#            if ref_cell not in Active_MurrayGHB_cells:
+#                active_non_GHB = True
+#
+#    # Check below:
+#    ref_cell = [ac[lay] + 1, ac[row], ac[col]]        
+#    if active_cell[lay] != shape[lay] - 1:
+#        if zone[ac[lay] + 1, ac[row], ac[col]] != -1:
+#            if ref_cell not in Active_MurrayGHB_cells:
+#                active_non_GHB = True
+                
+    # Check north:
+    ref_cell = [ac[lay], ac[row] + 1, ac[col]]        
+    if active_cell[row] != 0:
+        if zone[ac[lay], ac[row] + 1, ac[col]] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check east:
+    ref_cell = [ac[lay], ac[row], ac[col] + 1]        
+    if active_cell[col] != shape[col] - 1:
+        if zone[ac[lay], ac[row], ac[col] + 1] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check south:
+    ref_cell = [ac[lay], ac[row] - 1, ac[col]]        
+    if active_cell[row] != shape[row] - 1:
+        if zone[ac[lay], ac[row] - 1, ac[col]] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    # Check west:
+    ref_cell = [ac[lay], ac[row], ac[col] - 1]        
+    if active_cell[col] != 0:
+        if zone[ac[lay], ac[row], ac[col] - 1] != -1:
+            if ref_cell not in Active_MurrayGHB_cells:
+                active_non_GHB = True
+
+    if active_non_GHB:
+        Final_MurrayGHB_cells += [active_cell]                
+                
+#for MurrayGHB_cell in tr_model.polyline_mapped['River_Murray_model.shp']:
+for MurrayGHB_cell in Final_MurrayGHB_cells:
+    #row = MurrayGHB_cell[0][0]
+    #col = MurrayGHB_cell[0][1]
+
+    lay = MurrayGHB_cell[0]
+    row = MurrayGHB_cell[1]
+    col = MurrayGHB_cell[2]
+    #print tr_model.model_mesh3D
+#    for lay in range(tr_model.model_mesh3D[1].shape[0]):    
+#        if tr_model.model_mesh3D[1][0][row][col] == -1:
+#            continue
+        #MurrayGHBstage = (tr_model.model_mesh3D[0][lay+1][row][col] + tr_model.model_mesh3D[0][lay][row][col])/2. + tr_model.parameters.param['MGHB_stage']['PARVAL1']
+#        if lay == 0:
+            # To avoid having river cells in the same cells as GHB cells.
+#            continue
+        
+    MurrayGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['mghb_stage']['PARVAL1']
+    if MurrayGHBstage < tr_model.model_mesh3D[0][0][row][col]:
+        continue
+    dx = tr_model.gridHeight
+    dz = tr_model.model_mesh3D[0][lay][row][col] - tr_model.model_mesh3D[0][lay+1][row][col]
+    MGHBconductance = dx * dz * tr_model.parameters.param['mghbcond']['PARVAL1']
+    MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+
 
 ghb = {}
 ghb[0] = MurrayGHB
@@ -1034,11 +1206,11 @@ print "************************************************************************"
 #for EastGHB_cell in tr_model.polyline_mapped['eastern_head_model.shp']:
 #    row = EastGHB_cell[0][0]
 #    col = EastGHB_cell[0][1]
-#    #print SS_model.model_mesh3D
+#    #print tr_model.model_mesh3D
 #    for lay in range(tr_model.model_mesh3D[1].shape[0]):    
 #        if tr_model.model_mesh3D[1][lay][row][col] == -1:
 #            continue
-#        #EastGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['EGHB_stage']['PARVAL1']
+#        #EastGHBstage = (tr_model.model_mesh3D[0][lay+1][row][col] + tr_model.model_mesh3D[0][lay][row][col])/2. + tr_model.parameters.param['EGHB_stage']['PARVAL1']
 #        EastGHBstage = tr_model.model_mesh3D[0][0][row][col] + tr_model.parameters.param['EGHB_stage']['PARVAL1']
 #        dx = tr_model.model_mesh3D[0][0][0][1] - tr_model.model_mesh3D[0][0][0][0]
 #        EGHBconductance = dx * tr_model.parameters.param['EGHBcond']['PARVAL1']
@@ -1067,8 +1239,8 @@ tr_model.parameters.parameter_options('drain_drop',
                                       PARGP='drain', 
                                       SCALE=1, 
                                       OFFSET=0)
-tr_model.parameters.create_model_parameter('Kv_drain', value=5E-3)
-tr_model.parameters.parameter_options('Kv_drain', 
+tr_model.parameters.create_model_parameter('kv_drain', value=5E-3)
+tr_model.parameters.parameter_options('kv_drain', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
@@ -1088,7 +1260,7 @@ for drain_cell in tr_model.polyline_mapped['Drain_Clip_model.shp']:
         continue
     #print tr_model.model_mesh3D
     drain_bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['drain_drop']['PARVAL1']
-    drain_cond = drain_cell[1] * drain_width_avg * tr_model.parameters.param['Kv_drain']['PARVAL1'] / drain_bed_thickness
+    drain_cond = drain_cell[1] * drain_width_avg * tr_model.parameters.param['kv_drain']['PARVAL1'] / drain_bed_thickness
     simple_drain += [[0, row, col, drain_bed, drain_cond]]
 
 drain = {}
@@ -1116,8 +1288,8 @@ tr_model.parameters.parameter_options('chan_drop',
                                       PARGP='channel', 
                                       SCALE=1, 
                                       OFFSET=0)
-tr_model.parameters.create_model_parameter('Kv_chan', value=5E-3)
-tr_model.parameters.parameter_options('Kv_chan', 
+tr_model.parameters.create_model_parameter('kv_chan', value=5E-3)
+tr_model.parameters.parameter_options('kv_chan', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
@@ -1137,7 +1309,7 @@ for channel_cell in tr_model.polyline_mapped['Channel_Clip_model.shp']:
     #print tr_model.model_mesh3D
     channel_stage = tr_model.model_mesh3D[0][0][row][col]
     channel_bed = tr_model.model_mesh3D[0][0][row][col] - tr_model.parameters.param['chan_drop']['PARVAL1']
-    channel_cond = channel_cell[1] * channel_width_avg * tr_model.parameters.param['Kv_chan']['PARVAL1'] / channel_bed_thickness
+    channel_cond = channel_cell[1] * channel_width_avg * tr_model.parameters.param['kv_chan']['PARVAL1'] / channel_bed_thickness
     simple_channel += [[0, row, col, channel_stage, channel_cond, channel_bed]]
 
 channel = {}
@@ -1175,11 +1347,28 @@ tr_model.parameters.parameter_options('disp',
 print "************************************************************************"
 print " Collate observations"
 #
-tr_model.map_obs_loc2mesh3D(method='nearest')
+tr_model.map_obs_loc2mesh3D(method='nearest', ignore=[-1, 7])
 tr_model.map_obs2model_times()
 tr_model.observations.collate_observations()
 
-
+# Looking at bores with large standard deviations for errors:
+#import matplotlib.pyplot as plt
+#b = bores_obs_time_series[bores_obs_time_series['value'] != 0.0]
+#b = b[b['active'] == True]
+#c = b[['name', 'value']].groupby('name').std()
+#c.hist()
+#d = c[c['value'] > 4]
+#for bore in d.index.tolist():
+#    b_df = bores_obs_time_series[bores_obs_time_series['name'] == bore]
+#    b_df_min = b_df['datetime'].min()
+#    b_df_max = b_df['datetime'].max()
+#    b_df_sd = 4.0 * b_df['value'].std()
+#    b_df_mean = b_df['value'].mean()
+#    ax = b_df.plot(x='datetime', y='value', marker='o', label=bore)
+#    plt.plot([b_df_min, b_df_max], [b_df_mean, b_df_mean], label='mean')
+#    plt.plot([b_df_min, b_df_max], [b_df_mean + b_df_sd, b_df_mean + b_df_sd], label='2.5$\sigma$')
+#    plt.plot([b_df_min, b_df_max], [b_df_mean - b_df_sd, b_df_mean - b_df_sd], label='2.5$\sigma$')       
+    
 print "************************************************************************"
 print " Package up groundwater model builder object"
 

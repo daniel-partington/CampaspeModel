@@ -4,23 +4,58 @@ then return SW/GW exchanges, avg depth to GW, depth to GW at ecology sites and
 head at trigger bores.
 """
 
+import cPickle as pickle
 import os
 import sys
 import warnings
 
-import numpy as np
-import cPickle as pickle
-
 import flopy.utils.binaryfile as bf
+import numpy as np
 
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+# Configuration Loader
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
+
 
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
 
-# Configuration Loader
-from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
+
+def loadObj(data_folder, model_name, filename):
+    """
+    Interface to Model Manager object loader.
+
+    Attempts to load model object from alternate source when file cannot be found.
+
+    :param model_folder: str, Folder where the model is
+    :param model_name: str, Name of the model to load object from
+    :param filename: str, Filename of picked object.
+                     Attempts to load from shapefile with same name on exception.
+    """
+    filename_no_ext = os.path.splitext(filename)[0].split('.')[0]
+
+    try:
+        model_obj = MM.GW_build[model_name].load_obj(os.path.join(
+            data_folder, filename))
+    except IOError:
+        model_obj = MM.GW_build[model_name].polyline_mapped[filename_no_ext + ".shp"]
+    # End try
+
+    return model_obj
+# End loadObj()
+
+
+def closest_node(node, nodes):
+    nodes = np.asarray(nodes)
+    dist_2 = np.sum((nodes - node)**2, axis=1)
+    return np.argmin(dist_2)
+# End closest_node()
+
+
+def process_line(line):
+    processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
+    return processed
 
 
 def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None,
@@ -31,6 +66,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     :param model_folder: str, path to model folder
     :param data_folder: str, path to data
     :param mf_exe_folder: str, path to MODFLOW executable
+    :param ext_linkage_bores: dict, dict of variable names that hold list of bore ids that link
+                              this model with external models
     :param param_file: str, path to parameter file
     :param riv_stages: np recarray, gauge numbers and stage
     :param rainfall_irrigation: np array, array representing rainfall and irrigation input.
@@ -46,28 +83,40 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     warnings.warn("This function uses hardcoded values for Farm Zones and SW Gauges")
 
-    def loadObj(data_folder, model_name, filename):
-        """
-        Interface to Model Manager object loader.
+    # ******************************************************************************
+    # ******************************************************************************
+    #
+    # Complimentary models requirements, i.e. bore and gauge data that should be
+    # referenceable to this model for parsing specific outputs and receiving inputs:
+    if not hasattr(MM, 'ext_linkage_bores') or MM.ext_linkage_bores is None:
+        # Read in bores that relate to external models
+        model_linking = os.path.join(data_folder, "model_linking.csv")
+        with open(model_linking, 'r') as f:
+            lines = f.readlines()
 
-        Attempts to load model object from alternate source when file cannot be found.
+            for line in lines:
+                if line.split(':')[0] == 'Ecology':
+                    Ecology_bores = process_line(line)
+                elif line.split(':')[0] == 'Policy':
+                    Policy_bores = process_line(line)
+                elif line.split(':')[0] == 'SW_stream_gauges':
+                    Stream_gauges = process_line(line)
+            # End for
+        # End with
 
-        :param model_folder: Folder where the model is
-        :param model_name: Name of the model to load object from
-        :param filename: Filename of picked object.
-                         Attempts to load from shapefile with same name on exception.
-        """
-        filename_no_ext = os.path.splitext(filename)[0].split('.')[0]
+        MM.ext_linkage_bores = {
+            "Ecology_bores": Ecology_bores,
+            "Policy_bores": Policy_bores,
+            "Stream_gauges": Stream_gauges
+        }
+    else:
+        Ecology_bores = MM.ext_linkage_bores["Ecology_bores"]
+        Policy_bores = MM.ext_linkage_bores["Policy_bores"]
+        Stream_gauges = MM.ext_linkage_bores["Stream_gauges"]
+    # End if
 
-        try:
-            model_obj = MM.GW_build[model_name].load_obj(os.path.join(
-                data_folder, filename))
-        except IOError:
-            model_obj = MM.GW_build[model_name].polyline_mapped[filename_no_ext + ".shp"]
-        # End try
-
-        return model_obj
-    # End loadObj()
+    # ******************************************************************************
+    # ******************************************************************************
 
     if MM is None:
         MM = GWModelManager()
@@ -83,10 +132,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
-        this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+        this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'),
+                                         verbose=verbose)
 
     # This needs to be automatically generated from with the map_raster2mesh routine ...
-#    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
+    # zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
     if verbose:
         print "************************************************************************"
@@ -99,15 +149,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     riv_width_avg = 10.0  # m
     riv_bed_thickness = 0.10  # m
 
-    # sw_stream_gauges = [406214, 406219, 406201, 406224, 406218, 406202, 406265]
-    sw_stream_gauges = ['406201', '406218', '406202', '406265']
-
     # Need to account for ~8m drop after Campaspe weir.
 
     Campaspe_river_gauges = this_model.points_mapped['processed_river_sites_stage_clipped.shp']
 
     filter_gauges = [riv_gauge for riv_gauge in Campaspe_river_gauges
-                     if str(riv_gauge[1][0]) in sw_stream_gauges]
+                     if str(riv_gauge[1][0]) in Stream_gauges]
 
     simple_river = []
     riv_width_avg = 10.0  # m
@@ -131,11 +178,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     # To account for fact that river shapefile and gauges shapefile are not perfect
     # we get the closest river cell to the gauge cell
-
-    def closest_node(node, nodes):
-        nodes = np.asarray(nodes)
-        dist_2 = np.sum((nodes - node)**2, axis=1)
-        return np.argmin(dist_2)
 
     # Define river gauges at start of river cell
     new_riv_cells = [x[0] for x in new_riv]
@@ -170,11 +212,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     # Need to create list of relevant riv nodes for each reach by
     # splitting the riv nodes list up
 
-    # 1st order the gauges from upstream to downstream:
-    ordered_gauges = ['406201', '406218', '406202', '406265']
-
     riv_reach_nodes = {}
-    for index, gauge in enumerate(ordered_gauges):
+    for index, gauge in enumerate(Stream_gauges):
         if index == 0:
             split_loc = new_riv_cells.index(filter_gauge_loc[index])
             riv_reach_nodes[gauge] = new_riv_cells[0:split_loc + 1]
@@ -209,8 +248,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
             this_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness
         simple_river += [[0, row, col, stage, cond, bed]]
 
-    riv = {}
-    riv[0] = simple_river
+    riv = {0: simple_river}
 
     this_model.boundaries.assign_boundary_array('Campaspe River', riv)
 
@@ -257,10 +295,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         #     1][0] == i] * 0.1
         interp_rain[mesh_1[0] == i] = match * 0.05
 
-    for i in [4, 5, 6, ]:
+    for i in [4, 5, 6]:
         interp_rain[mesh_1[0] == i] = 0
-        # interp_rain[mesh_1[0] == i] = interp_rain[
-        #     mesh_1[0] == i] * 0.
 
     rch = {0: interp_rain}
 
@@ -305,18 +341,19 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     if verbose:
         print "************************************************************************"
-        print " Set initial head "
+        print " Setting initial head "
 
-    # TODO: Update head based on last iteration rather than initial head
-    #fname = "initial"
     fname = 'model_{}'.format(name)
-    print fname
-    headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
-
-    times = headobj.get_times()
-    head = headobj.get_data(totim=times[-1])
-
-    this_model.initial_conditions.set_as_initial_condition("Head", head)
+    if os.path.exists(os.path.join(data_folder, fname, name) + '.hds'):
+        headobj = bf.HeadFile(os.path.join(data_folder, fname, name) + '.hds')
+        times = headobj.get_times()
+        head = headobj.get_data(totim=times[-1])
+        this_model.initial_conditions.set_as_initial_condition("Head", head)
+    else:
+        if verbose:
+            print "Using initial head conditions"
+        # End if
+    # End if
 
     if verbose:
         print "************************************************************************"
@@ -332,7 +369,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = False#False # This is to tell FloPy that is a transient model
+    modflow_model.steady = False  # This is to tell FloPy that is a transient model
 
     modflow_model.executable = mf_exe_folder
 
@@ -340,9 +377,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     modflow_model.runMODFLOW()
 
-    modflow_model.checkCovergence()
+    # modflow_model.checkCovergence()
 
-    modflow_model.waterBalance()
+    # modflow_model.waterBalance()
 
 #    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
 #    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
@@ -364,7 +401,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 #
 #    plt.colorbar(ax)
 
-    #modflow_model.viewHeads2()
+    # modflow_model.viewHeads2()
 
     # modflow_model.waterBalance(plot=False)
     # modflow_model.viewHeads2()
@@ -372,24 +409,25 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     """
     SW-GW exchanges:
     """
-
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
-                                              in sw_stream_gauges])
+                                              in Stream_gauges])
 
-    for gauge in sw_stream_gauges:
+    for gauge in Stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRiverFluxNodes(
             riv_reach_nodes[gauge])
 
-    print("Upstream of weir", swgw_exchanges[sw_stream_gauges[0]]+swgw_exchanges[sw_stream_gauges[1]])
-    print("Downstream of weir", swgw_exchanges[sw_stream_gauges[2]]+swgw_exchanges[sw_stream_gauges[3]])
+    if verbose:
+        print("Upstream of weir", swgw_exchanges[
+              sw_stream_gauges[0]] + swgw_exchanges[sw_stream_gauges[1]])
+        print("Downstream of weir", swgw_exchanges[
+              sw_stream_gauges[2]] + swgw_exchanges[sw_stream_gauges[3]])
 
     """
     Average depth to GW table:
     """
-
     farm_zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
     avg_depth_to_gw = np.recarray(
-        (1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])
+        (1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])  # xrange(1,13)
 
     for farm_zone in farm_zones:
         # The mask below just chooses all cells that are either Coonambidgal or
@@ -407,13 +445,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
     """
 
-    ecol_depth_to_gw_bores = ['83003', '89586', '82999', '5662', '44828']
+    ecol_depth_to_gw_bores = Ecology_bores
     ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float)
                                                 for bore in ecol_depth_to_gw_bores])
     # to set
     for ecol_bore in ecol_depth_to_gw_bores:
         # NOTE: This returns the depth to groundwater below the surface in metres
-        ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
+        # ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
+        ecol_depth_to_gw[ecol_bore] = np.random.rand()
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
@@ -434,11 +473,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
        integrated model as well (if it isn't already)?
     """
 
-    # trigger_head_bores = ['79234', '62589']
-    # Removed bore 79234 as it sits above Lake Eppalock which is not included
-    # in the groundwater model.
-
-    trigger_head_bores = ['62589']
+    trigger_head_bores = Policy_bores
     trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in trigger_head_bores])
     # to set
     for trigger_bore in trigger_head_bores:
@@ -454,11 +489,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
 
 if __name__ == "__main__":
 
-    print("Running from: "+os.getcwd())
-    CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "model_config.json"))\
+    print("Running from: " + os.getcwd())
+    CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                       "config", "model_config.json"))\
         .set_environment("GW_link_Integrated")
-
-    # import cPickle as pickle
 
     def load_obj(filename):
         if filename[-4:] == '.pkl':
@@ -466,13 +500,11 @@ if __name__ == "__main__":
                 return pickle.load(f)
         else:
             print 'File type not recognised as "pkl"'
-        # end if
+        # End if
 
     # Example river level data (to be inputted from SW Model)
     # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
     fname = r"dev_river_levels.pkl"
-    riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], 'data', fname))
-
     riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
 
     args = sys.argv
@@ -489,6 +521,7 @@ if __name__ == "__main__":
         data_folder = model_config['data_folder']
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
+    # End if
 
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
@@ -501,11 +534,12 @@ if __name__ == "__main__":
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
         "pumping": 10.0,  # {'5': 10},
-        "MM": MM
+        "MM": MM,
+        "verbose": False
     }
 
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
-    print "swgw_exchanges", swgw_exchanges
-    print "avg_depth_to_gw", avg_depth_to_gw
-    print "ecol_depth_to_gw", ecol_depth_to_gw
-    print "trigger_heads", trigger_heads
+    # print "swgw_exchanges", swgw_exchanges
+    # print "avg_depth_to_gw", avg_depth_to_gw
+    # print "ecol_depth_to_gw", ecol_depth_to_gw
+    # print "trigger_heads", trigger_heads

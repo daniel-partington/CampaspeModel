@@ -11,84 +11,98 @@ sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
+## Configuration Loader
+#from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
+
 # Configuration Loader
-from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
+from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
+
 # import flopy.utils.binaryfile as bf
 
 
 # MM is short for model manager
 
 
-def run(model_folder, data_folder, mf_exe_folder, param_file=None):
+def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True):
     """Model Runner."""
 
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
 
     name = MM.GW_build.keys()[0]
+    m = MM.GW_build[name]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
     #if param_file:
     #    MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
 
-    print "************************************************************************"
-    print " Instantiate MODFLOW model "
+    if verbose:
+        print "************************************************************************"
+        print " Instantiate MODFLOW model "
 
     ###########################################################################
     ###########################################################################
     ###########################################################################
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], data_folder=data_folder)
+    modflow_model.buildMODFLOW(transport=True, write=True)
 
-    modflow_model.executable = mf_exe_folder
+    if verbose:
+        print "************************************************************************"
+        print " Instantiate MT3D model "
+        
+    mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name + '_transport', 
+                           ftlfilename='mt3d_link.ftl', 
+                           modflowmodel=modflow_model.mf, 
+                           model_ws=modflow_model.data_folder, 
+                           exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
+        
+    if verbose:
+        print "************************************************************************"
+        print " Set initial conc from ss solution "
 
-    modflow_model.buildMODFLOW()
-
-    #print modflow_model.model_data.observations.obs_group.keys()
-    #sys.exit()
-    print "************************************************************************"
-    print " Instantiate MT3D model "
-    
-    mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name+'_transport', ftlfilename='mt3d_link.ftl', 
-                           modflowmodel=modflow_model.mf, model_ws=modflow_model.data_folder, 
-                           exe_name='MT3D-USGS_64.exe')
-
-    
-    print "************************************************************************"
-    print " Set initial conc from ss solution "
-
-    path=os.path.join(data_folder,"model_01_steady_state\\")
-    concobj = bf.UcnFile(path + 'MT3D001.UCN')
+    path=os.path.join(data_folder,"model_01_steady_state")
+    concobj = bf.UcnFile(os.path.join(path, 'MT3D001.UCN'))
     times = concobj.get_times()        
     conc_init = concobj.get_data(totim=times[-1])
     
-    print("Add the BTN package to the model")
+    if verbose:
+        print("Add the BTN package to the model")
+
     ibound = modflow_model.model_data.model_mesh3D[1]        
     ibound[ibound == -1] = 0
-    prsity = MM.GW_build[name].parameters.param['porosity']['PARVAL1']
+    prsity = m.parameters.param['porosity']['PARVAL1']
     flopy.mt3d.Mt3dBtn(mt, optional_args='DRYCELL', icbund=ibound, prsity=prsity,
                        sconc=conc_init, ncomp=1, mcomp=1, 
                        cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
-                       timprs=None, savucn=1, nprobs=0, 
+                       timprs=None, savucn=1, nprobs=0, laycon=1,
                        chkmas=1, nprmas=1, dt0=10000.0, ttsmax=100000.0)
 
-    print("Add the ADV package to the model")
+    if verbose:
+        print("Add the ADV package to the model")
+
     flopy.mt3d.Mt3dAdv(mt, mixelm=0, percel=1, 
                        mxpart=250000, nadvfd=1, itrack=3,
                        wd=0.5, dceps=1.0E-4, nplane=0, npl=5,
                        nph=8, npmin=1, npmax=16, nlsink=0, 
                        npsink=8, dchmoc=0.01)
 
-    print("Add the DSP package to the model")
-    al = MM.GW_build[name].parameters.param['disp']['PARVAL1']
+    if verbose:
+        print("Add the DSP package to the model")
+
+    al = m.parameters.param['disp']['PARVAL1']
     flopy.mt3d.Mt3dDsp(mt, multiDiff=True, al=al, trpt=0.1, trpv=0.1, dmcoef=0.0)
 
-    print("Add the RCT package to the model")
+    if verbose:
+        print("Add the RCT package to the model")
+
     flopy.mt3d.Mt3dRct(mt, isothm=1, ireact=1, igetsc=0, rc1=np.log(2)/(5730.0*365.0))
 
-    print("Add the GCG package to the model")
+    if verbose:
+        print("Add the GCG package to the model")
+    
     flopy.mt3d.Mt3dGcg(mt, mxiter=1000, iter1=100, isolve=1, 
                        ncrs=0, accl=1, cclose=1.0E-4, iprgcg=0)
 
@@ -156,15 +170,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
     ssm_data = ssm_data_temp
     
 
-    print("Add the SSM package to the model")
+    if verbose:
+        print("Add the SSM package to the model")
+
     flopy.mt3d.Mt3dSsm(mt, stress_period_data=ssm_data, crch=crch)
     
-    print(" Add LMT package to the MODFLOW model to allow linking with MT3DMS")
-    flopy.modflow.ModflowLmt(modflow_model.mf)
-
     mt.write_input()
     
-    success, buff = mt.run_model()
+    success, buff = mt.run_model(silent=True)
     
     post = flopyInterface.MT3DPostProcess(modflow_model)
     
@@ -183,21 +196,30 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None):
 
 
 if __name__ == "__main__":
+
+    verbose = False
+
     args = sys.argv
     if len(args) > 1:
         model_folder = sys.argv[1]
         data_folder = sys.argv[2]
-        mf_exe_folder = sys.argv[3]
+        mt_exe_folder = sys.argv[3]
         if len(args) > 4:
             param_file = sys.argv[4]
+        else:
+            param_file = ""
+
     else:
+        # Get general model config information
+        CONFIG = ConfigLoader('../../config/model_config.json')\
+                        .set_environment("02_transient_flow")
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
         data_folder = model_config['data_folder']
-        mf_exe_folder = model_config['mf_exe_folder']
+        mt_exe_folder = model_config['mt_exe_folder']
         param_file = model_config['param_file']
 
     if param_file:
-        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file)
+        run = run(model_folder, data_folder, mt_exe_folder, param_file=param_file, verbose=verbose)
     else:
-        run = run(model_folder, data_folder, mf_exe_folder)
+        run = run(model_folder, data_folder, mt_exe_folder, verbose=verbose)
