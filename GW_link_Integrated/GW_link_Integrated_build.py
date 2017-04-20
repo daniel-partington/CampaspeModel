@@ -41,7 +41,8 @@ param_file = model_config['param_file']
 climate_path = p_j(get_conf_set(['model_build', 'campaspe_data']), 'Climate')
 
 temp_data_path = get_conf_set(['model_build', 'temp_data'])
-river_path = p_j(temp_data_path, "input_data", "Waterways")
+input_data_path = get_conf_set(['model_build', 'input_data'])
+river_path = p_j(input_data_path, "Waterways")
 sw_data_path = p_j(temp_data_path, "Campaspe_data/SW/All_streamflow_Campaspe_catchment")
 
 bore_levels_file = "bore_levels"
@@ -297,7 +298,7 @@ if VERBOSE:
 
 SS_model.build_3D_mesh_from_rasters(model_grid_raster_files,
                                     SS_model.out_data_folder_grid,
-                                    1.0,
+                                    0.010,
                                     1000.0)
 # Cleanup any isolated cells:
 SS_model.reclassIsolatedCells()
@@ -429,21 +430,189 @@ SSbounds.assign_boundary_array('Rain_reduced', rch)
 
 if VERBOSE:
     print "************************************************************************"
-    print " Mapping bores to grid "
+    print " Mapping Campaspe river to grid"
 
+# SW gauges being used in the SW model:
+# '406214' AXE CREEK @ LONGLEA
+# '406219' CAMPASPE RIVER @ LAKE EPPALOCK (HEAD GAUGE)
+# '406201' CAMPASPE RIVER @ BARNADOWN
+# '406224' MOUNT PLEASANT CREEK @ RUNNYMEDE
+# '406218' CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)
+# '406202' CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN
+# '406265' CAMPASPE RIVER @ ECHUCA
+
+# sw_stream_gauges = ['406214', '406219', '406201', '406224', '406218', '406202', '406265']
+# Removed 406214 as it represents Axe Creek which is not included in this model
+# Remvoed 406224 as it represents Mount Pleasant Creek which is not included in the model.
+# Remvoed 406219 as it represents the head in the reservoir which is not modelled.
+# Added in 406203 as it represents stage just downstream of the weir,
+#   NB not currently included in list of gauges online
+
+use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
+              'CAMPASPE RIVER @ DOAKS RESERVE',
+              'CAMPASPE RIVER @ AXEDALE',
+              'CAMPASPE RIVER @ BACKHAUS ROAD',
+              'CAMPASPE RIVER @ BARNADOWN',
+              'CAMPASPE RIVER @ ELMORE',
+              'CAMPASPE RIVER @ CAMPASPE WEIR',
+              'CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)',
+              'CAMPASPE RIVER @ BURNEWANG-BONN ROAD',
+              'CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN',
+              # 'CAMPASPE RIVER @ FEHRINGS LANE',
+              'CAMPASPE RIVER @ ECHUCA']
+
+inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
+                 'CAMPASPE DR NO 5 @ OUTFALL',
+                 'CAMPASPE DR NO 4 U/S NORTHERN HIGHWAY',
+                 'AXE CREEK @ LONGLEA',
+                 'AXE CREEK @ STRATHFIELDSAYE']
+
+# SS_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
+SS_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
+
+Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clipped.shp']
+
+filter_gauges = []
+for riv_gauge in Campaspe_river_gauges:
+    if str(riv_gauge[1][0]) in Stream_gauges:
+        filter_gauges += [riv_gauge]
+    # End if
+# End for
+
+SS_model.map_polyline_to_grid(Campaspe_river_poly)
+SSparams.create_model_parameter('bed_depress', value=0.01)
+SSparams.parameter_options('bed_depress',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=0.001,
+                           PARUBND=0.1,
+                           PARGP='spec_stor',
+                           SCALE=1,
+                           OFFSET=0)
+SSparams.create_model_parameter('Kv_riv', value=5E-3)
+SSparams.parameter_options('Kv_riv',
+                           PARTRANS='log',
+                           PARCHGLIM='factor',
+                           PARLBND=1E-8,
+                           PARUBND=20,
+                           PARGP='spec_stor',
+                           SCALE=1,
+                           OFFSET=0)
+
+simple_river = []
+riv_width_avg = 10.0  # m
+riv_bed_thickness = 0.10  # m
+
+# Map river from high to low
+new_riv = SS_model.polyline_mapped['Campaspe_Riv_model.shp']
+for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
+    row = riv_cell[0][0]
+    col = riv_cell[0][1]
+    new_riv[index] += [mesh3D_0[0][row][col]]
+
+new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)
+new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)
+
+new_riv_len = (len(new_riv))
+stages = np.full(new_riv_len, np.nan, dtype=np.float64)
+beds = np.full(new_riv_len, np.nan, dtype=np.float64)
+
+# Identify cells that correspond to river gauges
+riv_gauge_logical = np.full(new_riv_len, False, dtype=np.bool)
+
+# To account for fact that river shapefile and gauges shapefile are not perfect
+# we get the closest river cell to the gauge cell
+
+
+def closest_node(node, nodes):
+    nodes = np.asarray(nodes)
+    dist_2 = np.sum((nodes - node)**2, axis=1)
+    return np.argmin(dist_2)
+
+
+# Define river gauges at start of river cell
+new_riv_cells = [x[0] for x in new_riv]
+filter_gauge_loc = [new_riv_cells[x] for x in
+                    [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
+
+# Set up the gauges as observations
+
+for index, riv in enumerate(new_riv):
+    # Create logical array to identify those which are gauges and those which are not
+    if riv[0] in filter_gauge_loc:
+        riv_gauge_logical[index] = True
+        gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
+
+        if VERBOSE:
+            print filter_gauges[gauge_ind[0]][1][0]
+
+        stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] ==
+                                                               filter_gauges[gauge_ind[0]][1][0]]
+        beds[index] = stages[index] - 1.0
+
+    # Add chainage to new_riv array:
+    if index == 0:
+        new_riv[index] += [0.0]
+    else:
+        new_riv[index] += [new_riv[index - 1][3] + new_riv[index - 1][1]]
+    # End if
+# End for
+
+# River x in terms of chainage:
+river_x = np.array([x[3] for x in new_riv])
+river_x_unknown = river_x[~riv_gauge_logical]
+river_x_known = river_x[riv_gauge_logical]
+
+# Now interpolate know values of stage and bed to unknown river locations:
+stages[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, stages[riv_gauge_logical])
+beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_gauge_logical])
+
+# Create observations for stage or discharge at those locations
+
+# TODO: GENERALISE THE TWO LOOPS BELOW THAT DOES THE SAME THING FOR CAMPASPE AND MURRAY
+# locations = ['Campaspe_Riv_model.shp', 'River_Murray_model.shp']
+
+for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
+    row = riv_cell[0][0]
+    col = riv_cell[0][1]
+
+    if mesh3D_1[0][row][col] == -1:
+        continue
+    # End if
+
+    stage = stages[index]
+    bed = beds[index]
+    cond = (riv_cell[1] * riv_width_avg *
+            SS_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness)
+    simple_river += [[0, row, col, stage, cond, bed]]
+
+riv = {0: simple_river}
+
+if VERBOSE:
+    print "************************************************************************"
+    print " Creating Campaspe river boundary"
+
+SSbounds.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
+SSbounds.assign_boundary_array('Campaspe River', riv)
+
+
+if VERBOSE:
+    print "************************************************************************"
+    print " Mapping bores to grid "
 
 SS_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 
 bores_more_filter = []
-for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
+bores_in_top_layer = []
+for index, bores in enumerate(SS_model.points_mapped["NGIS_Bores_clipped.shp"]):
     row, col = bores[0][0], bores[0][1]
     for bore in bores[1]:
         try:
             # [bore_data_info["HydroCode"] == HydroCode]['depth']
             bore_depth = bore_data_info.loc[bore, 'depth']
         except:
-            if bore in Ecology_bores:
-                print 'Ecology bore not in info: ', bore
+            #if bore in Ecology_bores:
+            #    print 'Ecology bore not in info: ', bore
                 # sys.exit('Halting model build due to bore not being found')
             if bore in Policy_bores:
                 print 'Policy bore not in info: ', bore
@@ -451,22 +620,31 @@ for bores in SS_model.points_mapped["NGIS_Bores_clipped.shp"]:
             continue
         if bore_depth > mesh3D_0[0][row][col]:
             # print 'Bore can't be above surface!!!
-            if bore in Ecology_bores:
-                print 'Ecology bore above surf: ', bore
+            #if bore in Ecology_bores:
+            #    print 'Ecology bore above surf: ', bore
                 # sys.exit('Halting model build due to bore not being mapped')
             if bore in Policy_bores:
                 print 'Policy bore above surf: ', bore
                 # sys.exit('Halting model build due to bore not being mapped')
             continue
+        if bore_depth > mesh3D_0[1][row][col]:
+            bores_in_top_layer += [bore]
+            #if [row, col] in filter_gauge_loc:
+            #    eco_gauge = [x[1] for x in filter_gauges if x[0] == [row, col]][0]
+            #    print('candidate bore for ecology @ {0}: {1}'.format(eco_gauge, bore))
         if bore_depth <= mesh3D_0[-2][row][col]:
             # print 'Ignoring bores in bedrock!!!
-            if bore in Ecology_bores:
-                print 'Ecology bore in  bedrock: ', bore
+            #if bore in Ecology_bores:
+            #    print 'Ecology bore in  bedrock: ', bore
                 # sys.exit('Halting model build due to bore not being mapped')
+            #    continue
             if bore in Policy_bores:
-                print 'Policy bore in bedrock: ', bore
+                print('Policy bore in bedrock: {}'.format(bore))
+                print('Bore depth is at: {}'.format(bore_depth))
+                print('Bedrock top is at: {}'.format(mesh3D_0[-2][row][col]))
+                print('Using above cell in Deep Lead for head by redefining bore_depth')
+                final_bores.set_value(final_bores[final_bores['HydroCode'] == bore].index, 'depth', mesh3D_0[-2][row][col] + 1.0)
                 # sys.exit('Halting model build due to bore not being mapped')
-            continue
         bores_more_filter += [bore]
     # End for
 # End for
@@ -476,16 +654,14 @@ if VERBOSE:
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
+# Now find ecology bores by distance to stream gauges of interest and that have 
+# mapped to the model domain and have sufficient data                          
+                          
 ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]
 
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
                for x in final_bores.index]
 
-bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
-               for x in final_bores.index]
-
-# [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"], final_bores.loc[x, "depth"]]
-#   for x in final_bores.index]
 bore_points3D = final_bores[["HydroCode", "Easting", "Northing", "depth"]]
 bore_points3D = bore_points3D.set_index("HydroCode")
 
@@ -666,172 +842,6 @@ if VERBOSE:
 SSbounds.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
 SSbounds.assign_boundary_array('licenced_wells', wel)
 
-if VERBOSE:
-    print "************************************************************************"
-    print " Mapping Campaspe river to grid"
-
-# SW gauges being used in the SW model:
-# '406214' AXE CREEK @ LONGLEA
-# '406219' CAMPASPE RIVER @ LAKE EPPALOCK (HEAD GAUGE)
-# '406201' CAMPASPE RIVER @ BARNADOWN
-# '406224' MOUNT PLEASANT CREEK @ RUNNYMEDE
-# '406218' CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)
-# '406202' CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN
-# '406265' CAMPASPE RIVER @ ECHUCA
-
-# sw_stream_gauges = ['406214', '406219', '406201', '406224', '406218', '406202', '406265']
-# Removed 406214 as it represents Axe Creek which is not included in this model
-# Remvoed 406224 as it represents Mount Pleasant Creek which is not included in the model.
-# Remvoed 406219 as it represents the head in the reservoir which is not modelled.
-# Added in 406203 as it represents stage just downstream of the weir,
-#   NB not currently included in list of gauges online
-
-use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
-              'CAMPASPE RIVER @ DOAKS RESERVE',
-              'CAMPASPE RIVER @ AXEDALE',
-              'CAMPASPE RIVER @ BACKHAUS ROAD',
-              'CAMPASPE RIVER @ BARNADOWN',
-              'CAMPASPE RIVER @ ELMORE',
-              'CAMPASPE RIVER @ CAMPASPE WEIR',
-              'CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)',
-              'CAMPASPE RIVER @ BURNEWANG-BONN ROAD',
-              'CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN',
-              # 'CAMPASPE RIVER @ FEHRINGS LANE',
-              'CAMPASPE RIVER @ ECHUCA']
-
-inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
-                 'CAMPASPE DR NO 5 @ OUTFALL',
-                 'CAMPASPE DR NO 4 U/S NORTHERN HIGHWAY',
-                 'AXE CREEK @ LONGLEA',
-                 'AXE CREEK @ STRATHFIELDSAYE']
-
-# SS_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
-SS_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
-
-Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clipped.shp']
-
-filter_gauges = []
-for riv_gauge in Campaspe_river_gauges:
-    if str(riv_gauge[1][0]) in Stream_gauges:
-        filter_gauges += [riv_gauge]
-    # End if
-# End for
-
-SS_model.map_polyline_to_grid(Campaspe_river_poly)
-SSparams.create_model_parameter('bed_depress', value=0.01)
-SSparams.parameter_options('bed_depress',
-                           PARTRANS='log',
-                           PARCHGLIM='factor',
-                           PARLBND=0.001,
-                           PARUBND=0.1,
-                           PARGP='spec_stor',
-                           SCALE=1,
-                           OFFSET=0)
-SSparams.create_model_parameter('Kv_riv', value=5E-3)
-SSparams.parameter_options('Kv_riv',
-                           PARTRANS='log',
-                           PARCHGLIM='factor',
-                           PARLBND=1E-8,
-                           PARUBND=20,
-                           PARGP='spec_stor',
-                           SCALE=1,
-                           OFFSET=0)
-
-simple_river = []
-riv_width_avg = 10.0  # m
-riv_bed_thickness = 0.10  # m
-
-# Map river from high to low
-new_riv = SS_model.polyline_mapped['Campaspe_Riv_model.shp']
-for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
-    row = riv_cell[0][0]
-    col = riv_cell[0][1]
-    new_riv[index] += [mesh3D_0[0][row][col]]
-
-new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)
-new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)
-
-new_riv_len = (len(new_riv))
-stages = np.full(new_riv_len, np.nan, dtype=np.float64)
-beds = np.full(new_riv_len, np.nan, dtype=np.float64)
-
-# Identify cells that correspond to river gauges
-riv_gauge_logical = np.full(new_riv_len, False, dtype=np.bool)
-
-# To account for fact that river shapefile and gauges shapefile are not perfect
-# we get the closest river cell to the gauge cell
-
-
-def closest_node(node, nodes):
-    nodes = np.asarray(nodes)
-    dist_2 = np.sum((nodes - node)**2, axis=1)
-    return np.argmin(dist_2)
-
-
-# Define river gauges at start of river cell
-new_riv_cells = [x[0] for x in new_riv]
-filter_gauge_loc = [new_riv_cells[x] for x in
-                    [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
-
-# Set up the gauges as observations
-
-for index, riv in enumerate(new_riv):
-    # Create logical array to identify those which are gauges and those which are not
-    if riv[0] in filter_gauge_loc:
-        riv_gauge_logical[index] = True
-        gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-
-        if VERBOSE:
-            print filter_gauges[gauge_ind[0]][1][0]
-
-        stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] ==
-                                                               filter_gauges[gauge_ind[0]][1][0]]
-        beds[index] = stages[index] - 1.0
-
-    # Add chainage to new_riv array:
-    if index == 0:
-        new_riv[index] += [0.0]
-    else:
-        new_riv[index] += [new_riv[index - 1][3] + new_riv[index - 1][1]]
-    # End if
-# End for
-
-# River x in terms of chainage:
-river_x = np.array([x[3] for x in new_riv])
-river_x_unknown = river_x[~riv_gauge_logical]
-river_x_known = river_x[riv_gauge_logical]
-
-# Now interpolate know values of stage and bed to unknown river locations:
-stages[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, stages[riv_gauge_logical])
-beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_gauge_logical])
-
-# Create observations for stage or discharge at those locations
-
-# TODO: GENERALISE THE TWO LOOPS BELOW THAT DOES THE SAME THING FOR CAMPASPE AND MURRAY
-# locations = ['Campaspe_Riv_model.shp', 'River_Murray_model.shp']
-
-for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
-    row = riv_cell[0][0]
-    col = riv_cell[0][1]
-
-    if mesh3D_1[0][row][col] == -1:
-        continue
-    # End if
-
-    stage = stages[index]
-    bed = beds[index]
-    cond = (riv_cell[1] * riv_width_avg *
-            SS_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness)
-    simple_river += [[0, row, col, stage, cond, bed]]
-
-riv = {0: simple_river}
-
-if VERBOSE:
-    print "************************************************************************"
-    print " Creating Campaspe river boundary"
-
-SSbounds.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
-SSbounds.assign_boundary_array('Campaspe River', riv)
 
 if VERBOSE:
     print "************************************************************************"
@@ -946,6 +956,51 @@ if VERBOSE:
     print " Collate observations"
 
 SS_model.map_obs_loc2mesh3D(method='nearest')
+
+obs_active_bores = bores_obs_time_series[bores_obs_time_series['zone'] != 'null']['name']
+obs_active_bores = obs_active_bores[obs_active_bores.isin(bores_in_top_layer)].tolist()
+obs_filter_bores = bore_points3D[bore_points3D.index.isin(obs_active_bores)]
+obs_bores_list = zip(obs_filter_bores['Easting'], obs_filter_bores['Northing'])
+
+stream_active = river_flow_data[river_flow_data['Site ID'].isin([int(x) for x in Stream_gauges])]
+stream_gauges_list = zip(stream_active['Easting'], stream_active['Northing'])
+
+
+
+closest_bores_active = SS_model.find_closest_points_between_two_lists(obs_bores_list, stream_gauges_list)
+
+ecol_bores = []
+for ind in closest_bores_active:
+    ecol_bores += [obs_filter_bores.index.tolist()[ind]]
+
+ecol_bores_df = obs_filter_bores[obs_filter_bores.index.isin(ecol_bores)]
+
+# Visuals checks on getting nearest mapped bore from top layer for the ecology part:
+
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(111) 
+ax.scatter(obs_filter_bores['Easting'], obs_filter_bores['Northing'], label='bores')
+ax.scatter(stream_active['Easting'], stream_active['Northing'], color='r', label='stream gauges')
+ax.scatter(ecol_bores_df['Easting'], ecol_bores_df['Northing'], marker='+', color='orange', label='closest bores')
+plt.legend()
+fig.suptitle('Finding nearest bores to stream gauges')
+plt.xlabel('Easting')
+plt.ylabel('Northing')
+plt.axis('equal')
+
+#set_ylabel('Northing')
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+c = 'rgb'
+for index, bore in enumerate(ecol_bores):
+    bore_data_levels[bore_data_levels['HydroCode'] == bore][['bore_date', 'result']].plot(x='bore_date', ax=ax, color=c[index])
+# NOTE that the bores data is not going all the way to 2015, although bore filtering could include only those bores
+# which have data that is recent .... can do this later!
+# It is interesting to note that the distance can be quite far from gauge to bore
+# Perhaps the restriction to top layer bores could be relaxed somewhat.
+
 
 print "************************************************************************"
 print " Package up groundwater model builder object"
