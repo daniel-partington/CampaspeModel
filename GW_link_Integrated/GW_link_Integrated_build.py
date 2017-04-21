@@ -1,6 +1,8 @@
 import datetime
 import os
+import sys
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from osgeo import osr
@@ -611,7 +613,7 @@ for index, bores in enumerate(SS_model.points_mapped["NGIS_Bores_clipped.shp"]):
             # [bore_data_info["HydroCode"] == HydroCode]['depth']
             bore_depth = bore_data_info.loc[bore, 'depth']
         except:
-            #if bore in Ecology_bores:
+            # if bore in Ecology_bores:
             #    print 'Ecology bore not in info: ', bore
                 # sys.exit('Halting model build due to bore not being found')
             if bore in Policy_bores:
@@ -620,7 +622,7 @@ for index, bores in enumerate(SS_model.points_mapped["NGIS_Bores_clipped.shp"]):
             continue
         if bore_depth > mesh3D_0[0][row][col]:
             # print 'Bore can't be above surface!!!
-            #if bore in Ecology_bores:
+            # if bore in Ecology_bores:
             #    print 'Ecology bore above surf: ', bore
                 # sys.exit('Halting model build due to bore not being mapped')
             if bore in Policy_bores:
@@ -629,12 +631,12 @@ for index, bores in enumerate(SS_model.points_mapped["NGIS_Bores_clipped.shp"]):
             continue
         if bore_depth > mesh3D_0[1][row][col]:
             bores_in_top_layer += [bore]
-            #if [row, col] in filter_gauge_loc:
+            # if [row, col] in filter_gauge_loc:
             #    eco_gauge = [x[1] for x in filter_gauges if x[0] == [row, col]][0]
             #    print('candidate bore for ecology @ {0}: {1}'.format(eco_gauge, bore))
         if bore_depth <= mesh3D_0[-2][row][col]:
             # print 'Ignoring bores in bedrock!!!
-            #if bore in Ecology_bores:
+            # if bore in Ecology_bores:
             #    print 'Ecology bore in  bedrock: ', bore
                 # sys.exit('Halting model build due to bore not being mapped')
             #    continue
@@ -643,7 +645,8 @@ for index, bores in enumerate(SS_model.points_mapped["NGIS_Bores_clipped.shp"]):
                 print('Bore depth is at: {}'.format(bore_depth))
                 print('Bedrock top is at: {}'.format(mesh3D_0[-2][row][col]))
                 print('Using above cell in Deep Lead for head by redefining bore_depth')
-                final_bores.set_value(final_bores[final_bores['HydroCode'] == bore].index, 'depth', mesh3D_0[-2][row][col] + 1.0)
+                final_bores.set_value(final_bores[final_bores['HydroCode'] == bore].index,
+                                      'depth', mesh3D_0[-2][row][col] + 1.0)
                 # sys.exit('Halting model build due to bore not being mapped')
         bores_more_filter += [bore]
     # End for
@@ -654,9 +657,9 @@ if VERBOSE:
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
-# Now find ecology bores by distance to stream gauges of interest and that have 
-# mapped to the model domain and have sufficient data                          
-                          
+# Now find ecology bores by distance to stream gauges of interest and that have
+# mapped to the model domain and have sufficient data
+
 ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]
 
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
@@ -965,8 +968,6 @@ obs_bores_list = zip(obs_filter_bores['Easting'], obs_filter_bores['Northing'])
 stream_active = river_flow_data[river_flow_data['Site ID'].isin([int(x) for x in Stream_gauges])]
 stream_gauges_list = zip(stream_active['Easting'], stream_active['Northing'])
 
-
-
 closest_bores_active = SS_model.find_closest_points_between_two_lists(obs_bores_list, stream_gauges_list)
 
 ecol_bores = []
@@ -977,9 +978,8 @@ ecol_bores_df = obs_filter_bores[obs_filter_bores.index.isin(ecol_bores)]
 
 # Visuals checks on getting nearest mapped bore from top layer for the ecology part:
 
-import matplotlib.pyplot as plt
 fig = plt.figure()
-ax = fig.add_subplot(111) 
+ax = fig.add_subplot(111)
 ax.scatter(obs_filter_bores['Easting'], obs_filter_bores['Northing'], label='bores')
 ax.scatter(stream_active['Easting'], stream_active['Northing'], color='r', label='stream gauges')
 ax.scatter(ecol_bores_df['Easting'], ecol_bores_df['Northing'], marker='+', color='orange', label='closest bores')
@@ -989,13 +989,14 @@ plt.xlabel('Easting')
 plt.ylabel('Northing')
 plt.axis('equal')
 
-#set_ylabel('Northing')
+# set_ylabel('Northing')
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
 c = 'rgb'
 for index, bore in enumerate(ecol_bores):
-    bore_data_levels[bore_data_levels['HydroCode'] == bore][['bore_date', 'result']].plot(x='bore_date', ax=ax, color=c[index])
+    bore_data_levels[bore_data_levels['HydroCode'] == bore][
+        ['bore_date', 'result']].plot(x='bore_date', ax=ax, color=c[index])
 # NOTE that the bores data is not going all the way to 2015, although bore filtering could include only those bores
 # which have data that is recent .... can do this later!
 # It is interesting to note that the distance can be quite far from gauge to bore
