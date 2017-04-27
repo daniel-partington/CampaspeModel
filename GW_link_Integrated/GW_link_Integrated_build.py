@@ -69,7 +69,7 @@ SS_model = GWModelBuilder(**model_params)
 # Complimentary models requirements, i.e. bore and gauge data that should be
 # referenceable to this model for parsing specific outputs and receiving inputs:
 
-model_linking = r"../testbox/integrated/data/model_linking.csv"
+model_linking = r"../testbox/integrated/data/model_bores.csv"
 with open(model_linking, 'r') as f:
     lines = f.readlines()
 
@@ -180,7 +180,7 @@ final_bores = final_bores[final_bores['mean level'] > final_bores['BottomElev']]
 
 if VERBOSE:
     print 'Final number of bores within the data boundary that have level data and screen info: ', \
-          final_bores.shape[0]
+        final_bores.shape[0]
 
 # Load in the pumping wells data
 filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
@@ -612,19 +612,23 @@ for index, bores in enumerate(SS_model.points_mapped["NGIS_Bores_clipped.shp"]):
         try:
             # [bore_data_info["HydroCode"] == HydroCode]['depth']
             bore_depth = bore_data_info.loc[bore, 'depth']
-        except:
+        except Exception as e:
             # if bore in Ecology_bores:
             #    print 'Ecology bore not in info: ', bore
-                # sys.exit('Halting model build due to bore not being found')
+            #    sys.exit('Halting model build due to bore not being found')
             if bore in Policy_bores:
+                print e
+                print bore_data_info.head()
                 print 'Policy bore not in info: ', bore
                 # sys.exit('Halting model build due to bore not being found')
             continue
+        # End try
+
         if bore_depth > mesh3D_0[0][row][col]:
             # print 'Bore can't be above surface!!!
             # if bore in Ecology_bores:
             #    print 'Ecology bore above surf: ', bore
-                # sys.exit('Halting model build due to bore not being mapped')
+            #    sys.exit('Halting model build due to bore not being mapped')
             if bore in Policy_bores:
                 print 'Policy bore above surf: ', bore
                 # sys.exit('Halting model build due to bore not being mapped')
@@ -659,8 +663,6 @@ final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
 # Now find ecology bores by distance to stream gauges of interest and that have
 # mapped to the model domain and have sufficient data
-
-ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]
 
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]]
                for x in final_bores.index]
@@ -975,6 +977,28 @@ for ind in closest_bores_active:
     ecol_bores += [obs_filter_bores.index.tolist()[ind]]
 
 ecol_bores_df = obs_filter_bores[obs_filter_bores.index.isin(ecol_bores)]
+
+# ecology_found = [x for x in final_bores["HydroCode"] if x in Ecology_bores]
+policy_found = [x for x in final_bores["HydroCode"] if x in Policy_bores]
+
+# read in model link
+link_file = os.path.join(data_folder, "model_linking.csv")
+with open(link_file, 'r') as model_link:
+    tmp = model_link.readlines()
+    for i, line in enumerate(tmp):
+        if "Ecology" in line:
+            tmp[i] = "Ecology: {}\n".format(", ".join(ecol_bores))
+        # End if
+
+        if "Policy" in line:
+            tmp[i] = "Policy: {}\n".format(", ".join(policy_found))
+    # End for
+# End with
+
+# Write out ecology bore hydrocodes
+with open(os.path.join(data_folder, "model_linking.csv"), 'w') as model_link:
+    model_link.writelines(tmp)
+# End with
 
 # Visuals checks on getting nearest mapped bore from top layer for the ecology part:
 
