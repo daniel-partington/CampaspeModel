@@ -200,7 +200,7 @@ def getBoreData(get='transient', base_path=None):
 
     # Filter bores by those with only one construction record as multiscreened
     # wells are ambiguous with respect to observations in NGIS database
-    df_bores_clear = df_bores_clear[df_bores_clear['result'] < 3]
+    # df_bores_clear = df_bores_clear[df_bores_clear['result'] < 3]
 
     print 'Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0]
 
