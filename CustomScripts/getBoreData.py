@@ -232,6 +232,8 @@ def getBoreData(get='transient', base_path=None):
     # df_HydrogeologicUnit, df_level, df_salinity
 
     # , df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity
+    
+
     return df_level_ordered, df_bores_clear
 
     #filter_wells = getWells(df_level, wellslist)
@@ -242,5 +244,5 @@ def getBoreData(get='transient', base_path=None):
     #ax.plot(title="Bore @" + wellslist[0])
 
 if __name__ == "__main__":
-    df_level, df_bores = getBoreData(get='transient')
+    df_level, df_bores = getBoreData() #get='transient')
     # getBoreDataGMW()
