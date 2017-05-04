@@ -22,7 +22,7 @@ CONFIG = ConfigLoader(p_j(dir_name(dir_name(os.path.realpath(__file__))),
                           "config", "model_config.json"))\
     .set_environment("GW_link_Integrated")
 
-VERBOSE = False
+VERBOSE = True
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
@@ -235,15 +235,26 @@ if VERBOSE:
     print "************************************************************************"
     print "Load in the river shapefiles"
 
-Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=river_path)
-Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=river_path)
+Campaspe_river_poly = SS_model.read_poly("Campaspe_Riv.shp", path=river_path)
+Murray_river_poly = SS_model.read_poly("River_Murray.shp", path=river_path)
+
+
+if VERBOSE:
+    print "************************************************************************"
+    print "Load in the farms shapefile"
+
+farms_path = p_j(temp_data_path, "Campaspe_data", "SW", "Farm")    
+farms_poly = SS_model.read_poly("farm_v1_prj.shp", path=farms_path, poly_type='polygon')
+
 
 if VERBOSE:
     print "************************************************************************"
     print "Load in the shapefiles defining groundwater boundaries"
 
-WGWbound_poly = SS_model.read_polyline("western_head.shp", path=model_build_input_path)
-EGWbound_poly = SS_model.read_polyline("eastern_head.shp", path=model_build_input_path)
+WGWbound_poly = SS_model.read_poly("western_head.shp", path=model_build_input_path)
+EGWbound_poly = SS_model.read_poly("eastern_head.shp", path=model_build_input_path)
+
+
 
 if VERBOSE:
     print '########################################################################'
@@ -276,7 +287,7 @@ hu_raster_path = p_j(temp_data_path, "ESRI_GRID_raw", "ESRI_GRID")
 # TODO RUN ON FLAG
 # Build basement file ... only need to do this once as it is time consuming so commented out
 # for future runs
-SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
+#SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b",
                    "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
@@ -1001,6 +1012,13 @@ for index, bore in enumerate(ecol_bores):
 # which have data that is recent .... can do this later!
 # It is interesting to note that the distance can be quite far from gauge to bore
 # Perhaps the restriction to top layer bores could be relaxed somewhat.
+
+if VERBOSE:
+    print "************************************************************************"
+    print " Mapping farm areas to grid"
+   
+   
+SS_model.map_polygon_to_grid(farms_poly, feature_name="FULLNAME")
 
 
 print "************************************************************************"
