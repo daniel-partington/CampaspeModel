@@ -58,7 +58,7 @@ def process_line(line):
     return processed
 
 
-def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=None,
+def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None, verbose=True, MM=None):
     """
     GW Model Runner.
@@ -66,8 +66,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
     :param model_folder: str, path to model folder
     :param data_folder: str, path to data
     :param mf_exe_folder: str, path to MODFLOW executable
-    :param ext_linkage_bores: dict, dict of variable names that hold list of bore ids that link
-                              this model with external models
+    :param farm_zones: list, string IDs of farm zones to map ground water level values to (in order)
     :param param_file: str, path to parameter file
     :param riv_stages: np recarray, gauge numbers and stage
     :param rainfall_irrigation: np array, array representing rainfall and irrigation input.
@@ -422,12 +421,9 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         print("Downstream of weir", swgw_exchanges[
               sw_stream_gauges[2]] + swgw_exchanges[sw_stream_gauges[3]])
 
-    """
-    Average depth to GW table:
-    """
-    farm_zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+    # Average depth to GW table:
     avg_depth_to_gw = np.recarray(
-        (1,), dtype=[(str(farm_zone), np.float) for farm_zone in farm_zones])  # xrange(1,13)
+        (1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
 
     for farm_zone in farm_zones:
         # The mask below just chooses all cells that are either Coonambidgal or
@@ -435,7 +431,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file=None, riv_stages=No
         # by using the
         mask = (modflow_model.model_data.model_mesh3D[1][0] == 3) | (
             modflow_model.model_data.model_mesh3D[1][0] == 1)
-        avg_depth_to_gw[str(farm_zone)] = modflow_model.getAverageDepthToGW(mask=mask)
+        avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
+    # End for
 
     """
     Ecology heads of importance
@@ -530,6 +527,7 @@ if __name__ == "__main__":
         "model_folder": model_folder,
         "data_folder": data_folder,
         "mf_exe_folder": mf_exe_folder,
+        "farm_zones": ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
