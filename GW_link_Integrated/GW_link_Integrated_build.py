@@ -1,6 +1,5 @@
 import datetime
 import os
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -287,7 +286,7 @@ hu_raster_path = p_j(temp_data_path, "ESRI_GRID_raw", "ESRI_GRID")
 # TODO RUN ON FLAG
 # Build basement file ... only need to do this once as it is time consuming so commented out
 # for future runs
-#SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
+SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b",
                    "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
@@ -1012,30 +1011,30 @@ with open(os.path.join(data_folder, "model_linking.csv"), 'w') as model_link:
 # End with
 
 # Visuals checks on getting nearest mapped bore from top layer for the ecology part:
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.scatter(obs_filter_bores['Easting'], obs_filter_bores['Northing'], label='bores')
-ax.scatter(stream_active['Easting'], stream_active['Northing'], color='r', label='stream gauges')
-ax.scatter(ecol_bores_df['Easting'], ecol_bores_df['Northing'], marker='+', color='orange', label='closest bores')
-plt.legend()
-fig.suptitle('Finding nearest bores to stream gauges')
-plt.xlabel('Easting')
-plt.ylabel('Northing')
-plt.axis('equal')
-
-# set_ylabel('Northing')
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-c = 'rgb'
-for index, bore in enumerate(ecol_bores):
-    bore_data_levels[bore_data_levels['HydroCode'] == bore][
-        ['bore_date', 'result']].plot(x='bore_date', ax=ax, color=c[index])
-# NOTE that the bores data is not going all the way to 2015, although bore filtering could include only those bores
-# which have data that is recent .... can do this later!
-# It is interesting to note that the distance can be quite far from gauge to bore
-# Perhaps the restriction to top layer bores could be relaxed somewhat.
+if VERBOSE:
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.scatter(obs_filter_bores['Easting'], obs_filter_bores['Northing'], label='bores')
+    ax.scatter(stream_active['Easting'], stream_active['Northing'], color='r', label='stream gauges')
+    ax.scatter(ecol_bores_df['Easting'], ecol_bores_df['Northing'], marker='+', color='orange', label='closest bores')
+    plt.legend()
+    fig.suptitle('Finding nearest bores to stream gauges')
+    plt.xlabel('Easting')
+    plt.ylabel('Northing')
+    plt.axis('equal')
+    
+    # set_ylabel('Northing')
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    c = 'rgb'
+    for index, bore in enumerate(ecol_bores):
+        bore_data_levels[bore_data_levels['HydroCode'] == bore][
+            ['bore_date', 'result']].plot(x='bore_date', ax=ax, color=c[index])
+    # NOTE that the bores data is not going all the way to 2015, although bore filtering could include only those bores
+    # which have data that is recent .... can do this later!
+    # It is interesting to note that the distance can be quite far from gauge to bore
+    # Perhaps the restriction to top layer bores could be relaxed somewhat.
 
 if VERBOSE:
     print "************************************************************************"

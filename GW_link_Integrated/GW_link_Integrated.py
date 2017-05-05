@@ -428,9 +428,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     for farm_zone in farm_zones:
         # The mask below just chooses all cells that are either Coonambidgal or
         # Shepparton formation. A mask could also be constructed for farm areas
-        # by using the
-        mask = (modflow_model.model_data.model_mesh3D[1][0] == 3) | (
-            modflow_model.model_data.model_mesh3D[1][0] == 1)
+        # by using the mapped farms from the groundwater model builder object
+        farm_map, farm_map_dict = this_model.polygons_mapped['farm_v1_prj_model.shp']
+        farm_map_3D = np.repeat(farm_map[:, :, np.newaxis], 3, axis=2) 
+        mask = ((modflow_model.model_data.model_mesh3D[1][0] == 3) | (
+            modflow_model.model_data.model_mesh3D[1][0] == 1)) & \
+            (farm_map_3D == farm_map_dict[farm_zone]) 
         avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
     # End for
 
