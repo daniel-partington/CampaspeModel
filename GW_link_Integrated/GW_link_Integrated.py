@@ -283,22 +283,26 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         print "************************************************************************"
         print " Updating recharge boundary "
 
-    # Adjust rainfall to recharge using 10% magic number
-    interp_rain = np.copy(this_model.boundaries.bc['Rainfall']['bc_array'])
-
     # TODO: Replace interp_rain with input from farm model, i.e. rainfall_irrigation
+    # Adjust rainfall to recharge using 10% magic number
+    rainfall_irrigation = None
+    if rainfall_irrigation is not None:
+        interp_rain = rainfall_irrigation
+    else:
+        warnings.warn("Rainfall+Irrigation input currently ignored by GW model")
+        interp_rain = np.copy(this_model.boundaries.bc['Rainfall']['bc_array'])
 
-    for i in [1, 2, 3, 7]:
-        match = interp_rain[mesh_1[0] == i]
-        # match = interp_rain[mesh[
-        #     1][0] == i] * 0.1
-        interp_rain[mesh_1[0] == i] = match * 0.05
+        for i in [1, 2, 3, 7]:
+            match = interp_rain[mesh_1[0] == i]
+            # match = interp_rain[mesh[
+            #     1][0] == i] * 0.1
+            interp_rain[mesh_1[0] == i] = match * 0.05
 
-    for i in [4, 5, 6]:
-        interp_rain[mesh_1[0] == i] = 0
+        for i in [4, 5, 6]:
+            interp_rain[mesh_1[0] == i] = 0
+    # End if
 
     rch = {0: interp_rain}
-
     this_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 
     if verbose:
@@ -425,15 +429,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     avg_depth_to_gw = np.recarray(
         (1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
 
+    tgt_mesh = modflow_model.model_data.model_mesh3D[1][0]
+
+    # Mask all cells that are either Coonambidgal or Shepparton formation
+    geo_mask = (tgt_mesh == 3) | (tgt_mesh == 1)
+    # A mask could also be constructed for farm areas by using the mapped farms
+    # from the groundwater model builder object
+    farm_map, farm_map_dict = this_model.polygons_mapped['farm_v1_prj_model.shp']
     for farm_zone in farm_zones:
-        # The mask below just chooses all cells that are either Coonambidgal or
-        # Shepparton formation. A mask could also be constructed for farm areas
-        # by using the mapped farms from the groundwater model builder object
-        farm_map, farm_map_dict = this_model.polygons_mapped['farm_v1_prj_model.shp']
-        farm_map_3D = np.repeat(farm_map[:, :, np.newaxis], 3, axis=2) 
-        mask = ((modflow_model.model_data.model_mesh3D[1][0] == 3) | (
-            modflow_model.model_data.model_mesh3D[1][0] == 1)) & \
-            (farm_map_3D == farm_map_dict[farm_zone]) 
+        mask = geo_mask & (farm_map == farm_map_dict[int(farm_zone)])
         avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
     # End for
 
