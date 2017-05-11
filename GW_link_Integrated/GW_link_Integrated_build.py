@@ -68,6 +68,9 @@ SS_model = GWModelBuilder(**model_params)
 # Complimentary models requirements, i.e. bore and gauge data that should be
 # referenceable to this model for parsing specific outputs and receiving inputs:
 
+if VERBOSE:
+    print "Attempting to map these bores..."
+# End if
 model_linking = r"../testbox/integrated/data/model_bores.csv"
 with open(model_linking, 'r') as f:
     lines = f.readlines()
@@ -103,10 +106,6 @@ if VERBOSE:
     print "************************************************************************"
     print " Setting spatial data boundary "
 
-# TODO: Fix - this process, when run for the first time, errors and crashes the script.
-#       I suspect that it attempts to create the buffer file(s) and then moves on to the next
-#       step which relies on the outputted file. Because it has not finished writing the file out,
-#       it crashes.
 SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file,
                                                   buffer_dist=20000)
 
@@ -161,7 +160,6 @@ bore_data_info["HydroCode"] = bore_data_info.index
 # For steady state model, only use bore details containing average level, not
 ngis_bore_shp = p_j(
     temp_data_path, "Campaspe_data", "ngis_shp_VIC", "ngis_shp_VIC", "NGIS_Bores.shp")
-# observation_bores = SS_model.read_points_data(ngis_bore_shp)
 
 if VERBOSE:
     print "************************************************************************"
@@ -210,6 +208,7 @@ if VERBOSE:
 
 river_flow_file = "river_flow_processed"
 riv_flow_path = p_j(SS_model.out_data_folder, river_flow_file)
+
 # Check if this data has been processed and if not process it
 if os.path.exists(riv_flow_path + '.h5'):
     river_flow_data = SS_model.load_dataframe(riv_flow_path + '.h5')
@@ -220,6 +219,7 @@ else:
 
 river_stage_file = "river_stage_processed"
 riv_stage_path = p_j(SS_model.out_data_folder, river_stage_file)
+
 # Check if this data has been processed and if not process it
 if os.path.exists(riv_stage_path + '.h5'):
     river_stage_data = SS_model.load_dataframe(riv_stage_path + '.h5')
@@ -242,7 +242,7 @@ if VERBOSE:
     print "************************************************************************"
     print "Load in the farms shapefile"
 
-farms_path = p_j(temp_data_path, "Campaspe_data", "SW", "Farm")    
+farms_path = p_j(temp_data_path, "Campaspe_data", "SW", "Farm")
 farms_poly = SS_model.read_poly("farm_v1_prj.shp", path=farms_path, poly_type='polygon')
 
 
@@ -252,7 +252,6 @@ if VERBOSE:
 
 WGWbound_poly = SS_model.read_poly("western_head.shp", path=model_build_input_path)
 EGWbound_poly = SS_model.read_poly("eastern_head.shp", path=model_build_input_path)
-
 
 
 if VERBOSE:
@@ -268,9 +267,7 @@ SS_model.model_time.set_temporal_components(steady_state=False, start_time=start
                                             end_time=end, time_step='A')
 
 res = model_config['grid_resolution']
-if res.endswith('m'):
-    res = res[:-1]
-# End if
+res = res[:-1] if res.endswith('m') else res
 
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon
 # shapefile GDAL object
@@ -284,8 +281,6 @@ SS_model.define_structured_mesh(int(res), int(res))
 hu_raster_path = p_j(temp_data_path, "ESRI_GRID_raw", "ESRI_GRID")
 
 # TODO RUN ON FLAG
-# Build basement file ... only need to do this once as it is time consuming so commented out
-# for future runs
 SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b",
@@ -554,10 +549,6 @@ for index, riv in enumerate(new_riv):
     if riv[0] in filter_gauge_loc:
         riv_gauge_logical[index] = True
         gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-
-        if VERBOSE:
-            print filter_gauges[gauge_ind[0]][1][0]
-
         stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] ==
                                                                filter_gauges[gauge_ind[0]][1][0]]
         beds[index] = stages[index] - 1.0
@@ -584,6 +575,7 @@ beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_ga
 # TODO: GENERALISE THE TWO LOOPS BELOW THAT DOES THE SAME THING FOR CAMPASPE AND MURRAY
 # locations = ['Campaspe_Riv_model.shp', 'River_Murray_model.shp']
 
+kv_riv_parval1 = SS_model.parameters.param['Kv_riv']['PARVAL1']
 for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
     row = riv_cell[0][0]
     col = riv_cell[0][1]
@@ -594,8 +586,7 @@ for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.sh
 
     stage = stages[index]
     bed = beds[index]
-    cond = (riv_cell[1] * riv_width_avg *
-            SS_model.parameters.param['Kv_riv']['PARVAL1'] / riv_bed_thickness)
+    cond = (riv_cell[1] * riv_width_avg * kv_riv_parval1 / riv_bed_thickness)
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {0: simple_river}
@@ -888,6 +879,8 @@ riv_width_avg = 10.0  # m
 riv_bed_thickness = 0.10  # m
 
 poly_mapped_murray_model = SS_model.polyline_mapped['River_Murray_model.shp']
+Kv_RM_parval1 = SS_model.parameters.param['Kv_RM']['PARVAL1']
+RMstage_parval1 = SS_model.parameters.param['RMstage']['PARVAL1']
 for riv_cell in poly_mapped_murray_model:
     row = riv_cell[0][0]
     col = riv_cell[0][1]
@@ -897,9 +890,8 @@ for riv_cell in poly_mapped_murray_model:
     # End if
 
     stage = mesh3D_0[0][row][col]
-    bed = mesh3D_0[0][row][col] - SS_model.parameters.param['RMstage']['PARVAL1']
-    cond = (riv_cell[1] * riv_width_avg *
-            SS_model.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness)
+    bed = mesh3D_0[0][row][col] - RMstage_parval1
+    cond = (riv_cell[1] * riv_width_avg * Kv_RM_parval1 / riv_bed_thickness)
     simple_river += [[0, row, col, stage, cond, bed]]
 
 riv = {0: simple_river}
@@ -937,6 +929,8 @@ SSparams.parameter_options('MGHBcond',
 
 MurrayGHB = []
 dx = SS_model.gridHeight
+MGHB_stage_parval1 = SSparams.param['MGHB_stage']['PARVAL1']
+MGHBcond_parval1 = SSparams.param['MGHBcond']['PARVAL1']
 for MurrayGHB_cell in poly_mapped_murray_model:
     row = MurrayGHB_cell[0][0]
     col = MurrayGHB_cell[0][1]
@@ -946,13 +940,13 @@ for MurrayGHB_cell in poly_mapped_murray_model:
             continue
 
         MurrayGHBstage = (mesh3D_0[0][row][col] +
-                          SSparams.param['MGHB_stage']['PARVAL1'])
+                          MGHB_stage_parval1)
         if MurrayGHBstage < mesh3D_0[0][row][col]:
             continue
         # End if
 
         dz = mesh3D_0[lay][row][col] - mesh3D_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * SSparams.param['MGHBcond']['PARVAL1']
+        MGHBconductance = dx * dz * MGHBcond_parval1
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
 # End for
@@ -1022,9 +1016,9 @@ if VERBOSE:
     plt.xlabel('Easting')
     plt.ylabel('Northing')
     plt.axis('equal')
-    
+
     # set_ylabel('Northing')
-    
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     c = 'rgb'
@@ -1039,9 +1033,8 @@ if VERBOSE:
 if VERBOSE:
     print "************************************************************************"
     print " Mapping farm areas to grid"
-   
-   
-SS_model.map_polygon_to_grid(farms_poly, feature_name="FULLNAME")
+
+SS_model.map_polygon_to_grid(farms_poly, feature_name="ZoneID")
 
 
 print "************************************************************************"
