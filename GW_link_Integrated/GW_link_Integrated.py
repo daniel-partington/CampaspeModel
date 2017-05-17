@@ -59,7 +59,7 @@ def process_line(line):
 
 
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
-        rainfall_irrigation=None, pumping=None, verbose=True, MM=None):
+        rainfall_irrigation=None, pumping=None, verbose=True, MM=None, is_steady=False):
     """
     GW Model Runner.
 
@@ -372,7 +372,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = False  # This is to tell FloPy that is a transient model
+    modflow_model.steady = is_steady  # This is to tell FloPy that is a transient model
 
     modflow_model.executable = mf_exe_folder
 
@@ -380,7 +380,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     modflow_model.runMODFLOW()
 
-    # modflow_model.checkCovergence()
+    if is_steady:
+        modflow_model.checkCovergence()
 
     # modflow_model.waterBalance()
 
@@ -488,7 +489,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # TODO: Check that all of the wells listed were mapped to the model mesh and
     # are available for inspection
 
-    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads
+    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, is_steady
 
 
 if __name__ == "__main__":
@@ -540,10 +541,11 @@ if __name__ == "__main__":
         "rainfall_irrigation": None,
         "pumping": 10.0,  # {'5': 10},
         "MM": MM,
-        "verbose": False
+        "verbose": False,
+        "is_steady": False
     }
 
-    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
+    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, is_steady = run(**run_params)
     # print "swgw_exchanges", swgw_exchanges
     # print "avg_depth_to_gw", avg_depth_to_gw
     # print "ecol_depth_to_gw", ecol_depth_to_gw
