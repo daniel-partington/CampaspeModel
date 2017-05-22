@@ -167,8 +167,8 @@ river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\C
 print "************************************************************************"
 print "Load in the river shapefiles"
 
-Campaspe_river_poly = SS_model.read_polyline("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
-Murray_river_poly = SS_model.read_polyline("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
+Campaspe_river_poly = SS_model.read_poly("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
+Murray_river_poly = SS_model.read_poly("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\Campaspe_model\GIS\GIS_preprocessed\Surface_Water\Streams\\") 
 
 #print "************************************************************************"
 #print "Load in the shapefiles defining groundwater boundaries"
