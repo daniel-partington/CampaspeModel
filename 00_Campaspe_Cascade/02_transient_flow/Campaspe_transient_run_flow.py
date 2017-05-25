@@ -304,7 +304,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     modflow_model.runMODFLOW(silent=True)
 
-    converge = modflow_model.checkCovergence()
+    converge = modflow_model.checkConvergence()
 
     if converge:
         if verbose:
