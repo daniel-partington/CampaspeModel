@@ -283,9 +283,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         print "************************************************************************"
         print " Updating recharge boundary "
 
-    # TODO: Replace interp_rain with input from farm model, i.e. rainfall_irrigation
     # Adjust rainfall to recharge using 10% magic number
-    rainfall_irrigation = None
     if rainfall_irrigation is not None:
         interp_rain = rainfall_irrigation
     else:
@@ -380,7 +378,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     modflow_model.runMODFLOW()
 
-    if is_steady:
+    if is_steady is False:
         modflow_model.checkCovergence()
 
     # modflow_model.waterBalance()
@@ -489,7 +487,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # TODO: Check that all of the wells listed were mapped to the model mesh and
     # are available for inspection
 
-    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, is_steady
+    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads
 
 
 if __name__ == "__main__":
@@ -545,7 +543,7 @@ if __name__ == "__main__":
         "is_steady": False
     }
 
-    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, is_steady = run(**run_params)
+    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
     # print "swgw_exchanges", swgw_exchanges
     # print "avg_depth_to_gw", avg_depth_to_gw
     # print "ecol_depth_to_gw", ecol_depth_to_gw
