@@ -292,9 +292,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
         for i in [1, 2, 3, 7]:
             match = interp_rain[mesh_1[0] == i]
-            # match = interp_rain[mesh[
-            #     1][0] == i] * 0.1
-            interp_rain[mesh_1[0] == i] = match * 0.05
+            interp_rain[mesh_1[0] == i] = match * 0.1
 
         for i in [4, 5, 6]:
             interp_rain[mesh_1[0] == i] = 0
@@ -379,7 +377,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.runMODFLOW()
 
     if is_steady is False:
-        modflow_model.checkCovergence()
+        modflow_model.checkConvergence()
 
     # modflow_model.waterBalance()
 
