@@ -75,14 +75,19 @@ print "************************************************************************"
 print " Executing custom script: getBoreData "
 
 bore_levels_file = "bore_levels"
+bore_salinity_file = "bore_salinity"
 bore_info_file = "bore_info"
-if os.path.exists(tr_model.out_data_folder + bore_levels_file + ".h5") & os.path.exists(tr_model.out_data_folder + bore_info_file + ".h5"):
+if os.path.exists(tr_model.out_data_folder + bore_levels_file + ".h5") & \
+   os.path.exists(tr_model.out_data_folder + bore_info_file + ".h5") & \
+   os.path.exists(tr_model.out_data_folder + bore_salinity_file + ".h5"):
     bore_data_levels = tr_model.load_dataframe(tr_model.out_data_folder + bore_levels_file + ".h5")
     bore_data_info = tr_model.load_dataframe(tr_model.out_data_folder + bore_info_file + ".h5")
+    bore_data_salinity = tr_model.load_dataframe(tr_model.out_data_folder + bore_salinity_file + ".h5")
 else:
-    bore_data_levels, bore_data_info = getBoreData.getBoreData()
+    bore_data_levels, bore_data_info, bore_data_salinity = getBoreData.getBoreData()
     tr_model.save_dataframe(tr_model.out_data_folder + bore_levels_file, bore_data_levels)
     tr_model.save_dataframe(tr_model.out_data_folder + bore_info_file, bore_data_info)
+    tr_model.save_dataframe(tr_model.out_data_folder + bore_salinity_file, bore_data_salinity)
 # end if
 
 # getBoreDepth ... assuming that midpoint of screen interval is representative location and assign to layer accordingly
@@ -376,40 +381,6 @@ for step, month in enumerate(long_term_historic_rainfall.iterrows()):
 
 tr_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
-
-# Create parameter that goes back to the steady state model for setting recharge
-#tr_model.parameters.create_model_parameter('SSrch_red_pre_clearance', value=0.01)
-#tr_model.parameters.parameter_options('rch_red_pre_clearance', 
-#                                      PARTRANS='log', 
-#                                      PARCHGLIM='factor', 
-#                                      PARLBND=0.0, 
-#                                      PARUBND=0.1, 
-#                                      PARGP='rech_mult', 
-#                                      SCALE=1, 
-#                                      OFFSET=0)
-
-# Create uniform parameter for recharge for post-clearance period up until 
-#tr_model.parameters.create_model_parameter('TRrch_', value=0.05)
-#tr_model.parameters.parameter_options('TRrch_', 
-#                                      PARTRANS='log', 
-#                                      PARCHGLIM='factor', 
-#                                      PARLBND=0.0, 
-#                                      PARUBND=0.5, 
-#                                      PARGP='rech_mult', 
-#                                      SCALE=1, 
-#                                      OFFSET=0)
-
-# Create uniform irrigation parameter for recharge for post-clearance period up until 
-#tr_model.parameters.create_model_parameter('irrig_post_clearance', value=0.120)
-#tr_model.parameters.parameter_options('irrig_post_clearance', 
-#                                      PARTRANS='log', 
-#                                      PARCHGLIM='factor', 
-#                                      PARLBND=0.0, 
-#                                      PARUBND=0.240, 
-#                                      PARGP='irrig', 
-#                                      SCALE=1, 
-#                                      OFFSET=0)
-
 
 # Adjust rainfall to recharge using rainfall reduction
 for i in [1,2,3,7]:

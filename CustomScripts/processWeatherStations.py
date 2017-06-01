@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 #import matplotlib.colors as colors
 import re
 
-def processWeatherStations(weather_stations, path='', frequency='A'):
+def processWeatherStations(weather_stations, path='', frequency='A', \
+                           plot_monthly_pattern=False, \
+                           plot_yearly_rainfall=False):
     
     weather_station_details = {}
     weather_dfs = {}
@@ -66,9 +68,6 @@ def processWeatherStations(weather_stations, path='', frequency='A'):
 
     # Get info:
     
-    
-    
-    
     # Look at long term mean values for each
     
     def cm2inch(*tupl):
@@ -78,48 +77,52 @@ def processWeatherStations(weather_stations, path='', frequency='A'):
         else:
             return tuple(i/inch for i in tupl)
     
-    #plt.figure(figsize=cm2inch(18,8))
-    #plt.ylabel("Annual Rainfall [mm]")
-    
-    #for station in weather_stations:
-        #weather_dfs[station]['Rain'].plot()        
-        #weather_dfs[station]['Rain'].resample("M", how='sum').plot()    
-    #    weather_dfs[station]['Rain'].resample("A", how='sum'). \
-    #    plot(legend=True, 
-    #         label=station + ', ' 
-    #         + weather_station_details[station][0] + ', '  
-    #         + weather_station_details[station][2] + ', Average: '  
-    #         + str(weather_dfs[station]['Rain'].resample("A", how='sum').mean())[:5] + 'mm')
-        
-    #plt.xlabel("Year")
-    #plt.legend(bbox_to_anchor=(0, 1), loc='upper left', ncol=1)
-    
-    
+   
     annual_rain_df = pd.DataFrame() 
     for station in weather_stations:
-        annual_rain_df[station]= weather_dfs[station]['Rain'].resample("A", how='sum')
+        annual_rain_df[station]= weather_dfs[station]['Rain'].resample("A").sum()
+        annual_rain_df[station + '_ET']= weather_dfs[station]['Evap'].resample("A").sum()
 
-    annual_rain_df[other_station]= weather_dfs[other_station]['Rainfall amount (millimetres)'].resample("A", how='sum')    
-    
-    #annual_rain_df.plot(kind='box')
-    #plt.ylabel("Annual Rainfall [mm]")
+    annual_rain_df[other_station]= weather_dfs[other_station]['Rainfall amount (millimetres)'].resample("A").sum()    
     
     monthly_rain_df = pd.DataFrame() 
     for station in weather_stations:
-        monthly_rain_df[station]= weather_dfs[station]['Rain'].resample("M", how='mean')
+        monthly_rain_df[station]= weather_dfs[station]['Rain'].resample("M").mean()
+        monthly_rain_df[station + '_ET']= weather_dfs[station]['Evap'].resample("M").mean()
 
-    monthly_rain_df[other_station]= weather_dfs[other_station]['Rainfall amount (millimetres)'].resample("M", how='mean')    
+    monthly_rain_df[other_station]= weather_dfs[other_station]['Rainfall amount (millimetres)'].resample("M").mean()    
     
-    #Months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    #month_avg = pd.groupby(monthly_rain_df,by=[monthly_rain_df.index.month]).mean()
-    #month_avg['Months'] = Months
-    
-    #month_avg.plot(kind='bar',x='Months',y=weather_stations)    
-    
-    #plt.ylabel('Average Monthly Rainfall [mm]')
-    #plt.xlabel("")
-    #plt.tight_layout()
-    #plt.legend(bbox_to_anchor=(0, 1), loc='upper left', ncol=1)
+    if plot_yearly_rainfall:
+        plt.figure(figsize=cm2inch(18,8))
+        plt.ylabel("Annual Rainfall [mm]")
+        
+        for station in weather_stations:
+            weather_dfs[station]['Rain'].plot()        
+            weather_dfs[station]['Rain'].resample("M", how='sum').plot()    
+            weather_dfs[station]['Rain'].resample("A", how='sum'). \
+            plot(legend=True, 
+                 label=station + ', ' 
+                 + weather_station_details[station][0] + ', '  
+                 + weather_station_details[station][2] + ', Average: '  
+                 + str(weather_dfs[station]['Rain'].resample("A", how='sum').mean())[:5] + 'mm')
+            
+        plt.xlabel("Year")
+        plt.legend(bbox_to_anchor=(0, 1), loc='upper left', ncol=1)
+
+        annual_rain_df.plot(kind='box')
+        plt.ylabel("Annual Rainfall [mm]")
+
+    if plot_monthly_pattern:
+        Months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        month_avg = pd.groupby(monthly_rain_df,by=[monthly_rain_df.index.month]).mean()
+        month_avg['Months'] = Months
+        
+        month_avg.plot(kind='bar',x='Months',y=weather_stations)    
+        
+        plt.ylabel('Average Monthly Rainfall [mm]')
+        plt.xlabel("")
+        plt.tight_layout()
+        plt.legend(bbox_to_anchor=(0, 1), loc='upper left', ncol=1)
 
     if frequency == 'A':
         return annual_rain_df.mean()
