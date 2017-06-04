@@ -83,13 +83,30 @@ site_details_file = "Site Details.csv"
 site_details = pd.read_csv(os.path.join(river_data_folder, site_details_file))
 # As all of the stream data for the whole of the Camaspe catchment is in the folder
 # to be processed, we can prefilter sites to examine by specifying sites.
-Campaspe = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER") | \
+Campaspe_relevant = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER") | \
                         site_details['Site Name'].str.contains("MURRAY RIVER") | \
                         site_details['Site Name'].str.contains("AXE CREEK") | \
                         site_details['Site Name'].str.contains("MOUNT PLEASANT")]
+
+Campaspe = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER")]
 Campaspe = Campaspe[Campaspe['Northing'] >= \
                     Campaspe.loc[6]['Northing']]
-sites=Campaspe['Site Id'].tolist()
+
+from geopandas import GeoDataFrame
+from shapely.geometry import Point
+
+geometry = [Point(xy) for xy in zip(Campaspe.Easting, Campaspe.Northing)]
+Campaspe_geo = pd.DataFrame.copy(Campaspe)
+Campaspe_geo.drop(['Northing', 'Easting'], axis=1)
+crs = {'init': Interface.pcs_EPSG}
+Geo_df = GeoDataFrame(Campaspe_geo, crs=crs, geometry=geometry)
+site_shapefile = os.path.join(river_data_folder, 'processed_river_sites_stage.shp') 
+Geo_df.to_file(site_shapefile)
+sites=Campaspe_relevant['Site Id'].tolist()
+
+Campaspe_gauge_zero = Campaspe[(Campaspe['Gauge Zero (Ahd)'] > 0.0) | \
+                               (Campaspe['Cease to flow level'] > 10.0) | \
+                               (Campaspe['Min value'] > 10.0)]
 
 # Check if this data has been processed and if not process it
 if os.path.exists(river_flow_file + '.pkl'):
@@ -112,7 +129,7 @@ else:
     river_ec_data = processRiverStations.getEC(path=river_data_folder, sites=sites)
     SS_model.save_obj(river_ec_data, river_ec_file)
 
-river_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\processed_river_sites_stage.shp")
+river_gauges = SS_model.read_points_data(site_shapefile)
 
 print "************************************************************************"
 print "Load in the river shapefiles"
@@ -149,7 +166,7 @@ SS_model.define_structured_mesh(resolution, resolution)
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
 
 # Build basement file ... only need to do this once as it is time consuming so commented out for future runs
-#SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
+# SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
                    "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
@@ -170,11 +187,7 @@ print " Mapping rasters to grid "
 hu_gridded_rasters = SS_model.map_rasters_to_grid(hu_raster_files, 
                                                   hu_raster_path)
 
-import sys
-sys.exit()
-
 # Build 3D grid
-#model_grid_raster_files = [x + "_model_grid.bil" for x in hu_raster_files]
 model_grid_raster_files = [x + "_model_grid.tif" for x in hu_raster_files]
 
 # First two arguments of next function are arbitrary and not used ... need to rework module
@@ -534,12 +547,12 @@ else:
                                           OFFSET=0)
     # Setting up river bed roughness values
     SS_model.parameters.create_model_parameter_set('mn_riv', 
-                                               value=0.001, 
+                                               value=0.01, 
                                                num_parameters=num_reaches)
     SS_model.parameters.parameter_options_set('mn_riv', 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
-                                          PARLBND=0.00001, 
+                                          PARLBND=0.001, 
                                           PARUBND=0.1, 
                                           PARGP='rough', 
                                           SCALE=1, 
@@ -558,13 +571,13 @@ else:
                                           OFFSET=0)
     # Setting up riverbed thickness values
     SS_model.parameters.create_model_parameter_set('bedthck', 
-                                               value=10.0, 
+                                               value=0.10, 
                                                num_parameters=num_reaches)
     SS_model.parameters.parameter_options_set('bedthck', 
                                           PARTRANS='fixed', 
                                           PARCHGLIM='factor', 
-                                          PARLBND=4., 
-                                          PARUBND=40., 
+                                          PARLBND=0.01, 
+                                          PARUBND=1., 
                                           PARGP='bedthk', 
                                           SCALE=1, 
                                           OFFSET=0)
@@ -586,8 +599,75 @@ amalg_riv_points = []
 for row in river_seg[['i', 'j']].iterrows():
     amalg_riv_points += [[row[1]['i'], row[1]['j']]]
 
+# The depths in the column at row j and col i can be obtained using:
+# SS_model.model_mesh3D[0][:,0,1]
+def find_layer(elev, col_vals):
+    for index, val in enumerate(col_vals):
+        if elev > val:
+            if index == 0:
+                return index
+            else:
+                return index - 1
+        #end if
+
+new_k = []
+#surf_elev = []
+#surf_elev1 = []
+#surf_elev2 = []
+#surf_elev3 = []
+#surf_elev4 = []
+#surf_elev5 = []
+#surf_elev6 = []
+#surf_elev7 = []
+
+SS_model.model_mesh3D[0].shape
+block = np.zeros((136,76))
+block2 = np.zeros((136,76))
+
+for row in river_seg.iterrows():
+    i = row[1]['i'] 
+    j = row[1]['j']
+    strtop = row[1]['strtop']
+    strbot = row[1]['strtop'] - row[1]['strthick'] 
+    new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j, i])]
+#    surf_elev += [SS_model.model_mesh3D[0][0][j][i]]
+#    surf_elev1 += [SS_model.model_mesh3D[0][1][j][i]]
+#    surf_elev2 += [SS_model.model_mesh3D[0][2][j][i]]
+#    surf_elev3 += [SS_model.model_mesh3D[0][3][j][i]]
+#    surf_elev4 += [SS_model.model_mesh3D[0][4][j][i]]
+#    surf_elev5 += [SS_model.model_mesh3D[0][5][j][i]]
+#    surf_elev6 += [SS_model.model_mesh3D[0][6][j][i]]
+#    surf_elev7 += [SS_model.model_mesh3D[0][7][j][i]]
+
+river_seg['k'] = new_k
+#river_seg['surf_elev'] = surf_elev         
+#river_seg['surf_elev1'] = surf_elev1         
+#river_seg['surf_elev2'] = surf_elev2         
+#river_seg['surf_elev3'] = surf_elev3         
+#river_seg['surf_elev4'] = surf_elev4         
+#river_seg['surf_elev5'] = surf_elev5         
+#river_seg['surf_elev6'] = surf_elev6         
+#river_seg['surf_elev7'] = surf_elev7         
+#river_seg[['surf_elev', 'surf_elev1','surf_elev2','surf_elev3','surf_elev4', \
+#           'surf_elev5','surf_elev6','surf_elev7','Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
+       
+# Remove any stream segments for which the elevation could not be mapped to a layer
+
+river_seg.dropna(inplace=True)
+SS_model.river_mapping = river_seg
+
 river_seg['ireach'] = 1
-river_seg['iseg'] = river_seg.index + 1
+#river_seg['iseg'] = river_seg.index + 1
+river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
+
+def slope_corrector(x):
+    if  x  < 0.0001:
+        return 0.0001
+    else:
+        return x
+    # end if
+    
+river_seg['slope'] = river_seg['slope'].apply(lambda x: slope_corrector(x))
          
 reach_data = river_seg[['k','i','j','iseg','ireach','rchlen','strtop','slope','strthick','strhc1']].to_records(index=False)
 
@@ -637,152 +717,23 @@ segment_data = segment_data[cols_ordered]
 segment_data1 = segment_data.to_records(index=False)
 seg_dict = {0: segment_data1}
 
+gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
+river_gauge_seg = SS_model.get_closest_riv_segments(gauge_points)
 
 
 ###############################################################################
 
-
-# The depths in the column at row j and col i can be obtained using:
-# SS_model.model_mesh3D[0][:,0,1]
-def find_layer(elev, col_vals):
-    for index, val in enumerate(col_vals):
-        if elev > val:
-            if index == 0:
-                return index
-            else:
-                return index - 1
-        #end if
-
-new_k = []
-surf_elev = []
-surf_elev1 = []
-surf_elev2 = []
-surf_elev3 = []
-surf_elev4 = []
-surf_elev5 = []
-surf_elev6 = []
-surf_elev7 = []
-
-SS_model.model_mesh3D[0].shape
-block = np.zeros((136,76))
-block2 = np.zeros((136,76))
-
-for row in river_seg.iterrows():
-    i = row[1]['i'] 
-    j = row[1]['j']
-    strtop = row[1]['strtop']
-    new_k += [find_layer(strtop, SS_model.model_mesh3D[0][:, j, i])]
-    surf_elev += [SS_model.model_mesh3D[0][0][j][i]]
-    surf_elev1 += [SS_model.model_mesh3D[0][1][j][i]]
-    surf_elev2 += [SS_model.model_mesh3D[0][2][j][i]]
-    surf_elev3 += [SS_model.model_mesh3D[0][3][j][i]]
-    surf_elev4 += [SS_model.model_mesh3D[0][4][j][i]]
-    surf_elev5 += [SS_model.model_mesh3D[0][5][j][i]]
-    surf_elev6 += [SS_model.model_mesh3D[0][6][j][i]]
-    surf_elev7 += [SS_model.model_mesh3D[0][7][j][i]]
-    block[j,i] = strtop
-    block2[j,i] = SS_model.model_mesh3D[0][0][j][i]
-
-block_mask = np.ma.masked_array(block, SS_model.model_mesh3D[1][0]==-1)
-block_mask2 = np.ma.masked_array(block2, SS_model.model_mesh3D[1][0]==-1)
-import matplotlib.pyplot as plt
-fig = plt.figure()
-ax = fig.add_subplot(1, 2, 1)
-plt.imshow(block_mask)
-plt.colorbar()
-ax = fig.add_subplot(1, 2, 2)
-plt.imshow(block_mask2)
-plt.colorbar()
-
-river_seg['k'] = new_k
-river_seg['surf_elev'] = surf_elev         
-river_seg['surf_elev1'] = surf_elev1         
-river_seg['surf_elev2'] = surf_elev2         
-river_seg['surf_elev3'] = surf_elev3         
-river_seg['surf_elev4'] = surf_elev4         
-river_seg['surf_elev5'] = surf_elev5         
-river_seg['surf_elev6'] = surf_elev6         
-river_seg['surf_elev7'] = surf_elev7         
-
-river_seg[['surf_elev', 'surf_elev1','surf_elev2','surf_elev3','surf_elev4', \
-           'surf_elev5','surf_elev6','surf_elev7','Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
-       
-                     
-
-  
-# To account for fact that river shapefile and gauges shapefile are not perfect
-# we get the closest river cell to the gauge cell
-
-def closest_node(node, nodes):
-    nodes = np.asarray(nodes)
-    dist_2 = np.sum((nodes - node)**2, axis=1)
-    return np.argmin(dist_2)
-
-# Define river gauges at start of river cell
-new_riv_cells = [x[0] for x in new_riv]
-filter_gauge_loc = [new_riv_cells[x] for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
-    
 # Set up the gauges as observations 
-
 #SS_model.observations.set_as_observations('Campase_riv_gauges', CampaspeRiv_obs_time_series, CampaspeRiv_points3D, domain='surface', obs_type='stage', units='m') 
                     
-for index, riv in enumerate(new_riv):
-    # Create logical array to identify those which are gauges and those which are not
-    if riv[0] in filter_gauge_loc:
-        riv_gauge_logical[index] = True
-        gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-        print filter_gauges[gauge_ind[0]][1][0]                     
-        #stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"] == filter_gauges[gauge_ind[0]][1][0]]
-        stages[index] = river_stage_data["Mean stage (m)"].loc[river_stage_data["Site Name"] == filter_gauges[gauge_ind[0]][1][0]]
-        beds[index] = stages[index] - 1.0 #river_stage_data["Mean stage (m)"].loc[river_stage_data["Site ID"]== ??]
-
-    # Add chainage to new_riv array:
-    if index == 0:
-        new_riv[index] += [0.0]
-    else:
-        new_riv[index] += [new_riv[index-1][3] + new_riv[index-1][1]]        
-
-# River x in terms of chainage:
-river_x = np.array([x[3] for x in new_riv])
-river_x_unknown = river_x[~riv_gauge_logical]
-river_x_known = river_x[riv_gauge_logical]
-
-# Now interpolate know values of stage and bed to unknown river locations:
-stages[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, stages[riv_gauge_logical])
-beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_gauge_logical])
-
 # Create observations for stage or discharge at those locations
-
-for index, riv_cell in enumerate(SS_model.polyline_mapped['Campaspe_Riv_model.shp']):
-    row = riv_cell[0][0]
-    col = riv_cell[0][1]
-    if SS_model.model_mesh3D[1][0][row][col] == -1:
-        continue
-    #print SS_model.model_mesh3D
-    stage_temp = stages[index]
-    if stage_temp < SS_model.model_mesh3D[0][1][row][col]:
-        stage = SS_model.model_mesh3D[0][1][row][col] + 0.01
-    else:
-        stage = stage_temp
-    bed_temp = beds[index]
-    if bed_temp < SS_model.model_mesh3D[0][1][row][col]:
-        bed = SS_model.model_mesh3D[0][1][row][col]
-    else:
-        bed = bed_temp
-
-    cond = riv_cell[1] * riv_width_avg * \
-        SS_model.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness
-    simple_river += [[0, row, col, stage, cond, bed]]
-
-riv = {}
-riv[0] = simple_river
 
 
 print "************************************************************************"
 print " Creating Campaspe river boundary"
 
-SS_model.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
-SS_model.boundaries.assign_boundary_array('Campaspe River', riv)
+SS_model.boundaries.create_model_boundary_condition('Campaspe River', 'river_flow', bc_static=True)
+SS_model.boundaries.assign_boundary_array('Campaspe River', [reach_data, seg_dict])
 
 print "************************************************************************"
 print " Mapping Murray River to grid"

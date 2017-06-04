@@ -23,8 +23,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    if param_file != "":
-        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    #if param_file != "":
+    #    m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
         print "************************************************************************"
@@ -51,12 +51,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
             
         Kv[Zone == key] = m.parameters.param['kv_' + zone_map[key]]['PARVAL1']
-        Sy[Zone == key] = m.parameters.param['sy_' + zone_map[key]]['PARVAL1']
-        SS[Zone == key] = m.parameters.param['ss_' + zone_map[key]]['PARVAL1']
+#        Sy[Zone == key] = m.parameters.param['sy_' + zone_map[key]]['PARVAL1']
+#        SS[Zone == key] = m.parameters.param['ss_' + zone_map[key]]['PARVAL1']
 
     hk = m.pilot_points['hk']
     zones = len(zone_map.keys())
-    hk.output_directory = os.path.join(data_folder, 'pilot_points')
+    hk.output_directory = os.path.join(data_folder, 'hk_pilot_points')
     hk.update_pilot_points_files_by_zones(zones, points_values_dict)
     import time
     time.sleep(3)
@@ -74,22 +74,22 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating river parameters "
 
-    riv_width_avg = 10.0 #m
-    riv_bed_thickness = 0.10 #m
-    
-    cond = []
-    for index, riv_cell in enumerate(m.polyline_mapped['Campaspe_Riv_model.shp']):
-        row = riv_cell[0][0]
-        col = riv_cell[0][1]
-        if m.model_mesh3D[1][0][row][col] == -1:
-            continue
-        cond += [riv_cell[1] * riv_width_avg * m.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness]
-
-    riv = m.boundaries.bc['Campaspe River']['bc_array'].copy()
-    for key in riv.keys():
-        riv[key] = [[x[0], x[1], x[2], x[3], cond[ind], x[5]] for ind, x in enumerate(riv[key])]
-            
-    m.boundaries.assign_boundary_array('Campaspe River', riv)
+#    riv_width_avg = 10.0 #m
+#    riv_bed_thickness = 0.10 #m
+#    
+#    cond = []
+#    for index, riv_cell in enumerate(m.polyline_mapped['Campaspe_Riv_model.shp']):
+#        row = riv_cell[0][0]
+#        col = riv_cell[0][1]
+#        if m.model_mesh3D[1][0][row][col] == -1:
+#            continue
+#        cond += [riv_cell[1] * riv_width_avg * m.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness]
+#
+#    riv = m.boundaries.bc['Campaspe River']['bc_array'].copy()
+#    for key in riv.keys():
+#        riv[key] = [[x[0], x[1], x[2], x[3], cond[ind], x[5]] for ind, x in enumerate(riv[key])]
+#            
+#    m.boundaries.assign_boundary_array('Campaspe River', riv)
 
     if verbose:
         print "************************************************************************"
@@ -121,22 +121,22 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         print " Updating recharge boundary "
 
     # Adjust rainfall to recharge using 10% magic number
-    interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
-
-    for i in [1, 2, 3, 7]:
-        interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[m.model_mesh3D[
-            1][0] == i] * m.parameters.param['ssrch_' + zone_map[i]]['PARVAL1']
-
-    for i in [4, 5, 6, ]:
-        interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[
-            m.model_mesh3D[1][0] == i] * 0.
-
-    rch = {}
-    rch[0] = interp_rain
-
-    # m.boundaries.create_model_boundary_condition('Rain_reduced',
-    # 'recharge', bc_static=True)
-    m.boundaries.assign_boundary_array('Rain_reduced', rch)
+#    interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
+#
+#    for i in [1, 2, 3, 7]:
+#        interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[m.model_mesh3D[
+#            1][0] == i] * m.parameters.param['ssrch_' + zone_map[i]]['PARVAL1']
+#
+#    for i in [4, 5, 6, ]:
+#        interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[
+#            m.model_mesh3D[1][0] == i] * 0.
+#
+#    rch = {}
+#    rch[0] = interp_rain
+#
+#    # m.boundaries.create_model_boundary_condition('Rain_reduced',
+#    # 'recharge', bc_static=True)
+#    m.boundaries.assign_boundary_array('Rain_reduced', rch)
 
     # print " Include irrigation in the recharge array"
 
@@ -251,7 +251,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
     
         modflow_model.runMODFLOW(silent=True)
     
-        converge = modflow_model.checkCovergence()
+        converge = modflow_model.checkConvergence()
 
         if converge:
             break
@@ -302,7 +302,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         
             modflow_model.runMODFLOW(silent=True)
         
-            converge = modflow_model.checkCovergence()
+            converge = modflow_model.checkConvergence()
     
             if not converge:
                 if verbose:
@@ -321,7 +321,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             
                 for k in [1, 2, 3, 7]:
                     interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[m.model_mesh3D[
-                        1][0] == k] * m.parameters.param['ssrch_' + zone_map[k]]['PARVAL1']
+                        1][0] == k] * 0.01 #m.parameters.param['ssrch_' + zone_map[k]]['PARVAL1']
             
                 for k in [4, 5, 6, ]:
                     interp_rain[m.model_mesh3D[1][0] == k] = interp_rain[
@@ -342,7 +342,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 
                 modflow_model.buildMODFLOW(transport=True)
                 modflow_model.runMODFLOW(silent=True)
-                converge = modflow_model.checkCovergence()            
+                converge = modflow_model.checkConvergence()            
                 if converge:
                     shutil.copy(os.path.join(modflow_model.data_folder, modflow_model.name + '.hds'), 
                                 data_folder)
@@ -352,6 +352,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
     #modflow_model.viewGHB()
     #modflow_model.viewHeads()
     #modflow_model.viewHeadLayer(figsize=(20,10))
+
+
 
     #riv_exch = modflow_model.getRiverFlux('Campaspe River')
     #for key in riv_exch.keys():
@@ -364,7 +366,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 
 if __name__ == "__main__":
 
-    verbose = False
+    verbose = True
                     
     args = sys.argv
     if len(args) > 1:
