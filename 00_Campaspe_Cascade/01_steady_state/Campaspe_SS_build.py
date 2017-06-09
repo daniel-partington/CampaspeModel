@@ -135,9 +135,15 @@ print "************************************************************************"
 print "Load in the river shapefiles"
 Campaspe_river_poly_file = r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways\Campaspe_Riv.shp"
 Campaspe_river_poly = SS_model.read_poly("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways") 
+Murray_river_poly_file = r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways\River_Murray.shp" 
 Murray_river_poly = SS_model.read_poly("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways") 
 
-surface_raster_high_res = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Surface_DEM_Geoscience_Australia\CampDEM1s_1755033\CampDEM1s.tif"
+
+# This is disgusting, but works for now ... needs cleaning up through first testing
+# if raster is in the right projection and if not returning the name of the new
+# reprojected file
+#surface_raster_high_res = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Surface_DEM_Geoscience_Australia\Camp_1sHE_2026754\Camp_1sHE.tif"
+surface_raster_high_res = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID\sur_1t"
 
 recharge_zones = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Linking_recharge\Zones_24.tif"
 
@@ -406,7 +412,7 @@ SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
 recharge_zone_array = SS_model.map_raster_to_regular_grid_return_array(recharge_zones)
 
-rch_zone_dict = {i:x for i, x in enumerate(np.unique(recharge_zone_array)) if x > 0}
+rch_zone_dict = {i:x for i, x in enumerate(np.unique(recharge_zone_array))}
 rch_zones = len(rch_zone_dict.keys())
 
 SS_model.parameters.create_model_parameter_set('ssrch', 
@@ -421,10 +427,14 @@ SS_model.parameters.parameter_options_set('ssrch',
                                       SCALE=1, 
                                       OFFSET=0)
 
-for i in range(rch_zones):
-    interp_rain[recharge_zone_array==i] = interp_rain[recharge_zone_array==i] * SS_model.parameters.param['ssrch{}'.format(i)]['PARVAL1']
+for i in range(rch_zones - 1):
+    interp_rain[recharge_zone_array == rch_zone_dict[i+1]] = \
+        interp_rain[recharge_zone_array == rch_zone_dict[i+1]] * \
+        SS_model.parameters.param['ssrch{}'.format(i)]['PARVAL1']
 
-interp_rain[SS_model.model_mesh3D[1][0]==-1] = 0.
+interp_rain[recharge_zone_array==rch_zone_dict[0]] = interp_rain[recharge_zone_array == rch_zone_dict[0]] * 0.0
+interp_rain[SS_model.model_mesh3D[1][0] == -1] = 0.
+#interp_rain[SS_model.model_mesh3D[1][0] == 7] = interp_rain[SS_model.model_mesh3D[1][0] == 7] * 0.01
     
     
 #for i in [1,2,3,7]:
@@ -450,7 +460,7 @@ SS_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', 
 SS_model.boundaries.assign_boundary_array('Rain_reduced', rch)
 
 # Initial heads using uniform head over entire model making whole domain saturated:
-initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 400.)
+initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 500.)
 
 # Initial heads using ground surface elevation:
 #for i in range(len(hu_raster_files_reproj)/2):
@@ -479,6 +489,18 @@ inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
                  'CAMPASPE DR NO 4 U/S NORTHERN HIGHWAY',
                  'AXE CREEK @ LONGLEA',
                  'AXE CREEK @ STRATHFIELDSAYE']
+
+
+###############
+##############
+########  This needs to live elsewhere but will do for now ... TODO: Fix this
+##############
+###############
+SS_model.GISInterface.raster_reproject_by_grid(surface_raster_high_res,
+                                               surface_raster_high_res[:-4] + '_reproj.tif',
+                                               resample_method='min')
+
+surface_raster_high_res = surface_raster_high_res[:-4] + '_reproj.tif'
 
 
 SS_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
@@ -583,9 +605,10 @@ else:
                                           OFFSET=0)
 
 
-SS_model.create_river_dataframe(Campaspe_river_poly_file, surface_raster_high_res)
+SS_model.create_river_dataframe('Campaspe', Campaspe_river_poly_file, surface_raster_high_res)
+
 # Create reach data
-river_seg = SS_model.river_mapping
+river_seg = SS_model.river_mapping['Campaspe']
 known_points = [river_seg['rchlen'].sum()/x for x in range(1, num_reaches)] + [0.]
 known_points = known_points[::-1]
 
@@ -597,7 +620,7 @@ river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(), known
 
 amalg_riv_points = []
 for row in river_seg[['i', 'j']].iterrows():
-    amalg_riv_points += [[row[1]['i'], row[1]['j']]]
+    amalg_riv_points += [[row[1]['j'], row[1]['i']]]
 
 # The depths in the column at row j and col i can be obtained using:
 # SS_model.model_mesh3D[0][:,0,1]
@@ -610,51 +633,73 @@ def find_layer(elev, col_vals):
                 return index - 1
         #end if
 
-new_k = []
-#surf_elev = []
-#surf_elev1 = []
-#surf_elev2 = []
-#surf_elev3 = []
-#surf_elev4 = []
-#surf_elev5 = []
-#surf_elev6 = []
-#surf_elev7 = []
+# Sort out collocated stream reaches to avoid short circuiting:
+river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
+river_seg_group = river_seg.groupby(by='amalg_riv_points_tuple').count()
+river_seg_group = river_seg_group[river_seg_group['amalg_riv_points'] > 1]
 
-SS_model.model_mesh3D[0].shape
-block = np.zeros((136,76))
-block2 = np.zeros((136,76))
+already_defined = []
+old = []
+for row in river_seg.iterrows():
+    ind = row[0]
+    row = row[1]
+    new = row['amalg_riv_points']
+    if new in old:
+        already_defined += [ind]
+    old += [new]
+
+river_seg['strhc1'].loc[already_defined] = 0.0
+
+
+new_k = []
+surf_elev = []
+surf_elev1 = []
+surf_elev2 = []
+surf_elev3 = []
+surf_elev4 = []
+surf_elev5 = []
+surf_elev6 = []
+surf_elev7 = []
 
 for row in river_seg.iterrows():
-    i = row[1]['i'] 
-    j = row[1]['j']
+    j_mesh = row[1]['i'] 
+    i_mesh = row[1]['j']
     strtop = row[1]['strtop']
     strbot = row[1]['strtop'] - row[1]['strthick'] 
-    new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j, i])]
-#    surf_elev += [SS_model.model_mesh3D[0][0][j][i]]
-#    surf_elev1 += [SS_model.model_mesh3D[0][1][j][i]]
-#    surf_elev2 += [SS_model.model_mesh3D[0][2][j][i]]
-#    surf_elev3 += [SS_model.model_mesh3D[0][3][j][i]]
-#    surf_elev4 += [SS_model.model_mesh3D[0][4][j][i]]
-#    surf_elev5 += [SS_model.model_mesh3D[0][5][j][i]]
-#    surf_elev6 += [SS_model.model_mesh3D[0][6][j][i]]
-#    surf_elev7 += [SS_model.model_mesh3D[0][7][j][i]]
+    new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])]
+    surf_elev += [SS_model.model_mesh3D[0][0][j_mesh][i_mesh]]
+    surf_elev1 += [SS_model.model_mesh3D[0][1][j_mesh][i_mesh]]
+    surf_elev2 += [SS_model.model_mesh3D[0][2][j_mesh][i_mesh]]
+    surf_elev3 += [SS_model.model_mesh3D[0][3][j_mesh][i_mesh]]
+    surf_elev4 += [SS_model.model_mesh3D[0][4][j_mesh][i_mesh]]
+    surf_elev5 += [SS_model.model_mesh3D[0][5][j_mesh][i_mesh]]
+    surf_elev6 += [SS_model.model_mesh3D[0][6][j_mesh][i_mesh]]
+    surf_elev7 += [SS_model.model_mesh3D[0][7][j_mesh][i_mesh]]
 
 river_seg['k'] = new_k
-#river_seg['surf_elev'] = surf_elev         
-#river_seg['surf_elev1'] = surf_elev1         
-#river_seg['surf_elev2'] = surf_elev2         
-#river_seg['surf_elev3'] = surf_elev3         
-#river_seg['surf_elev4'] = surf_elev4         
-#river_seg['surf_elev5'] = surf_elev5         
-#river_seg['surf_elev6'] = surf_elev6         
-#river_seg['surf_elev7'] = surf_elev7         
-#river_seg[['surf_elev', 'surf_elev1','surf_elev2','surf_elev3','surf_elev4', \
-#           'surf_elev5','surf_elev6','surf_elev7','Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
+river_seg['surf_elev'] = surf_elev         
+river_seg['surf_elev1'] = surf_elev1         
+river_seg['surf_elev2'] = surf_elev2         
+river_seg['surf_elev3'] = surf_elev3         
+river_seg['surf_elev4'] = surf_elev4         
+river_seg['surf_elev5'] = surf_elev5         
+river_seg['surf_elev6'] = surf_elev6         
+river_seg['surf_elev7'] = surf_elev7         
+river_seg[['surf_elev', 'surf_elev1','surf_elev2','surf_elev3','surf_elev4', \
+           'surf_elev5','surf_elev6','surf_elev7','Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
+
+river_seg[['surf_elev', \
+           'Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
        
 # Remove any stream segments for which the elevation could not be mapped to a layer
 
 river_seg.dropna(inplace=True)
-SS_model.river_mapping = river_seg
+# For stream reaches that didn't map properly to the mesh for z elevation we 
+# can still include by setting to layer 0 with a bed hydraulic conductivity of 0
+river_seg[np.isnan(river_seg['k'])]['strhc1'] = 0.0
+river_seg[np.isnan(river_seg['k'])]['k'] = 0
+
+SS_model.river_mapping['Campaspe'] = river_seg
 
 river_seg['ireach'] = 1
 #river_seg['iseg'] = river_seg.index + 1
@@ -681,7 +726,7 @@ iupseg = [0] * len(nseg)
 iprior = [0] * len(nseg)
 nstrpts = [0] * len(nseg)
 flow = [0] * len(nseg)
-flow[0] = river_flow_data[406207]['Mean'].mean()
+flow[0] = river_flow_data[406207]['Mean'].describe().loc['25%'] * 1000.
 runoff = [0] * len(nseg)
 etsw = [0] * len(nseg)
 pptsw = [0] * len(nseg)
@@ -718,7 +763,7 @@ segment_data1 = segment_data.to_records(index=False)
 seg_dict = {0: segment_data1}
 
 gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
-river_gauge_seg = SS_model.get_closest_riv_segments(gauge_points)
+river_gauge_seg = SS_model.get_closest_riv_segments('Campaspe', gauge_points)
 
 
 ###############################################################################
@@ -735,11 +780,13 @@ print " Creating Campaspe river boundary"
 SS_model.boundaries.create_model_boundary_condition('Campaspe River', 'river_flow', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Campaspe River', [reach_data, seg_dict])
 
+
 print "************************************************************************"
 print " Mapping Murray River to grid"
 
 SS_model.map_polyline_to_grid(Murray_river_poly)
 
+# Parameter to modify the stage, thus accounting for errors in values specified for stage
 SS_model.parameters.create_model_parameter('rmstage', value=0.01)
 SS_model.parameters.parameter_options('rmstage', 
                                       PARTRANS='log', 
@@ -749,6 +796,27 @@ SS_model.parameters.parameter_options('rmstage',
                                       PARGP='murr_riv', 
                                       SCALE=1, 
                                       OFFSET=0)
+# Parameter to all shifting the location of the bed which is only estimated based on assumed depth below zero gauge
+SS_model.parameters.create_model_parameter('rmbed', value=0.01)
+SS_model.parameters.parameter_options('rmbed', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='murr_riv', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+# Parameter for River Murray bed thickness
+SS_model.parameters.create_model_parameter('rmbedthk', value=0.01)
+SS_model.parameters.parameter_options('rmbedthk', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.5, 
+                                      PARGP='murr_riv', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+# Parameter for the vertical hydraulic conductivity of the River Murray
 SS_model.parameters.create_model_parameter('kv_rm', value=5E-3)
 SS_model.parameters.parameter_options('kv_rm', 
                                       PARTRANS='log', 
@@ -758,21 +826,118 @@ SS_model.parameters.parameter_options('kv_rm',
                                       PARGP='murr_riv', 
                                       SCALE=1, 
                                       OFFSET=0)
+# Parameter for the width of the River Murray
+SS_model.parameters.create_model_parameter('width', value=30)
+SS_model.parameters.parameter_options('width', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=20, 
+                                      PARUBND=50, 
+                                      PARGP='murr_riv', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
+SS_model.create_river_dataframe('Murray', Murray_river_poly_file, surface_raster_high_res)
+
+mriver_seg = SS_model.river_mapping['Murray']
+mriver_seg['strthick'] = SS_model.parameters.param['rmbedthk']['PARVAL1']
+
+surf_elev = []
+surf_elev1 = []
+surf_elev2 = []
+surf_elev3 = []
+surf_elev4 = []
+surf_elev5 = []
+surf_elev6 = []
+surf_elev7 = []
+
+new_k = []
+active = []
+for row in mriver_seg.iterrows():
+    j_mesh = row[1]['i'] 
+    i_mesh = row[1]['j']
+    strtop = row[1]['strtop']
+    strbot = row[1]['strtop'] - row[1]['strthick'] 
+    k = find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])
+    new_k += [k]
+    active += [SS_model.model_mesh3D[1][k, j_mesh, i_mesh]]
+    surf_elev += [SS_model.model_mesh3D[0][0][j_mesh][i_mesh]]
+    surf_elev1 += [SS_model.model_mesh3D[0][1][j_mesh][i_mesh]]
+    surf_elev2 += [SS_model.model_mesh3D[0][2][j_mesh][i_mesh]]
+    surf_elev3 += [SS_model.model_mesh3D[0][3][j_mesh][i_mesh]]
+    surf_elev4 += [SS_model.model_mesh3D[0][4][j_mesh][i_mesh]]
+    surf_elev5 += [SS_model.model_mesh3D[0][5][j_mesh][i_mesh]]
+    surf_elev6 += [SS_model.model_mesh3D[0][6][j_mesh][i_mesh]]
+    surf_elev7 += [SS_model.model_mesh3D[0][7][j_mesh][i_mesh]]
+
+mriver_seg['k'] = new_k
+mriver_seg['active'] = active
+mriver_seg['surf_elev'] = surf_elev         
+mriver_seg['surf_elev1'] = surf_elev1         
+mriver_seg['surf_elev2'] = surf_elev2         
+mriver_seg['surf_elev3'] = surf_elev3         
+mriver_seg['surf_elev4'] = surf_elev4         
+mriver_seg['surf_elev5'] = surf_elev5         
+mriver_seg['surf_elev6'] = surf_elev6         
+mriver_seg['surf_elev7'] = surf_elev7         
+mriver_seg[['surf_elev', 'surf_elev1','surf_elev2','surf_elev3','surf_elev4', \
+           'surf_elev5','surf_elev6','surf_elev7','Cumulative Length', 'strtop_raw']].plot(x='Cumulative Length')
+
+mriver_seg['k'] = new_k
+      
+# Remove any stream segments for which the elevation could not be mapped to a layer
+mriver_seg[mriver_seg['active'] == -1] = np.nan
+mriver_seg.dropna(inplace=True)
+SS_model.river_mapping['Murray'] = mriver_seg
+
+
+#simple_river = []
+#riv_width_avg = 10.0 #m
+#riv_bed_thickness = 0.10 #m
+#for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
+#    row = riv_cell[0][0]
+#    col = riv_cell[0][1]
+#    if SS_model.model_mesh3D[1][0][row][col] == -1:
+#        continue
+#    #print SS_model.model_mesh3D
+#    stage = SS_model.model_mesh3D[0][0][row][col]
+#    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['rmstage']['PARVAL1']
+#    cond = riv_cell[1] * riv_width_avg * SS_model.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
+#    simple_river += [[0, row, col, stage, cond, bed]]
+
+mriver_seg['strhc1'] = 10. # np.interp(mriver_seg['Cumulative Length'].tolist(), 
+                           #     known_points, strcond_val)
+mriver_seg['width1'] = 30. # np.interp(mriver_seg['Cumulative Length'].tolist(), 
+                           #     known_points, strcond_val)
+
+
+
+mriver_seg['stage'] = mriver_seg['strtop'] + 0.2
+
+# Avoid collisions with Campaspe River ...
+def is_in_other_river(riv_df_testing, riv_df_other):
+    riv_df_other_locs = riv_df_other['amalg_riv_points'].tolist()
+    cell_used = []
+    for row in riv_df_testing.iterrows():
+        if row[1]['amalg_riv_points'] in riv_df_other_locs:
+            cell_used += [0]
+        else:
+            cell_used += [1]            
+    #riv_df_testing['cell_used'] = cell_used
+    return cell_used
+
+cells_overlapping = is_in_other_river(mriver_seg, river_seg)
+mriver_seg['cell_used'] = cells_overlapping
+mriver_seg[mriver_seg['cell_used'] == 0] = np.nan
+mriver_seg.dropna(inplace=True)
+SS_model.river_mapping['Murray'] = mriver_seg
 
 
 simple_river = []
-riv_width_avg = 10.0 #m
-riv_bed_thickness = 0.10 #m
-for riv_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
-    row = riv_cell[0][0]
-    col = riv_cell[0][1]
-    if SS_model.model_mesh3D[1][0][row][col] == -1:
-        continue
-    #print SS_model.model_mesh3D
-    stage = SS_model.model_mesh3D[0][0][row][col]
-    bed = SS_model.model_mesh3D[0][0][row][col] - SS_model.parameters.param['rmstage']['PARVAL1']
-    cond = riv_cell[1] * riv_width_avg * SS_model.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
-    simple_river += [[0, row, col, stage, cond, bed]]
+for row in mriver_seg.iterrows():
+    row = row[1]
+    simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+                      row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
 
 riv = {}
 riv[0] = simple_river
@@ -796,7 +961,7 @@ SS_model.parameters.parameter_options('mghb_stage',
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
-SS_model.parameters.create_model_parameter('mghbcond', value=5E-3)
+SS_model.parameters.create_model_parameter('mghbcond', value=50)
 SS_model.parameters.parameter_options('mghbcond', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
@@ -812,25 +977,48 @@ SS_model.parameters.parameter_options('mghbcond',
 
 MurrayGHB = []
 Active_MurrayGHB_cells = []
-for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
-    row = MurrayGHB_cell[0][0]
-    col = MurrayGHB_cell[0][1]
-    #print SS_model.model_mesh3D
+Murray_df_ind = []
+for mrow in mriver_seg.iterrows():
+    ind = mrow[0]
+    mrow = mrow[1]
+    row = mrow['i']
+    col = mrow['j']
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][0][row][col] == -1:
             continue
-        #MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
-        MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
-        if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+        #MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
+        MurrayGHBstage = mrow['stage'] + SS_model.parameters.param['mghb_stage']['PARVAL1']
+        #if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+        #    continue
+        if lay <= mrow['k']:
             continue
-        if lay == 0:
-            continue
-        
+
+        Murray_df_ind += [ind]        
         Active_MurrayGHB_cells += [[lay, row, col]]
 
+
+#MurrayGHB = []
+#Active_MurrayGHB_cells = []
+#for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
+#    row = MurrayGHB_cell[0][0]
+#    col = MurrayGHB_cell[0][1]
+#    #print SS_model.model_mesh3D
+#    for lay in range(SS_model.model_mesh3D[1].shape[0]):    
+#        if SS_model.model_mesh3D[1][0][row][col] == -1:
+#            continue
+#        #MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
+#        MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
+#        if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+#            continue
+#        if lay == 0:
+#            continue
+#        
+#        Active_MurrayGHB_cells += [[lay, row, col]]
+
 # Now make sure that no cells are being caught surrounded by other GHB cells
+Murray_df_ind2 = []        
 Final_MurrayGHB_cells = []
-for active_cell in Active_MurrayGHB_cells:
+for index, active_cell in enumerate(Active_MurrayGHB_cells):
     # check if active GHB cell has any active non GHB cells N,E,S,W, above or below         
     lay, row, col = 0, 1, 2
     shape = SS_model.model_mesh3D[1].shape
@@ -838,6 +1026,7 @@ for active_cell in Active_MurrayGHB_cells:
     zone = SS_model.model_mesh3D[1]
     
     ac = active_cell
+    acl, acr, acc = int(ac[lay]), int(ac[row]), int(ac[col])            
     # Check above:
     ref_cell = [ac[lay] - 1, ac[row], ac[col]]        
 #    # Make sure not at top boundary    
@@ -854,40 +1043,39 @@ for active_cell in Active_MurrayGHB_cells:
 #        if zone[ac[lay] + 1, ac[row], ac[col]] != -1:
 #            if ref_cell not in Active_MurrayGHB_cells:
 #                active_non_GHB = True
-                
     # Check north:
-    ref_cell = [ac[lay], ac[row] + 1, ac[col]]        
-    if active_cell[row] != 0:
-        if zone[ac[lay], ac[row] + 1, ac[col]] != -1:
+    ref_cell = [acl, acr + 1, acc]        
+    if acr != 0:
+        if zone[acl, acr + 1, acc] != -1:
             if ref_cell not in Active_MurrayGHB_cells:
                 active_non_GHB = True
 
     # Check east:
-    ref_cell = [ac[lay], ac[row], ac[col] + 1]        
-    if active_cell[col] != shape[col] - 1:
-        if zone[ac[lay], ac[row], ac[col] + 1] != -1:
+    ref_cell = [acl, acr, acc + 1]        
+    if acc != shape[col] - 1:
+        if zone[acl, acr, acc + 1] != -1:
             if ref_cell not in Active_MurrayGHB_cells:
                 active_non_GHB = True
 
     # Check south:
-    ref_cell = [ac[lay], ac[row] - 1, ac[col]]        
-    if active_cell[row] != shape[row] - 1:
-        if zone[ac[lay], ac[row] - 1, ac[col]] != -1:
+    ref_cell = [acl, acr - 1, acc]        
+    if acr != shape[row] - 1:
+        if zone[acl, acr - 1, acc] != -1:
             if ref_cell not in Active_MurrayGHB_cells:
                 active_non_GHB = True
 
     # Check west:
-    ref_cell = [ac[lay], ac[row], ac[col] - 1]        
-    if active_cell[col] != 0:
-        if zone[ac[lay], ac[row], ac[col] - 1] != -1:
+    ref_cell = [acc, acr, acc - 1]        
+    if acc != 0:
+        if zone[acl, acr, acc - 1] != -1:
             if ref_cell not in Active_MurrayGHB_cells:
                 active_non_GHB = True
 
     if active_non_GHB:
         Final_MurrayGHB_cells += [active_cell]                
-                
+        Murray_df_ind2 += [Murray_df_ind[index]]        
 #for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
-for MurrayGHB_cell in Final_MurrayGHB_cells:
+for index, MurrayGHB_cell in enumerate(Final_MurrayGHB_cells):
     #row = MurrayGHB_cell[0][0]
     #col = MurrayGHB_cell[0][1]
 
@@ -903,11 +1091,12 @@ for MurrayGHB_cell in Final_MurrayGHB_cells:
             # To avoid having river cells in the same cells as GHB cells.
 #            continue
         
-    MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
-    if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
-        continue
+    #MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
+    MurrayGHBstage = mriver_seg['stage'].loc[Murray_df_ind2[index]] + SS_model.parameters.param['mghb_stage']['PARVAL1']
+    #if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
+    #    continue
     dx = SS_model.gridHeight
-    dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay+1][row][col]
+    dz = SS_model.model_mesh3D[0][lay][row][col] - SS_model.model_mesh3D[0][lay + 1][row][col]
     MGHBconductance = dx * dz * SS_model.parameters.param['mghbcond']['PARVAL1']
     MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 

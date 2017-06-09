@@ -95,26 +95,26 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating River Murray"
     
-    mapped_river = m.polyline_mapped['River_Murray_model.shp']
-
-    simple_river = []
-    riv_width_avg = 10.0  # m
-    riv_bed_thickness = 0.10  # m
-    for riv_cell in mapped_river:  # m.polyline_mapped['Campaspe_Riv_model.shp']:
-        row = riv_cell[0][0]
-        col = riv_cell[0][1]
-        if m.model_mesh3D[1][0][row][col] == -1:
-            continue
-        stage = m.model_mesh3D[0][0][row][col] - 0.01
-        bed = m.model_mesh3D[0][0][row][col] - 0.1 - \
-            m.parameters.param['rmstage']['PARVAL1']
-        cond = riv_cell[1] * riv_width_avg * \
-            m.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
-        simple_river += [[0, row, col, stage, cond, bed]]
-
-    riv = {}
-    riv[0] = simple_river
-    m.boundaries.assign_boundary_array('Murray River', riv)
+#    mapped_river = m.polyline_mapped['River_Murray_model.shp']
+#
+#    simple_river = []
+#    riv_width_avg = 10.0  # m
+#    riv_bed_thickness = 0.10  # m
+#    for riv_cell in mapped_river:  # m.polyline_mapped['Campaspe_Riv_model.shp']:
+#        row = riv_cell[0][0]
+#        col = riv_cell[0][1]
+#        if m.model_mesh3D[1][0][row][col] == -1:
+#            continue
+#        stage = m.model_mesh3D[0][0][row][col] - 0.01
+#        bed = m.model_mesh3D[0][0][row][col] - 0.1 - \
+#            m.parameters.param['rmstage']['PARVAL1']
+#        cond = riv_cell[1] * riv_width_avg * \
+#            m.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
+#        simple_river += [[0, row, col, stage, cond, bed]]
+#
+#    riv = {}
+#    riv[0] = simple_river
+#    m.boundaries.assign_boundary_array('Murray River', riv)
     
     if verbose:
         print "************************************************************************"
@@ -171,28 +171,30 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 #            MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
 #            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
-    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
-    for MurrayGHB_cell in MurrayGHB_cells:
-        lay, row, col = MurrayGHB_cell
-        MurrayGHBstage = m.model_mesh3D[0][0][row][
-            col] + m.parameters.param['mghb_stage']['PARVAL1']
-        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
-            continue
-        dx = m.gridHeight
-        dz = m.model_mesh3D[0][lay][row][col] - \
-            m.model_mesh3D[0][lay + 1][row][col]
-        MGHBconductance = dx * dz * m.parameters.param['mghbcond']['PARVAL1']
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
-        
 
-    ghb = {}
-    ghb[0] = MurrayGHB
 
-    if verbose:
-        print "************************************************************************"
-        print " Updating GHB boundary"
-
-    m.boundaries.assign_boundary_array('GHB', ghb)
+#    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
+#    for MurrayGHB_cell in MurrayGHB_cells:
+#        lay, row, col = MurrayGHB_cell
+#        MurrayGHBstage = m.model_mesh3D[0][0][row][
+#            col] + m.parameters.param['mghb_stage']['PARVAL1']
+#        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
+#            continue
+#        dx = m.gridHeight
+#        dz = m.model_mesh3D[0][lay][row][col] - \
+#            m.model_mesh3D[0][lay + 1][row][col]
+#        MGHBconductance = dx * dz * m.parameters.param['mghbcond']['PARVAL1']
+#        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+#        
+#
+#    ghb = {}
+#    ghb[0] = MurrayGHB
+#
+#    if verbose:
+#        print "************************************************************************"
+#        print " Updating GHB boundary"
+#
+#    m.boundaries.assign_boundary_array('GHB', ghb)
 
 
     """
@@ -245,14 +247,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 
         modflow_model.executable = mf_exe_folder
     
-        modflow_model.buildMODFLOW(transport=True)
+        modflow_model.buildMODFLOW(transport=True, verbose=True, check=False)
     
         #modflow_model.checkMODFLOW()
     
-        modflow_model.runMODFLOW(silent=True)
+        converge = modflow_model.runMODFLOW(silent=True)
     
-        converge = modflow_model.checkConvergence()
-
         if converge:
             break
         
@@ -298,12 +298,10 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 
             modflow_model.buildMODFLOW(transport=True)
         
-            #modflow_model.checkMODFLOW()
+            converge = modflow_model.runMODFLOW(silent=verbose)
         
-            modflow_model.runMODFLOW(silent=True)
+            print("Convergence?: {}".format(converge))
         
-            converge = modflow_model.checkConvergence()
-    
             if not converge:
                 if verbose:
                     print("Absolute failure to find solution")
@@ -341,16 +339,17 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 modflow_model.strt = head
                 
                 modflow_model.buildMODFLOW(transport=True)
-                modflow_model.runMODFLOW(silent=True)
-                converge = modflow_model.checkConvergence()            
+                converge = modflow_model.runMODFLOW(silent=verbose)
                 if converge:
                     shutil.copy(os.path.join(modflow_model.data_folder, modflow_model.name + '.hds'), 
                                 data_folder)
                     break
                 
-    #modflow_model.waterBalance()
+    modflow_model.waterBalance()
     #modflow_model.viewGHB()
-    #modflow_model.viewHeads()
+    modflow_model.viewHeads()
+    modflow_model.viewHeads2()
+    #modflow_model.viewHeadsByZone()
     #modflow_model.viewHeadLayer(figsize=(20,10))
 
 
