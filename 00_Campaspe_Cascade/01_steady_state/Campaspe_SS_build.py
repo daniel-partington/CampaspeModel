@@ -688,22 +688,53 @@ river_seg['surf_elev7'] = surf_elev7
 river_seg[['surf_elev', 'surf_elev1','surf_elev2','surf_elev3','surf_elev4', \
            'surf_elev5','surf_elev6','surf_elev7','Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
 
-river_seg[['surf_elev', \
-           'Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
        
 # Remove any stream segments for which the elevation could not be mapped to a layer
-
-river_seg.dropna(inplace=True)
-# For stream reaches that didn't map properly to the mesh for z elevation we 
-# can still include by setting to layer 0 with a bed hydraulic conductivity of 0
-river_seg[np.isnan(river_seg['k'])]['strhc1'] = 0.0
-river_seg[np.isnan(river_seg['k'])]['k'] = 0
+#river_seg.dropna(inplace=True)
 
 SS_model.river_mapping['Campaspe'] = river_seg
 
 river_seg['ireach'] = 1
 #river_seg['iseg'] = river_seg.index + 1
 river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
+
+                      
+# Set up bed elevations based on the gauge zero levels:
+gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
+river_gauge_seg = SS_model.get_closest_riv_segments('Campaspe', gauge_points)
+river_seg['bed_from_gauge'] = np.nan
+
+Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
+Campaspe['seg_loc'] = river_gauge_seg         
+Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
+# There are two values at the Campaspe weir, while it would be ideal to split the
+# reach here it will cause problems for the segment
+Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406218]
+
+river_seg['bed_from_gauge'][river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist())] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
+river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
+#river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].interpolate(limit_direction='both')
+
+
+new_k = []
+for row in river_seg.iterrows():
+    j_mesh = row[1]['i'] 
+    i_mesh = row[1]['j']
+    strbot = row[1]['bed_from_gauge'] - row[1]['strthick']
+    new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])]
+
+river_seg['k'] = new_k
+river_seg['strtop'] = river_seg['bed_from_gauge']
+
+# For stream reaches that didn't map properly to the mesh for z elevation we 
+# can still include by setting to layer 0 with a bed hydraulic conductivity of 0
+inds = np.where(river_seg['k'].isnull())[0]
+#river_seg['strhc1'].loc[inds] = 0.0
+#river_seg['k'].loc[inds] = 0
+river_seg.dropna(inplace=True)
+          
+river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
+         
 
 def slope_corrector(x):
     if  x  < 0.0001:
@@ -713,7 +744,14 @@ def slope_corrector(x):
     # end if
     
 river_seg['slope'] = river_seg['slope'].apply(lambda x: slope_corrector(x))
-         
+
+ax = river_seg[['surf_elev', 'surf_elev7',\
+           'Cumulative Length', 'strtop']].plot(x='Cumulative Length')         
+
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'], style='o', ax=ax)
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'], ax=ax)
+
+
 reach_data = river_seg[['k','i','j','iseg','ireach','rchlen','strtop','slope','strthick','strhc1']].to_records(index=False)
 
 # Create segment data
@@ -761,9 +799,6 @@ cols_ordered = ['nseg', 'icalc', 'outseg', 'iupseg', 'iprior', 'nstrpts', \
 segment_data = segment_data[cols_ordered]
 segment_data1 = segment_data.to_records(index=False)
 seg_dict = {0: segment_data1}
-
-gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
-river_gauge_seg = SS_model.get_closest_riv_segments('Campaspe', gauge_points)
 
 
 ###############################################################################
@@ -961,8 +996,8 @@ SS_model.parameters.parameter_options('mghb_stage',
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
-SS_model.parameters.create_model_parameter('mghbcond', value=50)
-SS_model.parameters.parameter_options('mghbcond', 
+SS_model.parameters.create_model_parameter('mghbk', value=10)
+SS_model.parameters.parameter_options('mghbk', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-8, 
@@ -970,7 +1005,6 @@ SS_model.parameters.parameter_options('mghbcond',
                                       PARGP='ghb', 
                                       SCALE=1, 
                                       OFFSET=0)
-
 
 # First find which cells should make up the boundary based on the mapping 
 # from the Murray river polyline to the grid
@@ -981,8 +1015,8 @@ Murray_df_ind = []
 for mrow in mriver_seg.iterrows():
     ind = mrow[0]
     mrow = mrow[1]
-    row = mrow['i']
-    col = mrow['j']
+    row = int(mrow['i'])
+    col = int(mrow['j'])
     for lay in range(SS_model.model_mesh3D[1].shape[0]):    
         if SS_model.model_mesh3D[1][0][row][col] == -1:
             continue
@@ -996,26 +1030,7 @@ for mrow in mriver_seg.iterrows():
         Murray_df_ind += [ind]        
         Active_MurrayGHB_cells += [[lay, row, col]]
 
-
-#MurrayGHB = []
-#Active_MurrayGHB_cells = []
-#for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
-#    row = MurrayGHB_cell[0][0]
-#    col = MurrayGHB_cell[0][1]
-#    #print SS_model.model_mesh3D
-#    for lay in range(SS_model.model_mesh3D[1].shape[0]):    
-#        if SS_model.model_mesh3D[1][0][row][col] == -1:
-#            continue
-#        #MurrayGHBstage = (SS_model.model_mesh3D[0][lay+1][row][col] + SS_model.model_mesh3D[0][lay][row][col])/2. + SS_model.parameters.param['MGHB_stage']['PARVAL1']
-#        MurrayGHBstage = SS_model.model_mesh3D[0][0][row][col] + SS_model.parameters.param['mghb_stage']['PARVAL1']
-#        if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
-#            continue
-#        if lay == 0:
-#            continue
-#        
-#        Active_MurrayGHB_cells += [[lay, row, col]]
-
-# Now make sure that no cells are being caught surrounded by other GHB cells
+# Now make sure that no cells are being caught surrounded by other GHB cells to prevent short circuiting
 Murray_df_ind2 = []        
 Final_MurrayGHB_cells = []
 for index, active_cell in enumerate(Active_MurrayGHB_cells):
@@ -1027,22 +1042,7 @@ for index, active_cell in enumerate(Active_MurrayGHB_cells):
     
     ac = active_cell
     acl, acr, acc = int(ac[lay]), int(ac[row]), int(ac[col])            
-    # Check above:
-    ref_cell = [ac[lay] - 1, ac[row], ac[col]]        
-#    # Make sure not at top boundary    
-#    if active_cell[lay] != 0:
-#        # Make sure above cell is active
-#        if zone[ac[lay] - 1, ac[row], ac[col]] != -1:
-#            # Make sure if active that is is not another GHB cell
-#            if ref_cell not in Active_MurrayGHB_cells:
-#                active_non_GHB = True
-#
-#    # Check below:
-#    ref_cell = [ac[lay] + 1, ac[row], ac[col]]        
-#    if active_cell[lay] != shape[lay] - 1:
-#        if zone[ac[lay] + 1, ac[row], ac[col]] != -1:
-#            if ref_cell not in Active_MurrayGHB_cells:
-#                active_non_GHB = True
+
     # Check north:
     ref_cell = [acl, acr + 1, acc]        
     if acr != 0:
@@ -1073,7 +1073,8 @@ for index, active_cell in enumerate(Active_MurrayGHB_cells):
 
     if active_non_GHB:
         Final_MurrayGHB_cells += [active_cell]                
-        Murray_df_ind2 += [Murray_df_ind[index]]        
+        Murray_df_ind2 += [Murray_df_ind[index]]  
+
 #for MurrayGHB_cell in SS_model.polyline_mapped['River_Murray_model.shp']:
 for index, MurrayGHB_cell in enumerate(Final_MurrayGHB_cells):
     #row = MurrayGHB_cell[0][0]

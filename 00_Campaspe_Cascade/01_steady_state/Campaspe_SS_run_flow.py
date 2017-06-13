@@ -345,12 +345,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                                 data_folder)
                     break
                 
-    modflow_model.waterBalance()
-    #modflow_model.viewGHB()
-    modflow_model.viewHeads()
-    modflow_model.viewHeads2()
-    #modflow_model.viewHeadsByZone()
-    #modflow_model.viewHeadLayer(figsize=(20,10))
+    if converge:
+        modflow_model.waterBalance()
+        modflow_model.viewGHB()
+        modflow_model.viewHeads()
+        modflow_model.viewHeads2()
+        #modflow_model.viewHeadsByZone()
+        #modflow_model.viewHeadLayer(figsize=(20,10))
 
 
 
