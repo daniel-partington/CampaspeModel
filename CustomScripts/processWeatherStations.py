@@ -78,7 +78,7 @@ def processWeatherStations(weather_stations, path='', frequency='A', \
             return tuple(i/inch for i in tupl)
     
    
-    annual_rain_df = pd.DataFrame() 
+    annual_rain_df = pd.DataFrame()
     for station in weather_stations:
         annual_rain_df[station]= weather_dfs[station]['Rain'].resample("A").sum()
         annual_rain_df[station + '_ET']= weather_dfs[station]['Evap'].resample("A").sum()
@@ -132,4 +132,4 @@ def processWeatherStations(weather_stations, path='', frequency='A', \
 if __name__ == "__main__":
     
     weather_stations = ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
-    weather = processWeatherStations(weather_stations, path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\", frequency='M')
+    weather = processWeatherStations(weather_stations, path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\", frequency='A')

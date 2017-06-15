@@ -3,6 +3,7 @@
 import os
 import sys
 import shutil
+import time
 
 import numpy as np
 
@@ -33,168 +34,177 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
     # This needs to be automatically generated from with the map_raster2mesh routine ...
     zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
-    Zone = m.model_mesh3D[1].astype(float)
-    Kh = m.model_mesh3D[1].astype(float)
-    Kv = m.model_mesh3D[1].astype(float)
-    Sy = m.model_mesh3D[1].astype(float)
-    SS = m.model_mesh3D[1].astype(float)
+    default_array = m.model_mesh3D[1].astype(float)
+    Zone = np.copy(default_array)
+    Kh = np.copy(default_array)
+    Kv = np.copy(default_array)
+    Sy = np.copy(default_array)
+    SS = np.copy(default_array)
     
-    points_values_dict = {}
-    for index, key in enumerate(zone_map.keys()):
-        # if key ==7:
-        #    continue
-#        Kh[Zone == key] = m.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
-        for index2, param in enumerate(m.parameters.param_set['kh_' + zone_map[key]]):
-            if index2 == 0:
-                points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
-            else: 
-                points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
-            
-        Kv[Zone == key] = m.parameters.param['kv_' + zone_map[key]]['PARVAL1']
-#        Sy[Zone == key] = m.parameters.param['sy_' + zone_map[key]]['PARVAL1']
-#        SS[Zone == key] = m.parameters.param['ss_' + zone_map[key]]['PARVAL1']
+    def create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m):
+        points_values_dict = {}
+        for index, key in enumerate(zone_map.keys()):
+            for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
+                if index2 == 0:
+                    points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
+                else: 
+                    points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
+        return points_values_dict    
 
-    hk = m.pilot_points['hk']
-    zones = len(zone_map.keys())
-    hk.output_directory = os.path.join(data_folder, 'hk_pilot_points')
-    hk.update_pilot_points_files_by_zones(zones, points_values_dict)
-    import time
-    time.sleep(3)
-    hk.run_pyfac2real_by_zones(zones) 
-    hk.save_mesh3D_array(filename=os.path.join(data_folder, 'hk_val_array'))
-    Kh = hk.val_array
+    def update_pilot_points(zone_map, Zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
+        points_values_dict = create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m)
+        p = m.pilot_points[par_name]
+        zones = len(zone_map.keys())
+        p.output_directory = os.path.join(data_folder, prop_folder)
+        p.update_pilot_points_files_by_zones(zones, points_values_dict)
+        time.sleep(3)
+        p.run_pyfac2real_by_zones(zones) 
+        p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
+        return p.val_array
+
+    Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh_', 'hk_pilot_points',
+                             m, 'hk_val_array')              
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
+
+    Kv = Kh * 0.1
+    m.save_array(os.path.join(data_folder, 'Kv'), Kv)
+
+    Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
+                             m, 'sy_val_array')              
+    m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
-    m.properties.assign_model_properties('Kh', Kh)
-    m.properties.assign_model_properties('Kv', Kv)
-    m.properties.assign_model_properties('Sy', Sy)
-    m.properties.assign_model_properties('SS', SS)
+    SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
+                             m, 'ss_val_array')              
+    m.save_array(os.path.join(data_folder, 'SS'), SS)
+
+    m.properties.update_model_properties('Kh', Kh)
+    m.properties.update_model_properties('Kv', Kv)
+    m.properties.update_model_properties('Sy', Sy)
+    m.properties.update_model_properties('SS', SS)
 
     if verbose:
         print "************************************************************************"
         print " Updating river parameters "
 
-#    riv_width_avg = 10.0 #m
-#    riv_bed_thickness = 0.10 #m
-#    
-#    cond = []
-#    for index, riv_cell in enumerate(m.polyline_mapped['Campaspe_Riv_model.shp']):
-#        row = riv_cell[0][0]
-#        col = riv_cell[0][1]
-#        if m.model_mesh3D[1][0][row][col] == -1:
-#            continue
-#        cond += [riv_cell[1] * riv_width_avg * m.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness]
-#
-#    riv = m.boundaries.bc['Campaspe River']['bc_array'].copy()
-#    for key in riv.keys():
-#        riv[key] = [[x[0], x[1], x[2], x[3], cond[ind], x[5]] for ind, x in enumerate(riv[key])]
-#            
-#    m.boundaries.assign_boundary_array('Campaspe River', riv)
+    reach_df = m.mf_sfr_df['Campaspe'].reach_df 
+    segment_data = m.mf_sfr_df['Campaspe'].seg_df
+
+    num_reaches = 4
+    # Create reach data
+    river_seg = m.river_mapping['Campaspe']
+    known_points = [river_seg['rchlen'].sum()/x for x in range(1, num_reaches)] + [0.]
+    known_points = known_points[::-1]
+    
+    strcond_val = [m.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, strcond_val)
+    strthick_val = [m.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(), known_points, strthick_val)
+    
+    
+    reach_df = river_seg[['k','i','j','iseg','ireach','rchlen','strtop','slope','strthick','strhc1']]
+    reach_data = reach_df.to_records(index=False)
+    
+    # Set the roughness for the channel
+    roughch_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    roughch = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, roughch_val)
+    # Set the roughness for the banks
+    roughbk_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    roughbk = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, roughbk_val)
+    river_seg['roughch'] = roughch
+    river_seg['roughbk'] = roughbk
+    
+    
+    width1_val = [m.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    width1 = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, width1_val)
+    segment_data['width2'] = segment_data['width1'] = width1
+    
+    segment_data1 = segment_data.to_records(index=False)
+    seg_dict = {0: segment_data1}
+    
+    if verbose:
+        print "************************************************************************"
+        print " Creating Campaspe river boundary"
+    
+    m.boundaries.update_boundary_array('Campaspe River', [reach_data, seg_dict])
 
     if verbose:
         print "************************************************************************"
         print " Updating River Murray"
+
+    mriver_seg = m.river_mapping['Murray']
+    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
     
-#    mapped_river = m.polyline_mapped['River_Murray_model.shp']
-#
-#    simple_river = []
-#    riv_width_avg = 10.0  # m
-#    riv_bed_thickness = 0.10  # m
-#    for riv_cell in mapped_river:  # m.polyline_mapped['Campaspe_Riv_model.shp']:
-#        row = riv_cell[0][0]
-#        col = riv_cell[0][1]
-#        if m.model_mesh3D[1][0][row][col] == -1:
-#            continue
-#        stage = m.model_mesh3D[0][0][row][col] - 0.01
-#        bed = m.model_mesh3D[0][0][row][col] - 0.1 - \
-#            m.parameters.param['rmstage']['PARVAL1']
-#        cond = riv_cell[1] * riv_width_avg * \
-#            m.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
-#        simple_river += [[0, row, col, stage, cond, bed]]
-#
-#    riv = {}
-#    riv[0] = simple_river
-#    m.boundaries.assign_boundary_array('Murray River', riv)
+    simple_river = []
+    for row in mriver_seg.iterrows():
+        row = row[1]
+        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
+    
+    riv = {}
+    riv[0] = simple_river
+    m.boundaries.update_boundary_array('Murray River', riv)
     
     if verbose:
         print "************************************************************************"
         print " Updating recharge boundary "
 
-    # Adjust rainfall to recharge using 10% magic number
-#    interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
-#
-#    for i in [1, 2, 3, 7]:
-#        interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[m.model_mesh3D[
-#            1][0] == i] * m.parameters.param['ssrch_' + zone_map[i]]['PARVAL1']
-#
-#    for i in [4, 5, 6, ]:
-#        interp_rain[m.model_mesh3D[1][0] == i] = interp_rain[
-#            m.model_mesh3D[1][0] == i] * 0.
-#
-#    rch = {}
-#    rch[0] = interp_rain
-#
-#    # m.boundaries.create_model_boundary_condition('Rain_reduced',
-#    # 'recharge', bc_static=True)
-#    m.boundaries.assign_boundary_array('Rain_reduced', rch)
+    # Adjust rainfall to recharge using zoned rainfall reduction parameters
+    interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
+    recharge_zone_array = m.boundaries.bc['Rain_reduced']['zonal_array']
+    rch_zone_dict = m.boundaries.bc['Rain_reduced']['zonal_dict']
 
-    # print " Include irrigation in the recharge array"
+    rch_zones = len(rch_zone_dict.keys())
 
-    # print m.observations.obs_group['head'].keys()
-    # print m.observations.obs_group['head']['mapped_observations']
+    for i in range(rch_zones - 1):
+        interp_rain[recharge_zone_array == rch_zone_dict[i+1]] = \
+            interp_rain[recharge_zone_array == rch_zone_dict[i+1]] * \
+            m.parameters.param['ssrch{}'.format(i)]['PARVAL1']
+    
+    interp_rain[recharge_zone_array==rch_zone_dict[0]] = interp_rain[recharge_zone_array == rch_zone_dict[0]] * 0.0
+    interp_rain[m.model_mesh3D[1][0] == -1] = 0.
+
+    rch = {}
+    rch[0] = interp_rain
+
+    m.boundaries.update_boundary_array('Rain_reduced', rch)
+
 
     if verbose:
         print "************************************************************************"
         print " Updating River Murray GHB boundary"
 
     MurrayGHB = []
-#    for MurrayGHB_cell in mapped_river:
-#        row = MurrayGHB_cell[0][0]
-#        col = MurrayGHB_cell[0][1]
-#        # print m.model_mesh3D
-#        for lay in range(m.model_mesh3D[1].shape[0]):
-#            
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            if lay == 0:
-#                continue
-#            
-#            MurrayGHBstage = m.model_mesh3D[0][0][row][
-#                col] + m.parameters.param['MGHB_stage']['PARVAL1']
-#            
-#            if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
-#                continue
-#
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - \
-#                m.model_mesh3D[0][lay + 1][row][col]
-#            MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
-#            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+
+    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
+    for MurrayGHB_cell in MurrayGHB_cells:
+        lay, row, col = MurrayGHB_cell[:3]
+        MurrayGHBstage = MurrayGHB_cell[3] #m.parameters.param['mghb_stage']['PARVAL1']
+        dx = m.gridHeight
+        dz = m.model_mesh3D[0][lay][row][col] - \
+            m.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+        
+
+    ghb = {}
+    ghb[0] = MurrayGHB
+
+    if verbose:
+        print "************************************************************************"
+        print " Updating GHB boundary"
+
+    m.boundaries.update_boundary_array('GHB', ghb)
 
 
+    if verbose:
+        print "************************************************************************"
+        print " Check for boundary condition updating"
+        m.generate_update_report()
 
-#    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
-#    for MurrayGHB_cell in MurrayGHB_cells:
-#        lay, row, col = MurrayGHB_cell
-#        MurrayGHBstage = m.model_mesh3D[0][0][row][
-#            col] + m.parameters.param['mghb_stage']['PARVAL1']
-#        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
-#            continue
-#        dx = m.gridHeight
-#        dz = m.model_mesh3D[0][lay][row][col] - \
-#            m.model_mesh3D[0][lay + 1][row][col]
-#        MGHBconductance = dx * dz * m.parameters.param['mghbcond']['PARVAL1']
-#        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
-#        
-#
-#    ghb = {}
-#    ghb[0] = MurrayGHB
-#
-#    if verbose:
-#        print "************************************************************************"
-#        print " Updating GHB boundary"
-#
-#    m.boundaries.assign_boundary_array('GHB', ghb)
 
 
     """
@@ -207,6 +217,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
     initial condition for a lower recharge rate which will hopefully allow the 
     model to run.
     """
+
+
     retries = 1
     
     for i in range(retries):
@@ -282,7 +294,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             rch = {}
             rch[0] = interp_rain
         
-            m.boundaries.assign_boundary_array('Rain_reduced', rch)
+            m.boundaries.update_boundary_array('Rain_reduced', rch)
     
             if i > 0:
                 filename = os.path.join(data_folder, 'init{}'.format(rech_steps[i-1])) + '.hds'
@@ -328,7 +340,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 rch = {}
                 rch[0] = interp_rain
             
-                m.boundaries.assign_boundary_array('Rain_reduced', rch)
+                m.boundaries.update_boundary_array('Rain_reduced', rch)
         
                 modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
                 modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
