@@ -21,8 +21,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
-    if param_file != "":
-        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    #if param_file != "":
+    #    m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
         print "************************************************************************"
@@ -31,29 +31,12 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     # This needs to be automatically generated from with the map_raster2mesh routine ...
     zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
     
-    Zone = m.model_mesh3D[1].astype(float)
-    #Kh = m.model_mesh3D[1].astype(float)
-    Kv = m.model_mesh3D[1].astype(float)
-    Sy = m.model_mesh3D[1].astype(float)
-    SS = m.model_mesh3D[1].astype(float)
-
-    #points_values_dict = {}
-    for index, key in enumerate(zone_map.keys()):
-        # if key ==7:
-        #    continue
-        #Kh[Zone == key] = m.parameters.param['Kh_' + zone_map[key]]['PARVAL1']
-        #for index2, param in enumerate(m.parameters.param_set['Kh_' + zone_map[key]]):
-        #    if index2 == 0:
-        #        points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
-        #    else: 
-        #        points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
-            
-        Kv[Zone == key] = m.parameters.param['kv_' + zone_map[key]]['PARVAL1']
-        Sy[Zone == key] = m.parameters.param['sy_' + zone_map[key]]['PARVAL1']
-        SS[Zone == key] = m.parameters.param['ss_' + zone_map[key]]['PARVAL1']
-
+    #m.model_mesh3D[1][6, 134, 13] == -1
+    
     Kh = m.load_array(os.path.join(data_folder, 'hk_val_array.npy'))    
-
+    Kv = Kh * 0.1
+    Sy = m.load_array(os.path.join(data_folder, 'sy_val_array.npy'))
+    SS = m.load_array(os.path.join(data_folder, 'ss_val_array.npy'))
     m.properties.assign_model_properties('Kh', Kh)
     m.properties.assign_model_properties('Kv', Kv)
     m.properties.assign_model_properties('Sy', Sy)
@@ -63,206 +46,211 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating river parameters "
     
-    riv_width_avg = 10.0 #m
-    riv_bed_thickness = 0.10 #m
-    
-    cond = []
-    for index, riv_cell in enumerate(m.polyline_mapped['Campaspe_Riv_model.shp']):
-        row = riv_cell[0][0]
-        col = riv_cell[0][1]
-        if m.model_mesh3D[1][0][row][col] == -1:
-            continue
-        cond += [riv_cell[1] * riv_width_avg * m.parameters.param['kv_riv']['PARVAL1'] / riv_bed_thickness]
+    reach_df = m.mf_sfr_df['Campaspe'].reach_df 
+    segment_data = m.mf_sfr_df['Campaspe'].seg_df
 
-    riv = m.boundaries.bc['Campaspe River']['bc_array'].copy()
-    for key in riv.keys():
-        riv[key] = [[x[0], x[1], x[2], x[3], cond[ind], x[5]] for ind, x in enumerate(riv[key])]
-            
-    m.boundaries.assign_boundary_array('Campaspe River', riv)
+    num_reaches = m.pilot_points['Campaspe'].num_points #4
+    known_points = m.pilot_points['Campaspe'].points
+    # Create reach data
+    river_seg = m.river_mapping['Campaspe']
+    
+    strcond_val = [m.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    river_seg.loc[river_seg['strhc1'] != 0.0, 'strhc1'] = np.interp(
+            river_seg[river_seg['strhc1'] != 0.0]['Cumulative Length'].tolist(), 
+            known_points, strcond_val)
+    
+    strthick_val = [m.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(), known_points, strthick_val)
+    
+    reach_df = river_seg[['k','i','j','iseg','ireach','rchlen','strtop','slope','strthick','strhc1']]
+    reach_data = reach_df.to_records(index=False)
+    
+    # Set the roughness for the channel
+    roughch_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    roughch = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, roughch_val)
+    # Set the roughness for the banks
+    roughbk_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    roughbk = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, roughbk_val)
+    river_seg['roughch'] = roughch
+    river_seg['roughbk'] = roughbk
+    
+    width1_val = [m.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    width1 = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, width1_val)
+
+    segment_data1 = {}
+    for key in segment_data.keys():
+        segment_data[key]['width2'] = segment_data[key]['width1'] = width1
+        segment_data1[key] = segment_data[key].to_records(index=False)
+    
+    seg_dict = segment_data1    
+
+    if verbose:
+        print "************************************************************************"
+        print " Updating Campaspe river boundary"
+    
+    m.boundaries.update_boundary_array('Campaspe River', [reach_data, seg_dict])
     
     if verbose:
         print "************************************************************************"
         print " Updating Murray River boundary"
     
-    simple_river = []
-    riv_width_avg = 10.0 #m
-    riv_bed_thickness = 0.10 #m
-#    for riv_cell in mapped_river: #m.polyline_mapped['Campaspe_Riv_model.shp']:
-#        row = riv_cell[0][0]
-#        col = riv_cell[0][1]
-#        if m.model_mesh3D[1][0][row][col] == -1:
-#            continue
-#        stage = m.model_mesh3D[0][0][row][col]
-#        bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['RMstage']['PARVAL1']
-#        cond = riv_cell[1] * riv_width_avg * m.parameters.param['Kv_RM']['PARVAL1'] / riv_bed_thickness
+#    simple_river = []
+#    riv_width_avg = 10.0 #m
+#    riv_bed_thickness = 0.10 #m
+#
+#    riv_cells = [[x[1], x[2], x[3]] for x in m.boundaries.bc['Murray River']['bc_array'][0]]
+#    for riv_cell in riv_cells:
+#        row, col, stage = riv_cell
+#        bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['rmstage']['PARVAL1']
+#        if bed < m.model_mesh3D[0][1][row][col]:
+#            bed = m.model_mesh3D[0][0][row][col] + 0.01
+#        #end if
+#        cond = riv_cell[1] * riv_width_avg * m.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
 #        simple_river += [[0, row, col, stage, cond, bed]]
-
-    riv_cells = [[x[1], x[2], x[3]] for x in m.boundaries.bc['Murray River']['bc_array'][0]]
-    for riv_cell in riv_cells:
-        row, col, stage = riv_cell
-        bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['rmstage']['PARVAL1']
-        if bed < m.model_mesh3D[0][1][row][col]:
-            bed = m.model_mesh3D[0][0][row][col] + 0.01
-        #end if
-        cond = riv_cell[1] * riv_width_avg * m.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
-        simple_river += [[0, row, col, stage, cond, bed]]
-
-    
-    riv = {}
-    riv[0] = simple_river
-    #m.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
-    m.boundaries.assign_boundary_array('Murray River', riv)
+#
+#    
+#    riv = {}
+#    riv[0] = simple_river
+#    #m.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
+#    m.boundaries.assign_boundary_array('Murray River', riv)
     
     
     if verbose:
         print "************************************************************************"
         print " Updating recharge boundary "
 
+    # Adjust rainfall to recharge using zoned rainfall reduction parameters
+    # Need to make copies of all rainfall arrays
     interp_rain = m.boundaries.bc['Rainfall']['bc_array']
-    # Adjust rainfall to recharge using rainfall reduction
-    for i in [1,2,3,7]:
-        for key in interp_rain.keys():
-            interp_rain[key][m.model_mesh3D[1][0]==i] = interp_rain[key][m.model_mesh3D[1][0]==i] * m.parameters.param['rch_red_'+zone_map[i]]['PARVAL1']
+    for key in interp_rain.keys():
+        interp_rain[key] = np.copy(interp_rain[key])
 
-    for i in [4,5,6,]:
+    recharge_zone_array = m.boundaries.bc['Rain_reduced']['zonal_array']
+    rch_zone_dict = m.boundaries.bc['Rain_reduced']['zonal_dict']
+
+    rch_zones = len(rch_zone_dict.keys())
+
+#    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
+#                     for i in range(rch_zones - 1)]
+
+    par_rech_vals = [0.02 \
+                     for i in range(rch_zones - 1)]
+
+    def update_recharge(vals):
         for key in interp_rain.keys():
-            interp_rain[key][m.model_mesh3D[1][0]==i] = interp_rain[key][m.model_mesh3D[1][0]==i] * 0.
-    
-    rch = {}
-    for key in m.boundaries.bc['Rainfall']['bc_array'].keys():
-        rch[key] = interp_rain[key] 
-    
-    m.boundaries.assign_boundary_array('Rain_reduced', rch)
-    
-    #print " Include irrigation in the recharge array"
+            for i in range(rch_zones - 1):
+                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
+                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
+                    vals[i]
+
+            interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
+                interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
+            interp_rain[key][m.model_mesh3D[1][0] == -1] = 0.
+
+        return interp_rain
+
+    interp_rain = update_recharge(par_rech_vals)
+    rch = interp_rain
+
+    m.boundaries.update_boundary_array('Rain_reduced', rch)
+
+#    interp_rain = m.boundaries.bc['Rainfall']['bc_array']
+#    # Adjust rainfall to recharge using rainfall reduction
+#    for i in [1,2,3,7]:
+#        for key in interp_rain.keys():
+#            interp_rain[key][m.model_mesh3D[1][0]==i] = interp_rain[key][m.model_mesh3D[1][0]==i] * m.parameters.param['rch_red_'+zone_map[i]]['PARVAL1']
+#
+#    for i in [4,5,6,]:
+#        for key in interp_rain.keys():
+#            interp_rain[key][m.model_mesh3D[1][0]==i] = interp_rain[key][m.model_mesh3D[1][0]==i] * 0.
+#    
+#    rch = {}
+#    for key in m.boundaries.bc['Rainfall']['bc_array'].keys():
+#        rch[key] = interp_rain[key] 
+#    
+#    m.boundaries.assign_boundary_array('Rain_reduced', rch)
+#    
+#    #print " Include irrigation in the recharge array"
     
     if verbose:
         print "************************************************************************"
         print " Updating Murray River GHB boundary"
     
     MurrayGHB = []
-#    for MurrayGHB_cell in mapped_river:
-#        row = MurrayGHB_cell[0][0]
-#        col = MurrayGHB_cell[0][1]
-#        #print m.model_mesh3D
-#        for lay in range(m.model_mesh3D[1].shape[0]):    
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            MurrayGHBstage = m.model_mesh3D[0][0][row][col] + m.parameters.param['MGHB_stage']['PARVAL1']
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - m.model_mesh3D[0][lay+1][row][col]
-#            MGHBconductance = dx * dz * m.parameters.param['MGHBcond']['PARVAL1']
-#            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
-    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
-    for MurrayGHB_cell in MurrayGHB_cells:
-        lay, row, col = MurrayGHB_cell
-        MurrayGHBstage = m.model_mesh3D[0][0][row][
-            col] + m.parameters.param['mghb_stage']['PARVAL1']
-        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
-            continue
-        dx = m.gridHeight
-        dz = m.model_mesh3D[0][lay][row][col] - \
-            m.model_mesh3D[0][lay + 1][row][col]
-        MGHBconductance = dx * dz * m.parameters.param['mghbcond']['PARVAL1']
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
-    
-    ghb = {}
-    ghb[0] = MurrayGHB
+#    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
+#    for MurrayGHB_cell in MurrayGHB_cells:
+#        lay, row, col = MurrayGHB_cell
+#        MurrayGHBstage = m.model_mesh3D[0][0][row][
+#            col] + m.parameters.param['mghb_stage']['PARVAL1']
+#        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
+#            continue
+#        dx = m.gridHeight
+#        dz = m.model_mesh3D[0][lay][row][col] - \
+#            m.model_mesh3D[0][lay + 1][row][col]
+#        MGHBconductance = dx * dz * m.parameters.param['mghbcond']['PARVAL1']
+#        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+#    
+#    ghb = {}
+#    ghb[0] = MurrayGHB
 
     
-#    print "************************************************************************"
-#    print " Updating Western GHB boundary"
-#    
-#    mapped_west = m.load_obj(os.path.join(model_folder, r"western_head_model.shp_mapped.pkl"))
-#    
-#    WestGHB = []
-#    for WestGHB_cell in mapped_west:
-#        row = WestGHB_cell[0][0]
-#        col = WestGHB_cell[0][1]
-#        for lay in range(m.model_mesh3D[1].shape[0]):    
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            WestGHBstage = m.model_mesh3D[0][0][row][col] + m.parameters.param['WGHB_stage']['PARVAL1']
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - m.model_mesh3D[0][lay+1][row][col]
-#            WGHBconductance = dx * dz * m.parameters.param['WGHBcond']['PARVAL1']
-#            WestGHB += [[lay, row, col, WestGHBstage, WGHBconductance]]
-#    
-#    ghb[0] += WestGHB
-#    
-#    print "************************************************************************"
-#    print " Updating Eastern GHB boundary"
-#    
-#    mapped_east = m.load_obj(os.path.join(model_folder, r"eastern_head_model.shp_mapped.pkl"))
-#    
-#    EastGHB = []
-#    for EastGHB_cell in mapped_east:
-#        row = EastGHB_cell[0][0]
-#        col = EastGHB_cell[0][1]
-#        for lay in range(m.model_mesh3D[1].shape[0]):    
-#            if m.model_mesh3D[1][0][row][col] == -1:
-#                continue
-#            EastGHBstage = m.model_mesh3D[0][0][row][col] + m.parameters.param['EGHB_stage']['PARVAL1']
-#            dx = m.gridHeight
-#            dz = m.model_mesh3D[0][lay][row][col] - m.model_mesh3D[0][lay+1][row][col]
-#            EGHBconductance = dx * dz * m.parameters.param['EGHBcond']['PARVAL1']
-#            EastGHB += [[lay, row, col, EastGHBstage, EGHBconductance]]
-#    
-#    ghb[0] += EastGHB
     
     if verbose:
         print "************************************************************************"
         print " Updating GHB boundary"
     
-    m.boundaries.assign_boundary_array('GHB', ghb)
+#    m.boundaries.assign_boundary_array('GHB', ghb)
     
     if verbose:
         print "************************************************************************"
         print " Updating Drains boundary"
     
-    mapped_drains = m.polyline_mapped['Drain_Clip_model.shp']
-    
-    simple_drain = []
-    drain_width_avg = 3.0 #m
-    drain_bed_thickness = 0.10 #m
-    for drain_cell in mapped_drains:
-        row = drain_cell[0][0]
-        col = drain_cell[0][1]
-        if m.model_mesh3D[1][0][row][col] == -1:
-            continue
-        #print m.model_mesh3D
-        drain_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['drain_drop']['PARVAL1']
-        drain_cond = drain_cell[1] * drain_width_avg * m.parameters.param['kv_drain']['PARVAL1'] / drain_bed_thickness
-        simple_drain += [[0, row, col, drain_bed, drain_cond]]
-    
-    drain = {}
-    drain[0] = simple_drain
-    
-    m.boundaries.assign_boundary_array('Drain', drain)
+#    mapped_drains = m.polyline_mapped['Drain_Clip_model.shp']
+#    
+#    simple_drain = []
+#    drain_width_avg = 3.0 #m
+#    drain_bed_thickness = 0.10 #m
+#    for drain_cell in mapped_drains:
+#        row = drain_cell[0][0]
+#        col = drain_cell[0][1]
+#        if m.model_mesh3D[1][0][row][col] == -1:
+#            continue
+#        #print m.model_mesh3D
+#        drain_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['drain_drop']['PARVAL1']
+#        drain_cond = drain_cell[1] * drain_width_avg * m.parameters.param['kv_drain']['PARVAL1'] / drain_bed_thickness
+#        simple_drain += [[0, row, col, drain_bed, drain_cond]]
+#    
+#    drain = {}
+#    drain[0] = simple_drain
+#    
+#    m.boundaries.assign_boundary_array('Drain', drain)
     
     if verbose:
         print "************************************************************************"
         print " Updating Channels boundary"
     
-    simple_channel = []
-    channel_width_avg = 10.0 #m
-    channel_bed_thickness = 0.10 #m
-    for channel_cell in m.polyline_mapped['Channel_Clip_model.shp']:
-        row = channel_cell[0][0]
-        col = channel_cell[0][1]
-        if m.model_mesh3D[1][0][row][col] == -1:
-            continue
-        #print m.model_mesh3D
-        channel_stage = m.model_mesh3D[0][0][row][col]
-        channel_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['chan_drop']['PARVAL1']
-        channel_cond = channel_cell[1] * channel_width_avg * m.parameters.param['kv_chan']['PARVAL1'] / channel_bed_thickness
-        simple_channel += [[0, row, col, channel_stage, channel_cond, channel_bed]]
-    
-    channel = {}
-    channel[0] = simple_channel
-    
-    m.boundaries.assign_boundary_array('Channel', channel)
+#    simple_channel = []
+#    channel_width_avg = 10.0 #m
+#    channel_bed_thickness = 0.10 #m
+#    for channel_cell in m.polyline_mapped['Channel_Clip_model.shp']:
+#        row = channel_cell[0][0]
+#        col = channel_cell[0][1]
+#        if m.model_mesh3D[1][0][row][col] == -1:
+#            continue
+#        #print m.model_mesh3D
+#        channel_stage = m.model_mesh3D[0][0][row][col]
+#        channel_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['chan_drop']['PARVAL1']
+#        channel_cond = channel_cell[1] * channel_width_avg * m.parameters.param['kv_chan']['PARVAL1'] / channel_bed_thickness
+#        simple_channel += [[0, row, col, channel_stage, channel_cond, channel_bed]]
+#    
+#    channel = {}
+#    channel[0] = simple_channel
+#    
+#    m.boundaries.assign_boundary_array('Channel', channel)
 
     if verbose:
         print "************************************************************************"
@@ -272,6 +260,11 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     #wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
 
     #m.boundaries.assign_boundary_array('licenced_wells', wel)
+
+    if verbose:
+        print "************************************************************************"
+        print " Check for boundary condition updating"
+        m.generate_update_report()
     
     if verbose:
         print "************************************************************************"
@@ -298,13 +291,13 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     modflow_model.executable = mf_exe_folder
 
-    modflow_model.buildMODFLOW(transport=True, write=True)
+    modflow_model.buildMODFLOW(transport=True, write=True, verbose=True, check=False)
 
     #modflow_model.checkMODFLOW()  # Note this is slow af, so use only in setting up model
 
     modflow_model.runMODFLOW(silent=True)
 
-    converge = modflow_model.checkCovergence()
+    converge = modflow_model.checkConvergence()
 
     if converge:
         if verbose:
@@ -313,39 +306,39 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
         modflow_model.writeObservations()
 
-    Campaspe_riv_flux = modflow_model.getRiverFlux('Campaspe River')
-
-    # 1. Final year of fluxes along entire River
-    final_stress_periods = max(Campaspe_riv_flux.keys())
-    ## 1.1 Annual average
-    net_riv_flux_annual = 0
-    for key in range(final_stress_periods - 11, final_stress_periods + 1):
-        net_riv_flux_annual += np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]])) 
-    ### Convert to average from sum 
-    net_riv_flux_annual = net_riv_flux_annual / 12.0
-    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_a.txt'), 'w') as f:
-        f.write('{}\n'.format(net_riv_flux_annual))  
-    
-    ## 1.2 Seasonal average
-    net_riv_flux_season = {}
-    for index, key in enumerate(range(final_stress_periods - 11, final_stress_periods + 1)):
-        season = index//3
-        if season not in net_riv_flux_season.keys():
-            net_riv_flux_season[season] = 0.0
-        net_riv_flux_season[season] += np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]]))
-    ### Convert to average from sum 
-    net_riv_flux_season = {k: net_riv_flux_season[k] / 3.0 for k in net_riv_flux_season.keys()}
-    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_s.txt'), 'w') as f:
-        for key in net_riv_flux_season.keys():
-            f.write('{}\n'.format(net_riv_flux_season[key]))  
-    
-    ## 1.3 Monthly average (no averaging required)
-    net_riv_flux_month = {}
-    for key in range(final_stress_periods - 11, final_stress_periods + 1):
-        net_riv_flux_month[key] = np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]]))
-    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_m.txt'), 'w') as f:
-        for key in net_riv_flux_month.keys():
-            f.write('{}\n'.format(net_riv_flux_month[key]))  
+#    Campaspe_riv_flux = modflow_model.getRiverFlux('Campaspe River')
+#
+#    # 1. Final year of fluxes along entire River
+#    final_stress_periods = max(Campaspe_riv_flux.keys())
+#    ## 1.1 Annual average
+#    net_riv_flux_annual = 0
+#    for key in range(final_stress_periods - 11, final_stress_periods + 1):
+#        net_riv_flux_annual += np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]])) 
+#    ### Convert to average from sum 
+#    net_riv_flux_annual = net_riv_flux_annual / 12.0
+#    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_a.txt'), 'w') as f:
+#        f.write('{}\n'.format(net_riv_flux_annual))  
+#    
+#    ## 1.2 Seasonal average
+#    net_riv_flux_season = {}
+#    for index, key in enumerate(range(final_stress_periods - 11, final_stress_periods + 1)):
+#        season = index//3
+#        if season not in net_riv_flux_season.keys():
+#            net_riv_flux_season[season] = 0.0
+#        net_riv_flux_season[season] += np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]]))
+#    ### Convert to average from sum 
+#    net_riv_flux_season = {k: net_riv_flux_season[k] / 3.0 for k in net_riv_flux_season.keys()}
+#    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_s.txt'), 'w') as f:
+#        for key in net_riv_flux_season.keys():
+#            f.write('{}\n'.format(net_riv_flux_season[key]))  
+#    
+#    ## 1.3 Monthly average (no averaging required)
+#    net_riv_flux_month = {}
+#    for key in range(final_stress_periods - 11, final_stress_periods + 1):
+#        net_riv_flux_month[key] = np.sum(np.array([x[0] for x in Campaspe_riv_flux[key]]))
+#    with open(os.path.join(modflow_model.data_folder, 'observations_nrf_m.txt'), 'w') as f:
+#        for key in net_riv_flux_month.keys():
+#            f.write('{}\n'.format(net_riv_flux_month[key]))  
 
     # 2. Final year of fluxes along reaches of river between gauges
     ## 2.1 Annual average
@@ -356,16 +349,16 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     # 3. Final year of fluxes along each river cell in the model
     ## 3.1 Annual average
-    for index, key in enumerate(range(final_stress_periods - 11, final_stress_periods + 1)):
-        if index == 0:
-            cell_riv_flux_annual = np.array([x[0] for x in Campaspe_riv_flux[key]]) 
-        else:
-            cell_riv_flux_annual += np.array([x[0] for x in Campaspe_riv_flux[key]]) 
-    ### Convert to average from sum 
-    cell_riv_flux_annual = cell_riv_flux_annual / 12.0
-    with open(os.path.join(modflow_model.data_folder, 'observations_cell_riv_flux_annual_whole.txt'), 'w') as f:
-        for el in cell_riv_flux_annual:
-            f.write('{}\n'.format(net_riv_flux_annual))  
+#    for index, key in enumerate(range(final_stress_periods - 11, final_stress_periods + 1)):
+#        if index == 0:
+#            cell_riv_flux_annual = np.array([x[0] for x in Campaspe_riv_flux[key]]) 
+#        else:
+#            cell_riv_flux_annual += np.array([x[0] for x in Campaspe_riv_flux[key]]) 
+#    ### Convert to average from sum 
+#    cell_riv_flux_annual = cell_riv_flux_annual / 12.0
+#    with open(os.path.join(modflow_model.data_folder, 'observations_cell_riv_flux_annual_whole.txt'), 'w') as f:
+#        for el in cell_riv_flux_annual:
+#            f.write('{}\n'.format(net_riv_flux_annual))  
     
     ## 3.2 Seasonal average
     
