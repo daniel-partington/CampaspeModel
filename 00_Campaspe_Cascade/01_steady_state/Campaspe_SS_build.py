@@ -165,7 +165,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 1000
+resolution = 5000
 SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
@@ -404,6 +404,7 @@ interp_rain = interp_rain/1000.0/365.0
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
 
+# Replace interp_rain with a copy to prevent alteration of assigned boundary array
 interp_rain = np.copy(interp_rain)
 
 recharge_zone_array = SS_model.map_raster_to_regular_grid_return_array(recharge_zones)
@@ -431,8 +432,6 @@ for i in range(rch_zones - 1):
 interp_rain[recharge_zone_array==rch_zone_dict[0]] = interp_rain[recharge_zone_array == rch_zone_dict[0]] * 0.0
 interp_rain[SS_model.model_mesh3D[1][0] == -1] = 0.
     
-print(interp_rain.max())           
-           
 rch = {}
 rch[0] = interp_rain
 
@@ -498,103 +497,85 @@ for riv_gauge in Campaspe_river_gauges:
     if str(riv_gauge[1][0]) in use_gauges:
         filter_gauges += [riv_gauge]
 
-homogeneous_river = False
-
-if homogeneous_river:
-    SS_model.map_polyline_to_grid(Campaspe_river_poly)
-    SS_model.parameters.create_model_parameter('beddep', value=0.01)
-    SS_model.parameters.parameter_options('beddep', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.001, 
-                                          PARUBND=0.1, 
-                                          PARGP='kv_riv', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    SS_model.parameters.create_model_parameter('kv_riv', value=5E-3)
-    SS_model.parameters.parameter_options('kv_riv', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=1E-8, 
-                                          PARUBND=20, 
-                                          PARGP='rivbed', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-else:
-    # Define split on river for which unique values will be given to props at 
-    # those points which will then be interpolated along the length of the river
-    # Parameters are ordered from upstream to downstream
-    num_reaches = 4
-    #for reach in range(num_reaches):
-    # Setting up river bed hydraulic condictivity values
-    SS_model.parameters.create_model_parameter_set('kv_riv', 
-                                               value=[10., 5., 1., 0.1], 
-                                               num_parameters=num_reaches)
-    SS_model.parameters.parameter_options_set('kv_riv', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=10. / 10., 
-                                          PARUBND=10. * 10., 
-                                          PARGP='kv_riv', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Setting up river bed elevation correction parameter to account for 
-    # uncertainty in where bed lies relative to zero gauge
-    SS_model.parameters.create_model_parameter_set('beddep', 
-                                               value=0.01, 
-                                               num_parameters=num_reaches)
-    SS_model.parameters.parameter_options_set('beddep', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.001, 
-                                          PARUBND=1.0, 
-                                          PARGP='rivbed', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Setting up river bed roughness values
-    SS_model.parameters.create_model_parameter_set('mn_riv', 
-                                               value=0.01, 
-                                               num_parameters=num_reaches)
-    SS_model.parameters.parameter_options_set('mn_riv', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.001, 
-                                          PARUBND=0.1, 
-                                          PARGP='rough', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Setting up river width values
-    SS_model.parameters.create_model_parameter_set('rivwdth', 
-                                               value=10.0, 
-                                               num_parameters=num_reaches)
-    SS_model.parameters.parameter_options_set('rivwdth', 
-                                          PARTRANS='fixed', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=4., 
-                                          PARUBND=40., 
-                                          PARGP='rivwdt', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Setting up riverbed thickness values
-    SS_model.parameters.create_model_parameter_set('bedthck', 
-                                               value=0.10, 
-                                               num_parameters=num_reaches)
-    SS_model.parameters.parameter_options_set('bedthck', 
-                                          PARTRANS='fixed', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.01, 
-                                          PARUBND=1., 
-                                          PARGP='bedthk', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-
 
 SS_model.create_river_dataframe('Campaspe', Campaspe_river_poly_file, surface_raster_high_res)
 
 # Create reach data
 river_seg = SS_model.river_mapping['Campaspe']
-known_points = [river_seg['rchlen'].sum()/x for x in range(1, num_reaches)] + [0.]
-known_points = known_points[::-1]
+# Parameters are ordered from upstream to downstream
+num_reaches = 4
+
+SS_model.create_pilot_points('Campaspe', linear=True)
+camp_pp = SS_model.pilot_points['Campaspe']
+camp_pp.set_uniform_points(river_seg['rchlen'].sum(), num_reaches)
+
+known_points = camp_pp.points
+
+# Define split on river for which unique values will be given to props at 
+# those points which will then be interpolated along the length of the river
+#for reach in range(num_reaches):
+# Setting up river bed hydraulic conductivity values
+SS_model.parameters.create_model_parameter_set('kv_riv', 
+                                           value=[1., 1., 0.001, 0.0], 
+                                           num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('kv_riv', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.01, 
+                                      PARUBND=10.0, 
+                                      PARGP='kv_riv', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+# Setting up river bed elevation correction parameter to account for 
+# uncertainty in where bed lies relative to zero gauge
+SS_model.parameters.create_model_parameter_set('beddep', 
+                                           value=0.01, 
+                                           num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('beddep', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=1.0, 
+                                      PARGP='rivbed', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+# Setting up river bed roughness values
+SS_model.parameters.create_model_parameter_set('mn_riv', 
+                                           value=0.01, 
+                                           num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('mn_riv', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.001, 
+                                      PARUBND=0.1, 
+                                      PARGP='rough', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+# Setting up river width values
+SS_model.parameters.create_model_parameter_set('rivwdth', 
+                                           value=20.0, 
+                                           num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('rivwdth', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=4., 
+                                      PARUBND=40., 
+                                      PARGP='rivwdt', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+# Setting up riverbed thickness values
+SS_model.parameters.create_model_parameter_set('bedthck', 
+                                           value=0.10, 
+                                           num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('bedthck', 
+                                      PARTRANS='fixed', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=0.01, 
+                                      PARUBND=1., 
+                                      PARGP='bedthk', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
 
 strcond_val = [SS_model.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
 river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), 
@@ -632,7 +613,7 @@ for row in river_seg.iterrows():
         already_defined += [ind]
     old += [new]
 
-river_seg['strhc1'].loc[already_defined] = 0.0
+river_seg.loc[already_defined, 'strhc1'] = 0.0
 
 
 new_k = []
@@ -648,8 +629,6 @@ river_seg['k'] = new_k
        
 # Remove any stream segments for which the elevation could not be mapped to a layer
 #river_seg.dropna(inplace=True)
-
-SS_model.river_mapping['Campaspe'] = river_seg
 
 river_seg['ireach'] = 1
 #river_seg['iseg'] = river_seg.index + 1
@@ -693,7 +672,6 @@ river_seg.dropna(inplace=True)
           
 river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
          
-
 def slope_corrector(x):
     if  x  < 0.0001:
         return 0.0001
@@ -751,7 +729,8 @@ cols_ordered = ['nseg', 'icalc', 'outseg', 'iupseg', 'iprior', 'nstrpts', \
 segment_data = segment_data[cols_ordered]
 
 SS_model.save_MODFLOW_SFR_dataframes('Campaspe', reach_df, segment_data)
-
+SS_model.river_mapping['Campaspe'] = river_seg
+                      
 segment_data1 = segment_data.to_records(index=False)
 seg_dict = {0: segment_data1}
 
@@ -832,16 +811,59 @@ SS_model.create_river_dataframe('Murray', Murray_river_poly_file, surface_raster
 mriver_seg = SS_model.river_mapping['Murray']
 mriver_seg['strthick'] = SS_model.parameters.param['rmbedthk']['PARVAL1']
 
+# Set up bed elevations based on the gauge zero levels:
+Murray = Campaspe_relevant[Campaspe_relevant['Site Name'].str.contains("MURRAY RIVER")]
+gauge_points = [x for x in zip(Murray.Easting, Murray.Northing)]
+mriver_gauge_seg = SS_model.get_closest_riv_segments('Murray', gauge_points)
+mriver_seg.loc[:, 'bed_from_gauge'] = np.nan
+mriver_seg.loc[:, 'stage_from_gauge'] = np.nan
+
+Murray.loc[:, 'new_gauge'] = Murray[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
+Murray.loc[:, 'seg_loc'] = mriver_gauge_seg         
+Murray_gauge_zero = Murray[Murray['new_gauge'] > 10.]
+mriver_seg['iseg'] = [x + 1 for x in range(mriver_seg.shape[0])]
+#Murray_gauge_zero['Cumulative Length'] = mriver_seg.loc[Murray_gauge_zero['seg_loc'].tolist(), 'Cumulative Length'].tolist()
+
+Murray = pd.merge(Murray, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
+Murray = Murray[[x for x in Murray.columns if '_r' not in x]]
+def values_from_gauge(column):
+    mriver_seg.loc[mriver_seg['iseg'].isin( \
+        Murray_gauge_zero['seg_loc'].tolist()), column] = sorted( \
+        Murray_gauge_zero['new_gauge'].tolist(), reverse=True)
+    mriver_seg[column] = mriver_seg.set_index( \
+        mriver_seg['Cumulative Length'])[column].interpolate( \
+        method='values', limit_direction='both').tolist()
+    mriver_seg[column].fillna(method='bfill', inplace=True)
+
+values_to_edit = ['bed_from_gauge', 'stage_from_gauge']
+for value in values_to_edit:
+    values_from_gauge(value)
+
 new_k = []
 active = []
+surface_layers = {}
+bottom_layer = []
 for row in mriver_seg.iterrows():
-    j_mesh = row[1]['i'] 
-    i_mesh = row[1]['j']
-    strtop = row[1]['strtop']
-    strbot = row[1]['strtop'] - row[1]['strthick'] 
-    k = find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])
+    j_mesh = int(row[1]['i'])
+    i_mesh = int(row[1]['j'])
+    strtop = row[1]['bed_from_gauge']
+    k = find_layer(strtop, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])
     new_k += [k]
+    bottom_layer += [SS_model.model_mesh3D[0][k+1, j_mesh, i_mesh]] 
     active += [SS_model.model_mesh3D[1][k, j_mesh, i_mesh]]
+    for layer in range(7):
+        try:
+            surface_layers[layer] += [SS_model.model_mesh3D[0][layer, j_mesh, i_mesh]]
+        except:
+            surface_layers[layer] = [SS_model.model_mesh3D[0][layer, j_mesh, i_mesh]]
+
+for layer in range(7):
+    mriver_seg["surf{}".format(layer)] = surface_layers[layer]
+
+mriver_seg['bottom_layer'] = bottom_layer
+
+mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
+#mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
 
 mriver_seg['k'] = new_k
 mriver_seg['active'] = active
@@ -851,6 +873,8 @@ mriver_seg[mriver_seg['active'] == -1] = np.nan
 mriver_seg.dropna(inplace=True)
 SS_model.river_mapping['Murray'] = mriver_seg
 
+mriver_seg['strtop'] = mriver_seg['stage_from_gauge']                      
+                      
 mriver_seg['strhc1'] = SS_model.parameters.param['kv_rm']['PARVAL1']                      
 
 mriver_seg['width1'] = SS_model.parameters.param['rmwdth']['PARVAL1']
@@ -875,6 +899,9 @@ mriver_seg[mriver_seg['cell_used'] == 0] = np.nan
 mriver_seg.dropna(inplace=True)
 SS_model.river_mapping['Murray'] = mriver_seg
 
+mriver_seg['cell_loc_tuple'] = [(x[1]['k'], x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
+mriver_seg = mriver_seg.groupby(by='cell_loc_tuple').mean()
+mriver_seg.index = range(mriver_seg.shape[0])
 
 simple_river = []
 for row in mriver_seg.iterrows():
@@ -1023,15 +1050,17 @@ SS_model.boundaries.assign_boundary_array('GHB', ghb)
 print "************************************************************************"
 print " Creating parameters for transport "
 
-SS_model.parameters.create_model_parameter('porosity', value=0.25)
-SS_model.parameters.parameter_options('porosity', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.05, 
-                                      PARUBND=0.4, 
-                                      PARGP='transport', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+# General parameters for transport
+for unit in HGU:
+    SS_model.parameters.create_model_parameter('por_{}'.format(unit), value=0.25)
+    SS_model.parameters.parameter_options('por_{}'.format(unit), 
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=0.05, 
+                                          PARUBND=0.4, 
+                                          PARGP='transport', 
+                                          SCALE=1, 
+                                          OFFSET=0)
 
 SS_model.parameters.create_model_parameter('disp', value=0.01)
 SS_model.parameters.parameter_options('disp', 

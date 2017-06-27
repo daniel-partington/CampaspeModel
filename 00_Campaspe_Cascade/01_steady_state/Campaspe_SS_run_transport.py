@@ -13,14 +13,11 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
-# import flopy.utils.binaryfile as bf
 
-
-# MM is short for model manager
 
 def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True):
     """Model Runner."""
-
+    # MM is short for model manager
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"01_steady_state_packaged.pkl"))
 
@@ -56,9 +53,16 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                            exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
 
     #Add the BTN package to the model
-    ibound = modflow_model.model_data.model_mesh3D[1]        
+    ibound = np.copy(modflow_model.model_data.model_mesh3D[1])        
     ibound[ibound == -1] = 0
-    prsity = m.parameters.param['porosity']['PARVAL1']
+    
+    # This needs to be automatically generated with the map_raster2mesh routine ...
+    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
+
+    prsity = np.zeros_like(ibound, dtype=float) 
+    for zone in zone_map:          
+        prsity[ibound == zone] = m.parameters.param['por_{}'.format(zone_map[zone])]['PARVAL1']
+    
     flopy.mt3d.Mt3dBtn(mt, DRYCell=True, icbund=ibound, prsity=prsity,
                        ncomp=1, mcomp=1, cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
@@ -178,17 +182,6 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     
     success, buff = mt.run_model(silent=True)
     
-    import flopy.utils.binaryfile as bf
-#    #
-    concobj = bf.UcnFile(modflow_model.data_folder + 'MT3D001.UCN')
-    arry = concobj.get_alldata()[0]
-    import matplotlib.pyplot as plt
-    #vmin, vmax = 0.0, 100.0
-    for i in range(7):
-        plt.figure()
-        plt.imshow(arry[i], interpolation='none')#, vmin=vmin, vmax=vmax)
-
-
 if __name__ == "__main__":
     
     verbose = False
