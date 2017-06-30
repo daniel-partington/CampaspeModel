@@ -42,14 +42,15 @@ SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp",
 print "************************************************************************"
 print " Setting spatial data boundary "
 SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file, 
-                                                  shapefile_path=SS_model.data_folder,
+                                                  shapefile_path=SS_model.out_data_folder,
                                                   buffer_dist=20000)
 
 # Setup recharge:
 # ... read in climate data using Custom_Scripts
-weather_stations = ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
+weather_stations = ['Kyneton', 'Eppalock', 'Elmore', 'Rochester', 'Echuca']
 print "************************************************************************"
 print " Executing custom script: processWeatherStations "
+rain_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\Rain_gauges.shp")
 
 rain_info_file = "rain_processed"
 # Check if this data has been processed and if not process it
@@ -58,8 +59,6 @@ if os.path.exists(SS_model.out_data_folder + rain_info_file + '.h5'):
 else:
     long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations, path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\")
     SS_model.save_dataframe(SS_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
-
-rain_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\Rain_gauges.shp")
 
 print "************************************************************************"
 print " Executing custom script: readHydrogeologicalProperties "
@@ -172,7 +171,7 @@ SS_model.define_structured_mesh(resolution, resolution)
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
 
 # Build basement file ... only need to do this once as it is time consuming so commented out for future runs
-# SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
+SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
 
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
                    "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
@@ -255,14 +254,13 @@ if pilot_points:
             skip=[0,  0, 3, 0, 2, 3, 3] 
             skip_active=[3, 20, 0, 4, 0, 0, 0]
         
-        
         # Generate the pilot points 
         pp_grp.generate_points_from_mesh(mesh_array, cell_centers, 
             skip=skip, 
             skip_active=skip_active,
             zone_prop_dict=zone_prop_dict)
         
-        # Create some necessary files fro pilot points utilities
+        # Create some necessary files from pilot points utilities
         pp_grp.write_settings_fig()
         pp_grp.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
         pp_grp.write_struct_file(mesh_array, nugget=0.0, 
@@ -274,7 +272,7 @@ if pilot_points:
         if resolution == 1000:
             search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
         else:
-            search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
+            search_radius = [30000, 20000, 40000, 20000, 40000, 50000, 20000]
             
         prefixes=['{}_{}'.format(pilot_points_group, zone_HGU[x]) for x in range(zones)]
         pp_grp.setup_pilot_points_by_zones(mesh_array, zones, search_radius, prefixes=prefixes)    
@@ -383,6 +381,7 @@ for key in zone_map.keys():
 
 if pilot_points:
     Kh = hk.val_array
+    Kh[SS_model.model_mesh3D[1] == -1] = 0.0
     # We are assuming an anisotropy parameter here where kh is 10 times kv ...
     Kv = hk.val_array * 0.1
     Sy = sy.val_array
@@ -486,7 +485,7 @@ SS_model.GISInterface.raster_reproject_by_grid(surface_raster_high_res,
 surface_raster_high_res = surface_raster_high_res[:-4] + '_reproj.tif'
 
 
-SS_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
+SS_model.map_points_to_grid(river_gauges, feature_id='Site Name')
 #SS_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
 
 Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clipped.shp']
@@ -516,7 +515,7 @@ known_points = camp_pp.points
 #for reach in range(num_reaches):
 # Setting up river bed hydraulic conductivity values
 SS_model.parameters.create_model_parameter_set('kv_riv', 
-                                           value=[1., 1., 0.001, 0.0], 
+                                           value=[1., 1., 0.01, 0.001], 
                                            num_parameters=num_reaches)
 SS_model.parameters.parameter_options_set('kv_riv', 
                                       PARTRANS='log', 
@@ -541,7 +540,7 @@ SS_model.parameters.parameter_options_set('beddep',
                                       OFFSET=0)
 # Setting up river bed roughness values
 SS_model.parameters.create_model_parameter_set('mn_riv', 
-                                           value=0.01, 
+                                           value=0.001, 
                                            num_parameters=num_reaches)
 SS_model.parameters.parameter_options_set('mn_riv', 
                                       PARTRANS='log', 
@@ -654,14 +653,30 @@ river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length']
 
 
 new_k = []
+surface_layers = {}
+bottom_layer = []
 for row in river_seg.iterrows():
     j_mesh = row[1]['i'] 
     i_mesh = row[1]['j']
     strbot = row[1]['bed_from_gauge'] - row[1]['strthick']
     new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])]
+    k = find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])
+    bottom_layer += [SS_model.model_mesh3D[0][k + 1, j_mesh, i_mesh]] 
+    for layer in range(7):
+        try:
+            surface_layers[layer] += [SS_model.model_mesh3D[0][layer, j_mesh, i_mesh]]
+        except:
+            surface_layers[layer] = [SS_model.model_mesh3D[0][layer, j_mesh, i_mesh]]
+
+for layer in range(7):
+    river_seg["surf{}".format(layer)] = surface_layers[layer]
 
 river_seg['k'] = new_k
 river_seg['strtop'] = river_seg['bed_from_gauge']
+river_seg['bottom_layer'] = bottom_layer
+
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
 
 # For stream reaches that didn't map properly to the mesh for z elevation we 
 # can still include by setting to layer 0 with a bed hydraulic conductivity of 0

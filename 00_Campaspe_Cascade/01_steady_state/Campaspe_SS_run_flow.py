@@ -63,18 +63,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         return p.val_array
 
     Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh_', 'hk_pilot_points',
-                             m, 'hk_val_array')              
+                             m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
     Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
-                             m, 'sy_val_array')              
+                             m, 'sy_val_array')
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
     SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
-                             m, 'ss_val_array')              
+                             m, 'ss_val_array')
     m.save_array(os.path.join(data_folder, 'SS'), SS)
 
     m.properties.update_model_properties('Kh', Kh)
@@ -95,23 +95,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
     river_seg = m.river_mapping['Campaspe']
     
     strcond_val = [m.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@ TODO: Check this next part to make sure that zero conductance reaches 
+    #@ that are a result of params won't be ignored!!
     river_seg.loc[river_seg['strhc1'] != 0.0, 'strhc1'] = np.interp(
             river_seg[river_seg['strhc1'] != 0.0]['Cumulative Length'].tolist(), 
             known_points, strcond_val)
-    
-    #@@@@@@@@@ This is a little ugly here but it will do for now to prevent shortcircuiting
-#    already_defined = []
-#    old = []
-#    for row in river_seg.iterrows():
-#        ind = row[0]
-#        row = row[1]
-#        new = row['amalg_riv_points']
-#        if new in old:
-#            already_defined += [ind]
-#        old += [new]
-#    
-#    river_seg.loc[already_defined, 'strhc1'] = 0.0
-    #@@@@@@@@@ 
     
     strthick_val = [m.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
     river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(), known_points, strthick_val)
@@ -174,8 +163,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 
     rch_zones = len(rch_zone_dict.keys())
 
-    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
+#    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
+#                     for i in range(rch_zones - 1)]
+
+    par_rech_vals = [0.001 \
                      for i in range(rch_zones - 1)]
+
 
     def update_recharge(vals):
         for i in range(rch_zones - 1):
@@ -206,7 +199,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         dx = m.gridHeight
         dz = m.model_mesh3D[0][lay][row][col] - \
             m.model_mesh3D[0][lay + 1][row][col]
-        MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1']
+        MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1'] / 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
         
 
@@ -224,7 +217,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         print "************************************************************************"
         print " Check for boundary condition updating"
         m.generate_update_report()
-
 
 
     """
@@ -275,7 +267,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 
         modflow_model.executable = mf_exe_folder
     
-        modflow_model.buildMODFLOW(transport=True, verbose=True, check=False)
+        modflow_model.buildMODFLOW(transport=True, verbose=True, check=True)
     
         #modflow_model.checkMODFLOW()
     
@@ -397,6 +389,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
+        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
     else:
-        run(model_folder, data_folder, mf_exe_folder, verbose=verbose)
+        run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose)
