@@ -1,6 +1,9 @@
 import sys
 import os
-sys.path.append('C:\Workspace\part0075\GIT_REPOS')
+import shutil
+import time
+#import sys
+#sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
 import numpy as np
 import flopy.utils.binaryfile as bf
@@ -28,20 +31,57 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating HGU parameters "
     
-    # This needs to be automatically generated from with the map_raster2mesh routine ...
-    zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
-    
-    #m.model_mesh3D[1][6, 134, 13] == -1
-    
-    Kh = m.load_array(os.path.join(data_folder, 'hk_val_array.npy'))    
-    Kv = Kh * 0.1
-    Sy = m.load_array(os.path.join(data_folder, 'sy_val_array.npy'))
-    SS = m.load_array(os.path.join(data_folder, 'ss_val_array.npy'))
-    m.properties.assign_model_properties('Kh', Kh)
-    m.properties.assign_model_properties('Kv', Kv)
-    m.properties.assign_model_properties('Sy', Sy)
-    m.properties.assign_model_properties('SS', SS)
+    # This needs to be automatically generated with the map_raster2mesh routine ...
+    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
+    default_array = m.model_mesh3D[1].astype(float)
+    Zone = np.copy(default_array)
+    Kh = np.copy(default_array)
+    Kv = np.copy(default_array)
+    Sy = np.copy(default_array)
+    SS = np.copy(default_array)
+    
+    def create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m):
+        points_values_dict = {}
+        for index, key in enumerate(zone_map.keys()):
+            for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
+                if index2 == 0:
+                    points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
+                else: 
+                    points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
+        return points_values_dict    
+
+    def update_pilot_points(zone_map, Zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
+        points_values_dict = create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m)
+        p = m.pilot_points[par_name]
+        zones = len(zone_map.keys())
+        p.output_directory = os.path.join(data_folder, prop_folder)
+        p.update_pilot_points_files_by_zones(zones, points_values_dict)
+        time.sleep(3)
+        p.run_pyfac2real_by_zones(zones) 
+        p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
+        return p.val_array
+
+    Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh_', 'hk_pilot_points',
+                             m, 'hk_val_array')              
+    m.save_array(os.path.join(data_folder, 'Kh'), Kh)
+
+    Kv = Kh * 0.1
+    m.save_array(os.path.join(data_folder, 'Kv'), Kv)
+
+    Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
+                             m, 'sy_val_array')              
+    m.save_array(os.path.join(data_folder, 'Sy'), Sy)
+    
+    SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
+                             m, 'ss_val_array')              
+    m.save_array(os.path.join(data_folder, 'SS'), SS)
+
+    m.properties.update_model_properties('Kh', Kh)
+    m.properties.update_model_properties('Kv', Kv)
+    m.properties.update_model_properties('Sy', Sy)
+    m.properties.update_model_properties('SS', SS)
+    
     if verbose:
         print "************************************************************************"
         print " Updating river parameters "
@@ -97,26 +137,18 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating Murray River boundary"
     
-#    simple_river = []
-#    riv_width_avg = 10.0 #m
-#    riv_bed_thickness = 0.10 #m
-#
-#    riv_cells = [[x[1], x[2], x[3]] for x in m.boundaries.bc['Murray River']['bc_array'][0]]
-#    for riv_cell in riv_cells:
-#        row, col, stage = riv_cell
-#        bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['rmstage']['PARVAL1']
-#        if bed < m.model_mesh3D[0][1][row][col]:
-#            bed = m.model_mesh3D[0][0][row][col] + 0.01
-#        #end if
-#        cond = riv_cell[1] * riv_width_avg * m.parameters.param['kv_rm']['PARVAL1'] / riv_bed_thickness
-#        simple_river += [[0, row, col, stage, cond, bed]]
-#
-#    
-#    riv = {}
-#    riv[0] = simple_river
-#    #m.boundaries.create_model_boundary_condition('Campaspe River', 'river', bc_static=True)
-#    m.boundaries.assign_boundary_array('Murray River', riv)
+    mriver_seg = m.river_mapping['Murray']
+    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
     
+    simple_river = []
+    for row in mriver_seg.iterrows():
+        row = row[1]
+        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
+    
+    riv = {}
+    riv[0] = simple_river
+    m.boundaries.update_boundary_array('Murray River', riv)
     
     if verbose:
         print "************************************************************************"
@@ -157,77 +189,55 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     m.boundaries.update_boundary_array('Rain_reduced', rch)
 
-#    interp_rain = m.boundaries.bc['Rainfall']['bc_array']
-#    # Adjust rainfall to recharge using rainfall reduction
-#    for i in [1,2,3,7]:
-#        for key in interp_rain.keys():
-#            interp_rain[key][m.model_mesh3D[1][0]==i] = interp_rain[key][m.model_mesh3D[1][0]==i] * m.parameters.param['rch_red_'+zone_map[i]]['PARVAL1']
-#
-#    for i in [4,5,6,]:
-#        for key in interp_rain.keys():
-#            interp_rain[key][m.model_mesh3D[1][0]==i] = interp_rain[key][m.model_mesh3D[1][0]==i] * 0.
-#    
-#    rch = {}
-#    for key in m.boundaries.bc['Rainfall']['bc_array'].keys():
-#        rch[key] = interp_rain[key] 
-#    
-#    m.boundaries.assign_boundary_array('Rain_reduced', rch)
-#    
-#    #print " Include irrigation in the recharge array"
-    
     if verbose:
         print "************************************************************************"
         print " Updating Murray River GHB boundary"
     
     MurrayGHB = []
 
-#    MurrayGHB_cells = [[x[0], x[1], x[2]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
-#    for MurrayGHB_cell in MurrayGHB_cells:
-#        lay, row, col = MurrayGHB_cell
-#        MurrayGHBstage = m.model_mesh3D[0][0][row][
-#            col] + m.parameters.param['mghb_stage']['PARVAL1']
-#        if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
-#            continue
-#        dx = m.gridHeight
-#        dz = m.model_mesh3D[0][lay][row][col] - \
-#            m.model_mesh3D[0][lay + 1][row][col]
-#        MGHBconductance = dx * dz * m.parameters.param['mghbcond']['PARVAL1']
-#        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
-#    
-#    ghb = {}
-#    ghb[0] = MurrayGHB
+    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
+    for MurrayGHB_cell in MurrayGHB_cells:
+        lay, row, col = MurrayGHB_cell[:3]
+        MurrayGHBstage = MurrayGHB_cell[3] #m.parameters.param['mghb_stage']['PARVAL1']
+        dx = m.gridHeight
+        dz = m.model_mesh3D[0][lay][row][col] - \
+            m.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+        
 
-    
-    
+    ghb = {}
+    ghb[0] = MurrayGHB
+
     if verbose:
         print "************************************************************************"
         print " Updating GHB boundary"
-    
-#    m.boundaries.assign_boundary_array('GHB', ghb)
-    
+
+    m.boundaries.update_boundary_array('GHB', ghb)
+
     if verbose:
         print "************************************************************************"
         print " Updating Drains boundary"
     
-#    mapped_drains = m.polyline_mapped['Drain_Clip_model.shp']
-#    
-#    simple_drain = []
-#    drain_width_avg = 3.0 #m
-#    drain_bed_thickness = 0.10 #m
-#    for drain_cell in mapped_drains:
-#        row = drain_cell[0][0]
-#        col = drain_cell[0][1]
-#        if m.model_mesh3D[1][0][row][col] == -1:
-#            continue
-#        #print m.model_mesh3D
-#        drain_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['drain_drop']['PARVAL1']
-#        drain_cond = drain_cell[1] * drain_width_avg * m.parameters.param['kv_drain']['PARVAL1'] / drain_bed_thickness
-#        simple_drain += [[0, row, col, drain_bed, drain_cond]]
-#    
-#    drain = {}
-#    drain[0] = simple_drain
-#    
-#    m.boundaries.assign_boundary_array('Drain', drain)
+    mapped_drains = m.polyline_mapped['Drain_Clip_model.shp']
+    
+    simple_drain = []
+    drain_width_avg = 3.0 #m
+    drain_bed_thickness = 0.10 #m
+    for drain_cell in mapped_drains:
+        row = drain_cell[0][0]
+        col = drain_cell[0][1]
+        if m.model_mesh3D[1][0][row][col] == -1:
+            continue
+        #print m.model_mesh3D
+        drain_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['drain_drop']['PARVAL1']
+        drain_cond = drain_cell[1] * drain_width_avg * m.parameters.param['kv_drain']['PARVAL1'] / drain_bed_thickness
+        simple_drain += [[0, row, col, drain_bed, drain_cond]]
+    
+    drain = {}
+    drain[0] = simple_drain
+    
+    m.boundaries.assign_boundary_array('Drain', drain)
     
     if verbose:
         print "************************************************************************"
@@ -292,8 +302,6 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     modflow_model.executable = mf_exe_folder
 
     modflow_model.buildMODFLOW(transport=True, write=True, verbose=True, check=False)
-
-    #modflow_model.checkMODFLOW()  # Note this is slow af, so use only in setting up model
 
     modflow_model.runMODFLOW(silent=True)
 

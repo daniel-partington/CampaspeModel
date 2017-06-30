@@ -112,7 +112,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     field_sampling = [datetime.datetime(2016,03,31),
                       datetime.datetime(2016,12,31),
                       datetime.datetime(2017,04,30)]
-    for i in range(30,33): #sfr_df['time'].max()):
+    for i in range(xnx0,33): #sfr_df['time'].max()):
         if date_index[i] in field_sampling:    
             df = sfr_df[sfr_df['time'] == i]
             #df.to_csv(r"C:\Workspace\part0075\badRn.csv")
@@ -123,6 +123,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
             df.plot(x='Cumulative Length', y='Rn', style='-', ax=ax, label=date_index[i].date())  
             df.plot(x='Cumulative Length', style='o',  y=['Flow', 'Qin'], ax=ax2, label=date_index[i].date())  
             df[df['Qaquifer_adj'] != 0.].plot(x='Cumulative Length', style='o',  y=['Qaquifer_adj'], ax=ax2, secondary_y=True, label=date_index[i].date())  
+            
             #df.plot(x='Cumulative Length', secondary_y=True, style='o',  y=['Flow', 'Qaquifer'], ax=ax)  
             #ax.set_title("Radon (mBq/L)")
             #ax.set_ylim(0, 0.2)
@@ -130,26 +131,25 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     ax.set_xlabel("River chainage (m)")
 
 
-    import matplotlib.pyplot as plt
-    import matplotlib.animation
-    
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(x=df_list[0]['Cumulative Length'].tolist(), y=df_list[0]['Rn'].tolist())
-    #df_list[0].plot(x='Cumulative Length', y='Flow', secondary_y=True, ax=ax)
-
-    def update(n):
-        ax.cla()
-        ax.plot(x=df_list[n]['Cumulative Length'].tolist(), y=df_list[n]['Rn'].tolist())
-        #df_list[n].plot(x='Cumulative Length', y='Rn', ax=ax)
-        #df_list[n].plot(x='Cumulative Length', y='Flow', secondary_y=True, ax=ax)
-        return ax
-    
-    ani = matplotlib.animation.FuncAnimation(fig, update, range(len(df_list)), interval=30, blit=True)
-    
-    ani.save(r"C:\Workspace\part0075\test.gif")
-    
-    plt.show()        
+#    import matplotlib.animation
+#    
+#    x = df_list
+#    fig, ax = plt.subplots()
+#    line = ax.plot(x=df_list[0]['Cumulative Length'].tolist(), y=df_list[0]['Rn'].tolist())
+#    #df_list[0].plot(x='Cumulative Length', y='Flow', secondary_y=True, ax=ax)
+#
+#    def update(num, x, y, line):
+#        #ax.cla()
+#        line.set_data(x=df_list[n]['Cumulative Length'].tolist()[:num], y=df_list[n]['Rn'].tolist()[:num])
+#        #df_list[n].plot(x='Cumulative Length', y='Rn', ax=ax)
+#        #df_list[n].plot(x='Cumulative Length', y='Flow', secondary_y=True, ax=ax)
+#        return line
+#    
+#    ani = matplotlib.animation.FuncAnimation(fig, update, range(len(df_list)), blit=True)
+#    
+#    ani.save(r"C:\Workspace\part0075\test.gif")
+#    
+#    plt.show()        
 
 #
 #    import matplotlib.pyplot as plt

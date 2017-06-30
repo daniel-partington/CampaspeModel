@@ -47,11 +47,12 @@ tr_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp",
 print "************************************************************************"
 print " Setting spatial data boundary "
 tr_model.set_data_boundary_from_polygon_shapefile(tr_model.boundary_poly_file, 
-                                                  buffer_dist=20000, shapefile_path=tr_model.data_folder)
+                                                  buffer_dist=20000, 
+                                                  shapefile_path=tr_model.out_data_folder)
 
 # Setup recharge:
 # ... read in climate data using Custom_Scripts
-weather_stations = ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
+weather_stations = ['Kyneton', 'Eppalock',  'Elmore', 'Rochester', 'Echuca']
 print "************************************************************************"
 print " Executing custom script: processWeatherStations "
 
@@ -525,7 +526,6 @@ if pilot_points:
             skip=[0,  0, 3, 0, 2, 3, 3] 
             skip_active=[3, 20, 0, 4, 0, 0, 0]
         
-        
         # Generate the pilot points 
         pp_grp.generate_points_from_mesh(mesh_array, cell_centers, 
             skip=skip, 
@@ -536,7 +536,7 @@ if pilot_points:
         pp_grp.write_settings_fig()
         pp_grp.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
         pp_grp.write_struct_file(mesh_array, nugget=0.0, 
-                                 transform='log',numvariogram=1, variogram=0.15, 
+                                 transform='log', numvariogram=1, variogram=0.15, 
                                  vartype=2, bearing=0.0, a=20000.0, anisotropy=1.0)
         
         # These search_radius values have been tested on the 1000m grid, would be good
@@ -544,7 +544,7 @@ if pilot_points:
         if resolution == 1000:
             search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
         else:
-            search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
+            search_radius = [30000, 20000, 40000, 20000, 40000, 50000, 20000]
             
         prefixes=['{}_{}'.format(pilot_points_group, zone_HGU[x]) for x in range(zones)]
         pp_grp.setup_pilot_points_by_zones(mesh_array, zones, search_radius, prefixes=prefixes)    
@@ -1274,11 +1274,15 @@ river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
                       
 # Set up bed elevations based on the gauge zero levels:
 gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
+field_points = [x for x in zip(FieldData.Easting, FieldData.Northing)]
+
 river_gauge_seg = tr_model.get_closest_riv_segments('Campaspe', gauge_points)
+river_field_seg = tr_model.get_closest_riv_segments('Campaspe', field_points)
 river_seg.loc[:, 'bed_from_gauge'] = np.nan
 
 Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
-Campaspe['seg_loc'] = river_gauge_seg         
+Campaspe['seg_loc'] = river_gauge_seg 
+FieldData['seg_loc'] = river_field_seg        
 Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # There are two values at the Campaspe weir, while it would be ideal to split the
 # reach here it will cause problems for the segment
@@ -1289,13 +1293,30 @@ river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 
 river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
 #river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].interpolate(limit_direction='both')
 
-
 new_k = []
+surface_layers = {}
+bottom_layer = []
 for row in river_seg.iterrows():
     j_mesh = row[1]['i'] 
     i_mesh = row[1]['j']
     strbot = row[1]['bed_from_gauge'] - row[1]['strthick']
     new_k += [find_layer(strbot, tr_model.model_mesh3D[0][:, j_mesh, i_mesh])]
+    k = find_layer(strbot, tr_model.model_mesh3D[0][:, j_mesh, i_mesh])
+    bottom_layer += [tr_model.model_mesh3D[0][k + 1, j_mesh, i_mesh]] 
+    for layer in range(7):
+        try:
+            surface_layers[layer] += [tr_model.model_mesh3D[0][layer, j_mesh, i_mesh]]
+        except:
+            surface_layers[layer] = [tr_model.model_mesh3D[0][layer, j_mesh, i_mesh]]
+
+for layer in range(7):
+    river_seg["surf{}".format(layer)] = surface_layers[layer]
+
+river_seg['bottom_layer'] = bottom_layer
+
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
+
 
 river_seg['k'] = new_k
 river_seg['strtop'] = river_seg['bed_from_gauge']
@@ -1423,7 +1444,6 @@ print " locations downstream of Lake Eppalock"
 #        print filter_gauges[gauge_ind[0]][1][0]                     
 
 
-
 print "************************************************************************"
 print " Creating Campaspe river observations for EC at "
 print " locations downstream of Lake Eppalock"
@@ -1439,7 +1459,7 @@ print " locations downstream of Lake Eppalock"
 print "************************************************************************"
 print " Creating Campaspe river simulated observations for data worth analysis"
    
-fy_start = end - datetime.timedelta(days=363)
+fy_start = end - datetime.timedelta(days=365)
 fy_end = end 
 
 def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, \
@@ -1456,30 +1476,34 @@ def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, 
     time_series = pd.DataFrame({'name': name_list, 
                                 'value':[0.0] * entries, 
                                 'datetime':pd.date_range(start=start, end=end, freq=freq)})
-    # Create observations
+    # Create zero weighted observations for model predictions of interest
     tr_model.observations.set_as_observations(obs_name, time_series, riv_segs, domain='stream', 
                                 obs_type=obs_type, units='m^3/d', weights=0.0, real=False)
 
 # Create river spatial groups: Whole of river, reach by gauge, reach by segment
+entries = [1, 4, 12]
+names = ['a_swgw', 's_swgw', 'm_swgw']
+swgw_exch_obs_freqs = ['M', '3M', 'A']
+obs_names = ['nrf_a', 'nrf_s', 'nrf_m']
+obs_types = ['swgw_a', 'swgw_s', 'swgw_m']
 
-## Annual average net flux along river for final year of simulation
-#a_time_series = pd.DataFrame([{'name':'a_swgw', 'value':0.0, 'datetime':pd.to_datetime(datetime.date(2015,12,30))},])
-#tr_model.observations.set_as_observations('nrf_a', a_time_series, new_riv_cells, domain='surface', 
-#                            obs_type='swgw_a', units='m^3/d', weights=0.0, real=False)
-## Seasonal average net flux along river for final year of simulation
-#entries = 4
-#s_time_series = pd.DataFrame({'name':['s_swgw{}'.format(x) for x in range(0, entries)], 
-#                            'value':[0.0] * entries, 
-#                            'datetime':pd.date_range(start=fy_start, end=fy_end, freq='Q-NOV')})
-#tr_model.observations.set_as_observations('nrf_s', s_time_series, new_riv_cells, domain='surface', 
-#                            obs_type='swgw_s', units='m^3/d', weights=0.0, real=False)
-## Monthly average net flux along river for final year of simulation
-#entries = 12
-#m_time_series = pd.DataFrame({'name':['m_swgw{}'.format(x) for x in range(0, entries)],
-#                             'value':[0.0] * entries, 
-#                             'datetime':pd.date_range(start=fy_start, end=fy_end, freq='M')})
-#tr_model.observations.set_as_observations('nrf_m', m_time_series, new_riv_cells, domain='surface', 
-#                            obs_type='swgw_m', units='m^3/d', weights=0.0, real=False)
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+# TODO: Implement spatial scales too ...
+obs_names_g2g_reach = ['rrf_a', 'rrf_s', 'rrf_m']
+obs_names_seg = ['srf_a', 'srf_s', 'srf_m']
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+for i in range(3):
+    create_obs_for_sw_gw_interaction(entries[i], names[i], fy_start, fy_end, 
+                                     swgw_exch_obs_freqs[i], river_seg['iseg'],
+                                     obs_names[i], obs_types[i])
+    
+#swgw_exch_obs_spatial = 3 # whole of river, long reach, cell reach
+#
+#for swgw_exch_obs_freq in swgw_exch_obs_freqs:
+#    for swgw_exch_obs_space in swgw_exch_obs_spatial:
+#        create_obs_for_sw_gw_interaction
+
 
 print "************************************************************************"
 print " Creating Campaspe river boundary"
@@ -1599,8 +1623,8 @@ for layer in range(7):
 
 mriver_seg['bottom_layer'] = bottom_layer
 
-#mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
-#mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
+mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
+mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
 
 mriver_seg['k'] = new_k
 mriver_seg['active'] = active
