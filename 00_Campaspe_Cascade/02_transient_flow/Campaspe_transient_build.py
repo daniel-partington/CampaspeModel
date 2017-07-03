@@ -828,9 +828,14 @@ bores_obs_time_series = resample_obs_time_series_to_model_data_index(
                             fill='none')
                                
 # For the weigts of observations we need to specify them as 1/sigma, where sigma is the standard deviation of measurement error
-tr_model.observations.set_as_observations('head', bores_obs_time_series, bore_points3D, 
-                                          domain='porous', obs_type='head', units='mAHD', 
-                                          weights=1.0/0.2, by_zone=True)
+tr_model.observations.set_as_observations('head', 
+                                          bores_obs_time_series, 
+                                          bore_points3D, 
+                                          domain='porous', 
+                                          obs_type='head', 
+                                          units='mAHD', 
+                                          weights=1.0/0.2, 
+                                          by_zone=True)
 
 bores_in_layers = tr_model.map_points_to_raster_layers(bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
 
@@ -943,8 +948,10 @@ C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']
 C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
 C14_bore_points3D.rename(columns={'zone55_easting':'Easting', 'zone55_northing':'Northing'}, inplace=True)
 
-tr_model.observations.set_as_observations('C14', C14_obs_time_series, \
-                                          C14_bore_points3D, domain='porous', \
+tr_model.observations.set_as_observations('C14', 
+                                          C14_obs_time_series, \
+                                          C14_bore_points3D, 
+                                          domain='porous', \
                                           obs_type='concentration', \
                                           units='pMC', \
                                           weights=1.0/5.0)
@@ -1126,7 +1133,7 @@ tr_model.GISInterface.raster_reproject_by_grid(surface_raster_high_res,
 surface_raster_high_res = surface_raster_high_res[:-4] + '_reproj.tif'
 
 
-tr_model.map_points_to_grid(river_gauges, feature_id='Site_Name')
+tr_model.map_points_to_grid(river_gauges, feature_id='Site Name')
 
 Campaspe_river_gauges = tr_model.points_mapped['processed_river_sites_stage_clipped.shp']
 
@@ -1241,6 +1248,139 @@ river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda
 river_seg_group = river_seg.groupby(by='amalg_riv_points_tuple').count()
 river_seg_group = river_seg_group[river_seg_group['amalg_riv_points'] > 1]
 
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# THINGS THAT NEED TO BE DONE FOR EACH COLUMN OF river_seg WHEN MERGING ROW
+# BASED ON THE merge_group:
+# For some testing
+#
+#  strtop = average weighted by rchlen
+#  rchlen = sum()
+#  amalg_riv_points = first entry
+#  Cumulative length = last entry
+#  strtop_raw = average weighted by rchlen
+#  slope = average weighted by rchlen
+#  k = first entry  
+#  i = first entry
+#  j = first entry
+#  amalg_riv_points_collection = join lists of tuples into one
+#  strhc1 = average weighted by rchlen
+#  strthick = average weighted by rchlen
+#  amalg_riv_points_tuple = first entry
+#
+#  1. Create new row based on above rules
+#  2. Replace first row indexed in merge_group with new row
+#  3. Delete all other rows indexed in merge_group
+#
+river_seg2 = river_seg.copy()
+
+max_length = 3000.
+merge_row = []
+for ind in range(river_seg.shape[0]):
+    if ind == 0:
+        continue
+    elif ind == river_seg.shape[0] - 1:
+        prev = river_seg.iloc[ind - 1]    
+        curr = river_seg.iloc[ind]    
+    else:
+        prev = river_seg.iloc[ind - 1]    
+        curr = river_seg.iloc[ind]    
+        nexx = river_seg.iloc[ind + 1]
+        #def loc_tup(row):
+        #    return (row['i'], row['j'])
+        if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
+            if curr['rchlen'] < max_length:
+                merge_row += [ind]
+            
+from operator import itemgetter
+from itertools import groupby
+merge_row_consec = []
+for k, g in groupby(enumerate(merge_row), lambda (i,x):i-x):
+    merge_row_consec.append(map(itemgetter(1), g))    
+
+first_entry = lambda x: x[0]
+last_entry = lambda x: x[-1]
+flatten = lambda l: [item for sublist in l for item in sublist]
+
+for merge_group in merge_row_consec:
+    merge_group = [merge_group[0] - 1] + merge_group
+    merge_group = merge_group + [merge_group[-1] + 1] 
+    river_seg_temp = river_seg2.loc[merge_group]
+    rchlen_temp = river_seg_temp['rchlen']
+    rchlen_sum = rchlen_temp.sum()
+    rchlen_weights = rchlen_temp / rchlen_sum
+    def weighted(col):
+        return (col * rchlen_weights).sum()
+    
+    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
+    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
+    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
+    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
+    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
+    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
+    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
+    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
+    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
+    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
+    
+    river_seg2.drop(merge_group[1:], inplace=True)
+
+river_seg2.index = range(river_seg2.shape[0])
+
+min_length = 500.
+merge_row_too_short = []
+for ind in range(river_seg2.shape[0]):
+    if ind == 0:
+        continue
+    elif ind == river_seg2.shape[0] - 1:
+        prev = river_seg2.iloc[ind - 1]    
+        curr = river_seg2.iloc[ind]    
+    else:
+        prev = river_seg2.iloc[ind - 1]    
+        curr = river_seg2.iloc[ind]    
+        nexx = river_seg2.iloc[ind + 1]
+        if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
+            pass
+        else:
+            if curr['rchlen'] < min_length:
+                merge_row_too_short += [ind]
+
+merge_row_too_short_consec = []
+for k, g in groupby(enumerate(merge_row_too_short), lambda (i,x):i-x):
+    merge_row_too_short_consec.append(map(itemgetter(1), g))    
+
+for merge_group in merge_row_too_short_consec:
+    merge_group = [merge_group[0] - 1] + merge_group
+    #merge_group = merge_group + [merge_group[-1] + 1] 
+    river_seg_temp = river_seg2.loc[merge_group]
+    rchlen_temp = river_seg_temp['rchlen']
+    rchlen_sum = rchlen_temp.sum()
+    rchlen_weights = rchlen_temp / rchlen_sum
+    def weighted(col):
+        return (col * rchlen_weights).sum()
+    
+    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
+    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
+    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
+    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
+    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
+    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
+    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
+    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
+    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
+    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
+    
+    river_seg2.drop(merge_group[1], inplace=True)
+
+river_seg = river_seg2
+tr_model.river_mapping['Campaspe'] = river_seg
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
 already_defined = []
 old = []
 for row in river_seg.iterrows():
@@ -1268,13 +1408,13 @@ river_seg['k'] = new_k
 #river_seg.dropna(inplace=True)
 
 river_seg['ireach'] = 1
-#river_seg['iseg'] = river_seg.index + 1
 river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
 
+FieldData_info = FieldData.groupby('Name').first()[['Easting', 'Northing', 'Distance_Eppalock', 'Zone']]
                       
 # Set up bed elevations based on the gauge zero levels:
 gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
-field_points = [x for x in zip(FieldData.Easting, FieldData.Northing)]
+field_points = [x for x in zip(FieldData_info.Easting, FieldData_info.Northing)]
 
 river_gauge_seg = tr_model.get_closest_riv_segments('Campaspe', gauge_points)
 river_field_seg = tr_model.get_closest_riv_segments('Campaspe', field_points)
@@ -1282,7 +1422,7 @@ river_seg.loc[:, 'bed_from_gauge'] = np.nan
 
 Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
 Campaspe['seg_loc'] = river_gauge_seg 
-FieldData['seg_loc'] = river_field_seg        
+FieldData_info['seg_loc'] = river_field_seg        
 Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # There are two values at the Campaspe weir, while it would be ideal to split the
 # reach here it will cause problems for the segment
@@ -1423,36 +1563,209 @@ print "************************************************************************"
 print " Creating Campaspe river observations for stage and discharge at "
 print " locations downstream of Lake Eppalock"
 
-#relevant_river_flow_stations = [key for key in river_flow_data.keys() if key not in [406207]]
-#relevant_river_stage_stations = [key for key in river_stage_data.keys() if key not in [406218]]
-#
-##obs_start, obs_end = datetime.datetime
-#
-#for station in relevant_river_flow_stations:
-#    time_series = None
-#    locations = None
-#    tr_model.observations.set_as_observations('Campase_riv_stage', time_series, locations, domain='stream', obs_type='stage', units='mAHD') 
-#    
-#for station in relevant_river_flow_stations:
-#    river_stage_data[0][station]    
-    
-#for index, riv in enumerate(new_riv):
-#    # Create logical array to identify those which are gauges and those which are not
-#    if riv[0] in filter_gauge_loc:
-#        riv_gauge_logical[index] = True
-#        gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-#        print filter_gauges[gauge_ind[0]][1][0]                     
+Campaspe_info = Campaspe
+Campaspe_info.index = Campaspe_info['Site Id']
+Campaspe_info = Campaspe_info[['Easting', 'Northing', 'Site Name', 'seg_loc']]
 
+Campaspe_flow_sites_list = Campaspe['Site Id'].tolist()
+ 
+# Vic Government stream gauges:
+stage_time_series = pd.DataFrame()
+for key in river_stage_data[0].keys():
+    # Ignore 406207 Lake Eppalock    
+    if key == 406207:
+        continue
+    elif key not in Campaspe_flow_sites_list:
+        continue
+    # end if
+    site_ts = river_stage_data[0][key].copy()
+    site_ts.loc[:, 'name'] = key
+    site_ts['datetime'] = site_ts.index
+    site_ts.index = range(site_ts.shape[0])
+    site_ts.rename(columns={'Mean':'value'}, inplace=True)
+    #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    # NO FILTERING ON "Qual" AT THIS TIME SO BAD DATA ARE POSSIBLE!!!
+    site_ts = site_ts[['name', 'value', 'datetime']]
+    stage_time_series = pd.concat([stage_time_series, site_ts])
+    
+# Now to resample the time series to get the mean stage within a time interval
+stage_time_series_resampled = resample_obs_time_series_to_model_data_index(
+                                  stage_time_series, 
+                                  date_index, 
+                                  frequencies, 
+                                  date_group, 
+                                  fill='none')
+    
+tr_model.observations.set_as_observations('stage', 
+                                          stage_time_series_resampled, 
+                                          Campaspe_info, 
+                                          domain='stream', 
+                                          obs_type='stage', 
+                                          units='mAHD', 
+                                          weights=1.0, 
+                                          real=True)
+
+discharge_time_series = pd.DataFrame()
+for key in river_flow_data.keys():
+    # Ignore 406207 Lake Eppalock    
+    if key == 406207:
+        continue
+    elif key not in Campaspe_flow_sites_list:
+        continue
+    # end if
+    # Ignore keys not from Campaspe river
+    site_ts = river_flow_data[key].copy()
+    site_ts.loc[:, 'name'] = key
+    site_ts['datetime'] = site_ts.index
+    site_ts.index = range(site_ts.shape[0])
+    site_ts.rename(columns={'Mean':'value'}, inplace=True)
+    #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    # NO FILTERING ON "Qual" AT THIS TIME SO BAD DATA ARE POSSIBLE!!!
+    site_ts = site_ts[['name', 'value', 'datetime']]
+    discharge_time_series = pd.concat([discharge_time_series, site_ts])
+
+# Now to resample the time series to get the mean discharge within a time interval
+discharge_time_series_resampled = resample_obs_time_series_to_model_data_index(
+                                  discharge_time_series, 
+                                  date_index, 
+                                  frequencies, 
+                                  date_group, 
+                                  fill='none')
+
+tr_model.observations.set_as_observations('discharge', 
+                                          discharge_time_series_resampled, 
+                                          Campaspe_info, 
+                                          domain='stream', 
+                                          obs_type='discharge', 
+                                          units='m3/d', 
+                                          weights=1.0, 
+                                          real=True)    
+
+    
+
+# Field data for stage and discharge
+field_discharge_time_series = FieldData[['Name', 'Flows_Field']]
+field_discharge_time_series.loc[:, 'datetime'] = field_discharge_time_series.index
+field_discharge_time_series.index = range(field_discharge_time_series.shape[0])
+field_discharge_time_series.rename(columns={'Name':'name', 'Flows_Field': 'value'}, inplace=True)
+field_discharge_time_series = field_discharge_time_series.dropna()
+# Ignore tributaries for now ...
+field_discharge_time_series = \
+    field_discharge_time_series[field_discharge_time_series['name'].str.contains('Camp')]
+
+# Convert data units in m3/s to that of model
+field_discharge_time_series['value'] = field_discharge_time_series['value'] * 86400.
+
+tr_model.observations.set_as_observations('field_discharge', 
+                                          field_discharge_time_series, 
+                                          FieldData_info, 
+                                          domain='stream', 
+                                          obs_type='discharge', 
+                                          units='m3/d', 
+                                          weights=1.0, 
+                                          real=True)
+
+field_stage_time_series = FieldData[['Name', 'Depth_Field']]
+field_stage_time_series.loc[:, 'datetime'] = field_stage_time_series.index
+field_stage_time_series.index = range(field_stage_time_series.shape[0])
+field_stage_time_series.rename(columns={'Name':'name', 'Depth_Field': 'value'}, inplace=True)
+field_stage_time_series = field_stage_time_series.dropna()
+# Ignore tributaries for now ...
+field_stage_time_series = field_stage_time_series[field_stage_time_series['name'].str.contains('Camp')]
+
+# NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
+
+tr_model.observations.set_as_observations('field_depth', 
+                                          field_stage_time_series, 
+                                          FieldData_info, 
+                                          domain='stream', 
+                                          obs_type='depth', 
+                                          units='m', 
+                                          weights=1.0, 
+                                          real=True)
 
 print "************************************************************************"
 print " Creating Campaspe river observations for EC at "
 print " locations downstream of Lake Eppalock"
+ec_time_series = pd.DataFrame()
+for key in river_ec_data.keys():
+    # Ignore 406219 Lake Eppalock    
+    if key == 406219:
+        continue
+    elif key not in Campaspe_flow_sites_list:
+        continue
+    # end if
+    site_ts = river_ec_data[key].copy()
+    site_ts.loc[:, 'name'] = key
+    site_ts['datetime'] = site_ts.index
+    site_ts.index = range(site_ts.shape[0])
+    site_ts.rename(columns={'Mean':'value'}, inplace=True)
+    #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    # NO FILTERING ON "Qual" AT THIS TIME SO BAD DATA ARE POSSIBLE!!!
+    site_ts = site_ts[['name', 'value', 'datetime']]
+    ec_time_series = pd.concat([ec_time_series, site_ts])
+
+# Now to resample the time series to get the mean discharge within a time interval
+ec_time_series_resampled = resample_obs_time_series_to_model_data_index(
+                                  ec_time_series, 
+                                  date_index, 
+                                  frequencies, 
+                                  date_group, 
+                                  fill='none')
+
+tr_model.observations.set_as_observations('stream_EC', 
+                                          ec_time_series_resampled, 
+                                          Campaspe_info, 
+                                          domain='stream', 
+                                          obs_type='EC', 
+                                          units='uS/cm', 
+                                          weights=1.0, 
+                                          real=True)    
+
+
+field_ec_time_series = FieldData[['Name', 'EC_Field']]
+field_ec_time_series.loc[:, 'datetime'] = field_ec_time_series.index
+field_ec_time_series.index = range(field_ec_time_series.shape[0])
+field_ec_time_series.rename(columns={'Name':'name', 'EC_Field': 'value'}, inplace=True)
+field_ec_time_series = field_ec_time_series.dropna()
+# Ignore tributaries for now ...
+field_ec_time_series = field_ec_time_series[field_ec_time_series['name'].str.contains('Camp')]
+
+# NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
+
+tr_model.observations.set_as_observations('stream_EC_field', 
+                                          field_ec_time_series, 
+                                          FieldData_info, 
+                                          domain='stream', 
+                                          obs_type='EC', 
+                                          units='uS/cm', 
+                                          weights=1.0, 
+                                          real=True)
 
 
 print "************************************************************************"
 print " Creating Campaspe river observations for Radon at "
 print " locations downstream of Lake Eppalock"
 
+radon_time_series = FieldData[['Name', 'Radon']]
+radon_time_series.loc[:, 'datetime'] = radon_time_series.index
+radon_time_series.index = range(radon_time_series.shape[0])
+radon_time_series.rename(columns={'Name':'name', 'Radon': 'value'}, inplace=True)
+radon_time_series = radon_time_series.dropna()
+# Ignore tributaries for now ...
+radon_time_series = radon_time_series[radon_time_series['name'].str.contains('Camp')]
+# Adjust units of Radon from Bq/l to mBq/l
+radon_time_series['value'] = radon_time_series['value'] * 1000.
+# NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
+
+tr_model.observations.set_as_observations('Radon', 
+                                          radon_time_series, 
+                                          FieldData_info, 
+                                          domain='stream', 
+                                          obs_type='Radon', 
+                                          units='Bq/l', 
+                                          weights=1.0, 
+                                          real=True)
 
    
    
@@ -1469,21 +1782,27 @@ def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, 
     different spatial and temporal periods
     '''
     if entries == 1:
-        name_list = '{}'.format(name), 
+        name_list = '{}'.format(name) 
     else:
         name_list = ['{}{}'.format(name, x) for x in range(0, entries)]
     # end if
     time_series = pd.DataFrame({'name': name_list, 
                                 'value':[0.0] * entries, 
-                                'datetime':pd.date_range(start=start, end=end, freq=freq)})
+                                'datetime':pd.date_range(start=start, end=end, freq=freq)[1:]})
     # Create zero weighted observations for model predictions of interest
-    tr_model.observations.set_as_observations(obs_name, time_series, riv_segs, domain='stream', 
-                                obs_type=obs_type, units='m^3/d', weights=0.0, real=False)
+    tr_model.observations.set_as_observations(obs_name, 
+                                              time_series, 
+                                              riv_segs, 
+                                              domain='stream', 
+                                              obs_type=obs_type, 
+                                              units='m^3/d', 
+                                              weights=0.0, 
+                                              real=False)
 
 # Create river spatial groups: Whole of river, reach by gauge, reach by segment
 entries = [1, 4, 12]
 names = ['a_swgw', 's_swgw', 'm_swgw']
-swgw_exch_obs_freqs = ['M', '3M', 'A']
+swgw_exch_obs_freqs = ['A-MAY', '3M', 'M']
 obs_names = ['nrf_a', 'nrf_s', 'nrf_m']
 obs_types = ['swgw_a', 'swgw_s', 'swgw_m']
 
@@ -1494,9 +1813,14 @@ obs_names_seg = ['srf_a', 'srf_s', 'srf_m']
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 for i in range(3):
-    create_obs_for_sw_gw_interaction(entries[i], names[i], fy_start, fy_end, 
-                                     swgw_exch_obs_freqs[i], river_seg['iseg'],
-                                     obs_names[i], obs_types[i])
+    create_obs_for_sw_gw_interaction(entries[i], 
+                                     names[i], 
+                                     fy_start, 
+                                     fy_end, 
+                                     swgw_exch_obs_freqs[i], 
+                                     river_seg['iseg'],
+                                     obs_names[i], 
+                                     obs_types[i])
     
 #swgw_exch_obs_spatial = 3 # whole of river, long reach, cell reach
 #
@@ -1508,8 +1832,24 @@ for i in range(3):
 print "************************************************************************"
 print " Creating Campaspe river boundary"
 
-tr_model.boundaries.create_model_boundary_condition('Campaspe River', 'river_flow', bc_static=False)
-tr_model.boundaries.assign_boundary_array('Campaspe River', [reach_data, seg_dict])
+tr_model.boundaries.create_model_boundary_condition('Campaspe River', 
+                                                    'river_flow', 
+                                                    bc_static=False)
+tr_model.boundaries.assign_boundary_array('Campaspe River', 
+                                          [reach_data, seg_dict])
+
+Eppalock_EC_ts = river_ec_data[406219]
+Eppalock_EC_ts_resampled = resample_to_model_data_index(Eppalock_EC_ts, 
+                                                        date_index, 
+                                                        frequencies, 
+                                                        date_group)
+
+tr_model.boundaries.create_model_boundary_condition('Eppalock_EC', 
+                                                    'river_ec', 
+                                                    bc_static=False)
+tr_model.boundaries.assign_boundary_array('Eppalock_EC', 
+                                          Eppalock_EC_ts_resampled)
+
 
 print "************************************************************************"
 print " Mapping Murray River to grid"
