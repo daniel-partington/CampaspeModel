@@ -153,6 +153,16 @@ df_C14 = pd.read_excel(C14data)
 df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
 df_C14.dropna(inplace=True)
 
+C14_half_life = 5730
+C14_lambda = np.log(2)/ 5730.
+C13_carbonate_signature = -2 # Could be from 0 to -2
+C13_recharge_signature = -18.5 # Cartright 2010, -15 to -25
+
+df_C14['a14C_corrected'] = df_C14['a14C(pMC)'] / ( 
+                           (df_C14['d13C'] - C13_carbonate_signature) / 
+                           (C13_recharge_signature - C13_carbonate_signature))
+df_C14['a14C_corrected'][df_C14['a14C_corrected'] > 100.] = 100.
+
 print "************************************************************************"
 print " Executing custom script: processRiverStations "
 
@@ -941,9 +951,9 @@ tr_model.boundaries.create_model_boundary_condition('C14_wells', 'wells', bc_sta
 tr_model.boundaries.assign_boundary_array('C14_wells', wel)
 
 C14_obs_time_series = df_C14.copy() 
-C14_obs_time_series = C14_obs_time_series[['Bore_id', 'a14C(pMC)']]
+C14_obs_time_series = C14_obs_time_series[['Bore_id', 'a14C_corrected']]
 C14_obs_time_series['datetime'] = pd.to_datetime(datetime.date(2015,12,30))
-C14_obs_time_series.rename(columns={'Bore_id':'name', 'a14C(pMC)':'value'}, inplace=True)
+C14_obs_time_series.rename(columns={'Bore_id':'name', 'a14C_corrected':'value'}, inplace=True)
 C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']]
 C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
 C14_bore_points3D.rename(columns={'zone55_easting':'Easting', 'zone55_northing':'Northing'}, inplace=True)
