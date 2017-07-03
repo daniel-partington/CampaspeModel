@@ -165,11 +165,11 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     rch_zones = len(rch_zone_dict.keys())
 
-#    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
-#                     for i in range(rch_zones - 1)]
-
-    par_rech_vals = [0.02 \
+    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
                      for i in range(rch_zones - 1)]
+
+#    par_rech_vals = [0.02 \
+#                     for i in range(rch_zones - 1)]
 
     def update_recharge(vals):
         for key in interp_rain.keys():
@@ -300,6 +300,9 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     modflow_model = flopyInterface.ModflowModel(m, data_folder=data_folder)
 
     modflow_model.executable = mf_exe_folder
+
+    modflow_model.headtol = 1E-6
+    modflow_model.fluxtol = 0.001
 
     modflow_model.buildMODFLOW(transport=True, write=True, verbose=True, check=False)
 

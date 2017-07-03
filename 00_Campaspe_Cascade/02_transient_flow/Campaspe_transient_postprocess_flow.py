@@ -112,7 +112,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     field_sampling = [datetime.datetime(2016,03,31),
                       datetime.datetime(2016,12,31),
                       datetime.datetime(2017,04,30)]
-    for i in range(xnx0,33): #sfr_df['time'].max()):
+    for i in range(0,33): #sfr_df['time'].max()):
         if date_index[i] in field_sampling:    
             df = sfr_df[sfr_df['time'] == i]
             #df.to_csv(r"C:\Workspace\part0075\badRn.csv")

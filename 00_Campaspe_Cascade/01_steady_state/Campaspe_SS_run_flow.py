@@ -163,11 +163,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 
     rch_zones = len(rch_zone_dict.keys())
 
-#    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
-#                     for i in range(rch_zones - 1)]
-
-    par_rech_vals = [0.001 \
+    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
                      for i in range(rch_zones - 1)]
+
+#    par_rech_vals = [0.001 \
+#                     for i in range(rch_zones - 1)]
 
 
     def update_recharge(vals):
@@ -199,7 +199,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         dx = m.gridHeight
         dz = m.model_mesh3D[0][lay][row][col] - \
             m.model_mesh3D[0][lay + 1][row][col]
-        MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1'] / 10000.
+        MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1'] #/ 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
         
 

@@ -100,48 +100,49 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     for per in range(modflow_model.nper):
         crch[per] = []
 
-    for boundary in modflow_model.model_data.boundaries.bc:
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'recharge':
-            for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
-                crch[key] = np.ones_like(modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key])               
+    bcs = modflow_model.model_data.boundaries.bc
+
+    for boundary in bcs:
+        if bcs[boundary]['bc_type'] == 'recharge':
+            for key in bcs[boundary]['bc_array'].keys():
+                crch[key] = np.ones_like(bcs[boundary]['bc_array'][key])               
                 crch[key] = crch[key] * 100.0
                 crch[key][ibound[0]==0] = 0.0
         #if self.model_data.boundaries.bc[boundary]['bc_type'] == 'river':
         #    self.createRIVpackage(self.model_data.boundaries.bc[boundary]['bc_array'])
             
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'wells':
-            for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
-                for well in modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key]:
+        if bcs[boundary]['bc_type'] == 'wells':
+            for key in bcs[boundary]['bc_array'].keys():
+                for well in bcs[boundary]['bc_array'][key]:
                     ssm_data[key].append((well[0], well[1], well[2], 100.0, itype['WEL']))
                     
         #if self.model_data.boundaries.bc[boundary]['bc_type'] == 'drain':
         #    self.model_data.boundaries.bc[boundary]['bc_array']
 
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'general head':
-            #modflow_model.model_data.boundaries.bc[boundary]['bc_array']
-            for key in modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys():
-                for ghb in modflow_model.model_data.boundaries.bc[boundary]['bc_array'][key]:
+        if bcs[boundary]['bc_type'] == 'general head':
+            for key in bcs[boundary]['bc_array'].keys():
+                for ghb in bcs[boundary]['bc_array'][key]:
                     ssm_data[key].append((ghb[0], ghb[1], ghb[2], 0.0, itype['GHB']))
 
     river_exists = False
     river_flow_exists = False
-    for boundary in modflow_model.model_data.boundaries.bc:
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'river':
+    for boundary in bcs:
+        if bcs[boundary]['bc_type'] == 'river':
             river_exists = True
-        if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'river_flow':
+        if bcs[boundary]['bc_type'] == 'river_flow':
             river_flow_exists = True
-            stream_flow_bc = modflow_model.model_data.boundaries.bc[boundary]['bc_array']
+            stream_flow_bc = bcs[boundary]['bc_array']
     
     if river_exists:
         river = {}
         river[0] = []
-        for boundary in modflow_model.model_data.boundaries.bc:
-            if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'river':
-                time_key = modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys()[0]
-                river[0] += modflow_model.model_data.boundaries.bc[boundary]['bc_array'][time_key]
-            if modflow_model.model_data.boundaries.bc[boundary]['bc_type'] == 'channel':
-                time_key = modflow_model.model_data.boundaries.bc[boundary]['bc_array'].keys()[0]
-                river[0] += modflow_model.model_data.boundaries.bc[boundary]['bc_array'][time_key]
+        for boundary in bcs:
+            if bcs[boundary]['bc_type'] == 'river':
+                time_key = bcs[boundary]['bc_array'].keys()[0]
+                river[0] += bcs[boundary]['bc_array'][time_key]
+            if bcs[boundary]['bc_type'] == 'channel':
+                time_key = bcs[boundary]['bc_array'].keys()[0]
+                river[0] += bcs[boundary]['bc_array'][time_key]
         
         for key in river.keys():
             for riv in river[key]:
