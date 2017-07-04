@@ -146,19 +146,37 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
             for key in bc_array.keys():
                 for well in bc_array[key]:
                     ssm_data[key].append((well[0], well[1], well[2], 
-                                          100.0, itype['WEL']))
-                    
+                                          0.0, itype['WEL']))
+            max_sp = max(bc_array.keys())
+            if max_sp < modflow_model.nper - 1:
+                for per in range(max_sp + 1, modflow_model.nper):
+                    for well in bc_array[max_sp]:
+                        ssm_data[per].append((well[0], well[1], well[2], 
+                                              0.0, itype['WEL']))
+
         if bc_type == 'drain':
             for key in bc_array.keys():
                 for drain in bc_array[key]:
                     ssm_data[key].append((drain[0], drain[1], drain[2], 
-                                          100.0, itype['DRN']))
+                                          0.0, itype['DRN']))
+            max_sp = max(bc_array.keys())
+            if max_sp < modflow_model.nper - 1:
+                for per in range(max_sp + 1, modflow_model.nper):
+                    for drain in bc_array[max_sp]:
+                        ssm_data[per].append((drain[0], drain[1], drain[2], 
+                                              0.0, itype['DRN']))
 
         if bc_type == 'general head':
             for key in bc_array.keys():
                 for ghb in bc_array[key]:
                     ssm_data[key].append((ghb[0], ghb[1], ghb[2], 
                                           0.0, itype['GHB']))
+            max_sp = max(bc_array.keys())
+            if max_sp < modflow_model.nper - 1:
+                for per in range(max_sp + 1, modflow_model.nper):
+                    for ghb in bc_array[max_sp]:
+                        ssm_data[per].append((ghb[0], ghb[1], ghb[2], 
+                                              0.0, itype['GHB']))
 
     river_exists = False
     river_flow_exists = False
@@ -177,6 +195,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         river = {}
         river[0] = []
         for boundary in bc:
+            bc_boundary = bc[boundary]
             bc_type = bc_boundary['bc_type']
             bc_array = bc_boundary['bc_array']
             if bc_type == 'river':
@@ -190,6 +209,12 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
             for riv in river[key]:
                 ssm_data[key].append((riv[0], riv[1], riv[2], 
                                       100.0, itype['RIV'])) 
+            max_sp = max(river.keys())
+            if max_sp < modflow_model.nper - 1:
+                for per in range(max_sp + 1, modflow_model.nper):
+                    for riv in river[max_sp]:
+                        ssm_data[per].append((riv[0], riv[1], riv[2], 
+                                              100.0, itype['RIV']))
 
     if river_flow_exists:
         if verbose:
@@ -199,7 +224,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         seg_len = np.unique(stream_flow_bc[0]['iseg'], return_counts=True)
         obs_sf = np.cumsum(seg_len[1])
         obs_sf = obs_sf.tolist()
-        sf_stress_period_data = {0: [0, 0, 50]}
+        sf_stress_period_data = {0: [0, 0, 100.]}
         gage_output = None
         dispsf = m.parameters.param['sfdisp']['PARVAL1']        
         
@@ -216,7 +241,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                            mxitersf=10, # Maximum number of iterations for the SFT solver
                            crntsf=1.0,  # Courant constraint specific to SFT
                            iprtxmd=0, # flag to print SFT solution info to standard output file (0 = print nothing)
-                           coldsf=3.7, # Initial concentration in the stream network (can also be specified as an array for each reach)
+                           coldsf=100., # Initial concentration in the stream network (can also be specified as an array for each reach)
                            dispsf=dispsf, # Dispersivity in each stream reach
                            nobssf=len(obs_sf), #, 
                            obs_sf=obs_sf, 
