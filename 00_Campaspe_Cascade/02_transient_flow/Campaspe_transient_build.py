@@ -1642,7 +1642,7 @@ discharge_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   date_group, 
                                   fill='none')
 
-tr_model.observations.set_as_observations('discharge', 
+tr_model.observations.set_as_observations('gflow', 
                                           discharge_time_series_resampled, 
                                           Campaspe_info, 
                                           domain='stream', 
@@ -1666,7 +1666,7 @@ field_discharge_time_series = \
 # Convert data units in m3/s to that of model
 field_discharge_time_series['value'] = field_discharge_time_series['value'] * 86400.
 
-tr_model.observations.set_as_observations('field_discharge', 
+tr_model.observations.set_as_observations('fflow', 
                                           field_discharge_time_series, 
                                           FieldData_info, 
                                           domain='stream', 
@@ -1685,7 +1685,7 @@ field_stage_time_series = field_stage_time_series[field_stage_time_series['name'
 
 # NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
 
-tr_model.observations.set_as_observations('field_depth', 
+tr_model.observations.set_as_observations('fdepth', 
                                           field_stage_time_series, 
                                           FieldData_info, 
                                           domain='stream', 
@@ -1723,7 +1723,7 @@ ec_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   date_group, 
                                   fill='none')
 
-tr_model.observations.set_as_observations('stream_EC', 
+tr_model.observations.set_as_observations('gstrec', 
                                           ec_time_series_resampled, 
                                           Campaspe_info, 
                                           domain='stream', 
@@ -1743,7 +1743,7 @@ field_ec_time_series = field_ec_time_series[field_ec_time_series['name'].str.con
 
 # NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
 
-tr_model.observations.set_as_observations('stream_EC_field', 
+tr_model.observations.set_as_observations('fstrec', 
                                           field_ec_time_series, 
                                           FieldData_info, 
                                           domain='stream', 
@@ -1768,7 +1768,7 @@ radon_time_series = radon_time_series[radon_time_series['name'].str.contains('Ca
 radon_time_series['value'] = radon_time_series['value'] * 1000.
 # NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
 
-tr_model.observations.set_as_observations('Radon', 
+tr_model.observations.set_as_observations('radon', 
                                           radon_time_series, 
                                           FieldData_info, 
                                           domain='stream', 
@@ -1780,7 +1780,7 @@ tr_model.observations.set_as_observations('Radon',
    
    
 print "************************************************************************"
-print " Creating Campaspe river simulated observations for data worth analysis"
+print " Creating Campaspe river simulated exchange observations for data worth analysis"
    
 fy_start = end - datetime.timedelta(days=365)
 fy_end = end 
@@ -1813,14 +1813,8 @@ def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, 
 entries = [1, 4, 12]
 names = ['a_swgw', 's_swgw', 'm_swgw']
 swgw_exch_obs_freqs = ['A-MAY', '3M', 'M']
-obs_names = ['nrf_a', 'nrf_s', 'nrf_m']
+obs_names_whole = ['nrf_a', 'nrf_s', 'nrf_m']
 obs_types = ['swgw_a', 'swgw_s', 'swgw_m']
-
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# TODO: Implement spatial scales too ...
-obs_names_g2g_reach = ['rrf_a', 'rrf_s', 'rrf_m']
-obs_names_seg = ['srf_a', 'srf_s', 'srf_m']
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 for i in range(3):
     create_obs_for_sw_gw_interaction(entries[i], 
@@ -1829,8 +1823,41 @@ for i in range(3):
                                      fy_end, 
                                      swgw_exch_obs_freqs[i], 
                                      river_seg['iseg'],
-                                     obs_names[i], 
+                                     obs_names_whole[i], 
                                      obs_types[i])
+
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+# TODO: Implement spatial scales too ...
+# rrf = reach river flux
+# srf = segment river flux
+obs_names_g2g_reach = ['rrf_a', 'rrf_s', 'rrf_m']
+# Create reaches based on locations of gauging stations:
+gauge_locations = np.sort(Campaspe_info['seg_loc'].unique())
+reach_no = range(len(gauge_locations))
+river_seg['reach'] = np.nan    
+river_seg.loc[river_seg['iseg'].isin(gauge_locations), 'reach'] = reach_no         
+river_seg['reach'].fillna(method='ffill', inplace=True)
+river_seg['reach'].astype(int, inplace=True)
+river_segs_reach = [river_seg['iseg'][river_seg['reach'] == x].tolist() for x in reach_no]
+
+obs_names_seg = ['srf_a', 'srf_s', 'srf_m']
+river_segs_seg = [[x] for x in river_seg['iseg']]
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+for reach in reach_no:
+    entries_reach = entries
+    names_reach = [x + str(reach) for x in names]
+    obs_names_reach = [x + str(reach) for x in obs_names_g2g_reach]
+    obs_types_reach = [x + "r" for x in obs_types]
+    for i in range(3):
+        create_obs_for_sw_gw_interaction(entries_reach[i], 
+                                         names_reach[i], 
+                                         fy_start, 
+                                         fy_end, 
+                                         swgw_exch_obs_freqs[i], 
+                                         river_segs_reach[reach],
+                                         obs_names_reach[i], 
+                                         obs_types_reach[i])
     
 #swgw_exch_obs_spatial = 3 # whole of river, long reach, cell reach
 #
@@ -2288,12 +2315,12 @@ tr_model.parameters.parameter_options('disp',
                                       OFFSET=0)
 
 # Parameters for the SFT model
-tr_model.parameters.create_model_parameter('sfdisp', value=0.01)
+tr_model.parameters.create_model_parameter('sfdisp', value=100)
 tr_model.parameters.parameter_options('sfdisp', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-5, 
-                                      PARUBND=100., 
+                                      PARUBND=1000., 
                                       PARGP='ec', 
                                       SCALE=1, 
                                       OFFSET=0)
