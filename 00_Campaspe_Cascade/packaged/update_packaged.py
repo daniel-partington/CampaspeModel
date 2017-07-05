@@ -27,8 +27,10 @@ for fil in files:
 pp_folds = [x for x in [y for y in glob.glob(path + '/*/**/***')] if (('pilot_points' in x) & ('.pkl' not in x))]       
     
 for folder in pp_folds:
+    print folder
     folder2 = folder.split('\\')[-2]
-    to_dir = os.path.join(cwd, folder2, "pilot_points")
+    folder3 = folder.split('\\')[-1]
+    to_dir = os.path.join(cwd, folder2, folder3) #, "pilot_points")
     if os.path.exists(to_dir):
         shutil.rmtree(to_dir)
         
