@@ -1,9 +1,5 @@
 import sys
 import os
-import shutil
-import time
-#import sys
-#sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
 import numpy as np
 import flopy.utils.binaryfile as bf
@@ -31,51 +27,10 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating HGU parameters "
     
-    # This needs to be automatically generated with the map_raster2mesh routine ...
-    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
-
-    default_array = m.model_mesh3D[1].astype(float)
-    Zone = np.copy(default_array)
-    Kh = np.copy(default_array)
-    Kv = np.copy(default_array)
-    Sy = np.copy(default_array)
-    SS = np.copy(default_array)
-    
-    def create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m):
-        points_values_dict = {}
-        for index, key in enumerate(zone_map.keys()):
-            for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
-                if index2 == 0:
-                    points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
-                else: 
-                    points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
-        return points_values_dict    
-
-    def update_pilot_points(zone_map, Zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
-        points_values_dict = create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m)
-        p = m.pilot_points[par_name]
-        zones = len(zone_map.keys())
-        p.output_directory = os.path.join(data_folder, prop_folder)
-        p.update_pilot_points_files_by_zones(zones, points_values_dict)
-        time.sleep(3)
-        p.run_pyfac2real_by_zones(zones) 
-        p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
-        return p.val_array
-
-    Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh_', 'hk_pilot_points',
-                             m, 'hk_val_array')              
-    m.save_array(os.path.join(data_folder, 'Kh'), Kh)
-
-    Kv = Kh * 0.1
-    m.save_array(os.path.join(data_folder, 'Kv'), Kv)
-
-    Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
-                             m, 'sy_val_array')              
-    m.save_array(os.path.join(data_folder, 'Sy'), Sy)
-    
-    SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
-                             m, 'ss_val_array')              
-    m.save_array(os.path.join(data_folder, 'SS'), SS)
+    Kh = m.load_array(os.path.join(data_folder, 'Kh.npy'))
+    Kv = m.load_array(os.path.join(data_folder, 'Kv.npy'))
+    Sy = m.load_array(os.path.join(data_folder, 'Sy.npy'))
+    SS = m.load_array(os.path.join(data_folder, 'SS.npy'))
 
     m.properties.update_model_properties('Kh', Kh)
     m.properties.update_model_properties('Kv', Kv)
@@ -304,7 +259,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     modflow_model.headtol = 1E-6
     modflow_model.fluxtol = 0.001
 
-    modflow_model.buildMODFLOW(transport=True, write=True, verbose=True, check=False)
+    modflow_model.buildMODFLOW(transport=True, write=True, verbose=False, check=False)
 
     modflow_model.runMODFLOW(silent=True)
 
@@ -317,7 +272,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
         modflow_model.writeObservations()
 
-    modflow_model.waterBalanceTS()
+    #modflow_model.waterBalanceTS()
 
     #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     #^^^ MODEL PREDICTIONS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -376,8 +331,6 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
                 sim_obs = sfr.loc[observation[1]['datetime']]
                 f.write('%f\n' % sim_obs)                
     
-#    Campaspe_riv_flux = modflow_model.getRiverFlux('Campaspe River')
-        
     #modflow_model.compareAllObs()
 
     return modflow_model

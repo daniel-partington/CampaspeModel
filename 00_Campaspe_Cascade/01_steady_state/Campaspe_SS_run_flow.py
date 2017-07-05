@@ -59,7 +59,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         p.update_pilot_points_files_by_zones(zones, points_values_dict)
         time.sleep(3)
         p.run_pyfac2real_by_zones(zones) 
-        p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
+        #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
         return p.val_array
 
     Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh_', 'hk_pilot_points',
@@ -71,16 +71,21 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 
     Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
                              m, 'sy_val_array')
+    Sy[Sy == 1] = 0.25
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
     SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
                              m, 'ss_val_array')
+    SS[SS == 1] = 1E-5
     m.save_array(os.path.join(data_folder, 'SS'), SS)
+
 
     m.properties.update_model_properties('Kh', Kh)
     m.properties.update_model_properties('Kv', Kv)
     m.properties.update_model_properties('Sy', Sy)
     m.properties.update_model_properties('SS', SS)
+
+
 
     if verbose:
         print "************************************************************************"
@@ -267,9 +272,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 
         modflow_model.executable = mf_exe_folder
     
-        modflow_model.buildMODFLOW(transport=True, verbose=True, check=True)
-    
-        #modflow_model.checkMODFLOW()
+        modflow_model.buildMODFLOW(transport=True, verbose=verbose, check=False)
     
         converge = modflow_model.runMODFLOW(silent=True)
     
@@ -356,18 +359,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                                 data_folder)
                     break
                 
-    if converge:
-        modflow_model.waterBalance()
-        modflow_model.viewGHB()
-        modflow_model.viewHeads()
-        modflow_model.viewHeads2()
+#    if converge:
+#        modflow_model.waterBalance()
+#        modflow_model.viewGHB()
+#        modflow_model.viewHeads()
+#        modflow_model.viewHeads2()
         #modflow_model.viewHeadsByZone()
         #modflow_model.viewHeadLayer(figsize=(20,10))
   
 
 if __name__ == "__main__":
 
-    verbose = True
+    verbose = False
                     
     args = sys.argv
     if len(args) > 1:

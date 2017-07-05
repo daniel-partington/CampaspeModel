@@ -44,10 +44,11 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
     modflow_model.steady = True # This is to tell FloPy that is a steady model ... or not
     
-    modflow_model.buildMODFLOW(transport=True) #, write=True)
+    modflow_model.buildMODFLOW(transport=True, verbose=False, write=False) #, write=True)
 
     mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name + '_transport', 
                            ftlfilename='mt3d_link.ftl', 
+                           ftlfree=True,
                            modflowmodel=modflow_model.mf, 
                            model_ws=modflow_model.data_folder, 
                            exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
@@ -108,17 +109,12 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                 crch[key] = np.ones_like(bcs[boundary]['bc_array'][key])               
                 crch[key] = crch[key] * 100.0
                 crch[key][ibound[0]==0] = 0.0
-        #if self.model_data.boundaries.bc[boundary]['bc_type'] == 'river':
-        #    self.createRIVpackage(self.model_data.boundaries.bc[boundary]['bc_array'])
             
         if bcs[boundary]['bc_type'] == 'wells':
             for key in bcs[boundary]['bc_array'].keys():
                 for well in bcs[boundary]['bc_array'][key]:
                     ssm_data[key].append((well[0], well[1], well[2], 100.0, itype['WEL']))
                     
-        #if self.model_data.boundaries.bc[boundary]['bc_type'] == 'drain':
-        #    self.model_data.boundaries.bc[boundary]['bc_array']
-
         if bcs[boundary]['bc_type'] == 'general head':
             for key in bcs[boundary]['bc_array'].keys():
                 for ghb in bcs[boundary]['bc_array'][key]:
