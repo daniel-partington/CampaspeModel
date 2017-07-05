@@ -29,8 +29,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    #if param_file:
-    #    MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+    if param_file:
+        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
 
     if verbose:
         print "************************************************************************"
