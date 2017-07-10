@@ -206,7 +206,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             m.model_mesh3D[0][lay + 1][row][col]
         MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1'] #/ 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
-        
 
     ghb = {}
     ghb[0] = MurrayGHB

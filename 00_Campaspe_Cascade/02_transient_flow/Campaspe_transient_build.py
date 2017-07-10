@@ -1312,7 +1312,9 @@ last_entry = lambda x: x[-1]
 flatten = lambda l: [item for sublist in l for item in sublist]
 
 for merge_group in merge_row_consec:
-    merge_group = [merge_group[0] - 1] + merge_group
+    index_list = river_seg2.index.tolist()
+    index_dict = {x:index for index, x in enumerate(index_list)}
+    merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
     merge_group = merge_group + [merge_group[-1] + 1] 
     river_seg_temp = river_seg2.loc[merge_group]
     rchlen_temp = river_seg_temp['rchlen']
@@ -1362,7 +1364,9 @@ for k, g in groupby(enumerate(merge_row_too_short), lambda (i,x):i-x):
     merge_row_too_short_consec.append(map(itemgetter(1), g))    
 
 for merge_group in merge_row_too_short_consec:
-    merge_group = [merge_group[0] - 1] + merge_group
+    index_list = river_seg2.index.tolist()
+    index_dict = {x:index for index, x in enumerate(index_list)}
+    merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
     #merge_group = merge_group + [merge_group[-1] + 1] 
     river_seg_temp = river_seg2.loc[merge_group]
     rchlen_temp = river_seg_temp['rchlen']
@@ -1497,7 +1501,6 @@ reach_data = reach_df.to_records(index=False)
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 nseg = river_seg['iseg'].tolist()
-icalc = [1] * len(nseg)
 outseg = river_seg['iseg'] + 1
 outseg = outseg.tolist()
 outseg[-1] = 0
@@ -1663,7 +1666,7 @@ field_discharge_time_series = field_discharge_time_series.dropna()
 field_discharge_time_series = \
     field_discharge_time_series[field_discharge_time_series['name'].str.contains('Camp')]
 
-# Convert data units in m3/s to that of model
+# Convert data units in m3/s to that of model, i.e. m3/d
 field_discharge_time_series['value'] = field_discharge_time_series['value'] * 86400.
 
 tr_model.observations.set_as_observations('fflow', 
@@ -1865,6 +1868,30 @@ for reach in reach_no:
 #    for swgw_exch_obs_space in swgw_exch_obs_spatial:
 #        create_obs_for_sw_gw_interaction
 
+# These are the "Tableau 20" colors as RGB.    
+import matplotlib.pyplot as plt
+colors = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
+             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
+             (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
+             (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
+             (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]    
+  
+# Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
+for i in range(len(colors)):    
+    r, g, b = colors[i]    
+    colors[i] = (r / 255., g / 255., b / 255.)    
+    
+fig = plt.figure(figsize=(2.5,5))
+for index, reach in enumerate(river_segs_reach[1:]):
+    reach_river = river_seg[river_seg['iseg'].isin(reach)]
+    points = [x for x in reach_river['amalg_riv_points_collection']]
+    points = flatten(points)
+    x_points = [x[0] for x in points]
+    y_points = [y[1] for y in points]    
+    plt.plot(x_points, y_points, color=colors[index], label=str(index + 1))
+plt.legend()
+plt.tight_layout()
+plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master_Colossus3\river_reaches.png")
 
 print "************************************************************************"
 print " Creating Campaspe river boundary"

@@ -261,9 +261,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     modflow_model.buildMODFLOW(transport=True, write=True, verbose=False, check=False)
 
-    modflow_model.runMODFLOW(silent=True)
-
-    converge = modflow_model.checkConvergence()
+    converge = modflow_model.runMODFLOW(silent=True)
 
     if converge:
         if verbose:

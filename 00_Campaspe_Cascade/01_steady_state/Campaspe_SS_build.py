@@ -164,7 +164,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 5000
+resolution = 1000
 SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
@@ -656,7 +656,9 @@ last_entry = lambda x: x[-1]
 flatten = lambda l: [item for sublist in l for item in sublist]
 
 for merge_group in merge_row_consec:
-    merge_group = [merge_group[0] - 1] + merge_group
+    index_list = river_seg2.index.tolist()
+    index_dict = {x:index for index, x in enumerate(index_list)}
+    merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
     merge_group = merge_group + [merge_group[-1] + 1] 
     river_seg_temp = river_seg2.loc[merge_group]
     rchlen_temp = river_seg_temp['rchlen']
@@ -706,7 +708,9 @@ for k, g in groupby(enumerate(merge_row_too_short), lambda (i,x):i-x):
     merge_row_too_short_consec.append(map(itemgetter(1), g))    
 
 for merge_group in merge_row_too_short_consec:
-    merge_group = [merge_group[0] - 1] + merge_group
+    index_list = river_seg2.index.tolist()
+    index_dict = {x:index for index, x in enumerate(index_list)}
+    merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
     #merge_group = merge_group + [merge_group[-1] + 1] 
     river_seg_temp = river_seg2.loc[merge_group]
     rchlen_temp = river_seg_temp['rchlen']
