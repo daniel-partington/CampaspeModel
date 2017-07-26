@@ -380,10 +380,7 @@ zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bs
 mesh3D_0 = SS_model.model_mesh3D[0]
 mesh3D_1 = SS_model.model_mesh3D[1]
 
-Kh = Kv = Sy = SS = mesh3D_1.astype(float)
-# Kv = mesh3D_1.astype(float)
-# Sy = mesh3D_1.astype(float)
-# SS = mesh3D_1.astype(float)
+Kh, Kv, Sy, SS = [mesh3D_1.astype(float) for x in range(4)]
 for key in zone_map.keys():
     z_map_key = zone_map[key]
     Kh[Kh == key] = SSparams.param['Kh_' + z_map_key]['PARVAL1']
@@ -1003,6 +1000,16 @@ with open(link_file, 'r') as model_link:
 with open(os.path.join(data_folder, "model_linking.csv"), 'w') as model_link:
     model_link.writelines(tmp)
 # End with
+
+
+# Setup the outputs for head based on location of stream gauges
+#SS_model.observations.set_as_observations('head_stream_gauge', str_time_series, 
+#                                          new_riv_cells, domain='surface', 
+#                                          obs_type='head', units='m^3/d', 
+#                                          weights=0.0, real=False)
+
+
+
 
 # Visuals checks on getting nearest mapped bore from top layer for the ecology part:
 if VERBOSE:
