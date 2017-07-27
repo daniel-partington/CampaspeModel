@@ -286,7 +286,7 @@ SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu
 hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", "utam_1t", "utam_2b",
                    "utaf_1t", "utaf_2b", "lta_1t", "lta_2b", "bse_1t", "bse_2b.tif"]
 SS_model.read_rasters(hu_raster_files, path=hu_raster_path)
-hu_raster_files_reproj = [x + "_reproj.bil" for x in hu_raster_files]
+hu_raster_files_reproj = [x + "_reproj.tif" for x in hu_raster_files]
 
 # Map HGU's to grid
 if VERBOSE:
@@ -296,7 +296,7 @@ if VERBOSE:
 hu_gridded_rasters = SS_model.map_rasters_to_grid(hu_raster_files, hu_raster_path)
 
 # Build 3D grid
-model_grid_raster_files = [x + "_model_grid.bil" for x in hu_raster_files]
+model_grid_raster_files = [x + "_model_grid.tif" for x in hu_raster_files]
 
 # First two arguments of next function are arbitrary and not used ... need to rework module
 if VERBOSE:
@@ -707,10 +707,10 @@ for i in xrange(len(hu_raster_files_reproj) / 2):
             use='griddata',
             method='linear')
 
-initial_heads_SS = np.full(mesh3D_1.shape, 0.)
-
-for i in xrange(len(hu_raster_files_reproj) / 2):
-    initial_heads_SS[i] = mesh3D_1[0]
+# initial_heads_SS = np.full(mesh3D_1.shape, 0.)
+#
+# for i in xrange(len(hu_raster_files_reproj) / 2):
+#     initial_heads_SS[i] = mesh3D_1[0] - 10.0
 
 initial_heads_SS = np.full(mesh3D_1.shape, 400.)
 
@@ -971,7 +971,8 @@ obs_bores_list = zip(obs_filter_bores['Easting'], obs_filter_bores['Northing'])
 stream_active = river_flow_data[river_flow_data['Site ID'].isin([int(x) for x in Stream_gauges])]
 stream_gauges_list = zip(stream_active['Easting'], stream_active['Northing'])
 
-closest_bores_active = SS_model.find_closest_points_between_two_lists(obs_bores_list, stream_gauges_list)
+closest_bores_active = SS_model.find_closest_points_between_two_lists(
+    obs_bores_list, stream_gauges_list)
 
 ecol_bores = []
 for ind in closest_bores_active:
@@ -1015,14 +1016,31 @@ with open(os.path.join(data_folder, "model_linking.csv"), 'w') as model_link:
 if VERBOSE:
     fig = plt.figure()
     ax = fig.add_subplot(111)
+
     ax.scatter(obs_filter_bores['Easting'], obs_filter_bores['Northing'], label='bores')
-    ax.scatter(stream_active['Easting'], stream_active['Northing'], color='r', label='stream gauges')
-    ax.scatter(ecol_bores_df['Easting'], ecol_bores_df['Northing'], marker='+', color='orange', label='closest bores')
+    ax.scatter(stream_active['Easting'], stream_active[
+               'Northing'], color='r', label='stream gauges')
+    for idx in stream_active['Site ID']:
+        # Annotate the closest gauge
+        x_y = stream_active.loc[stream_active['Site ID'] == idx, ["Easting", "Northing"]]
+        ax.annotate(idx, xy=x_y.values[0].tolist(), xycoords='data', xytext=(1.0, 0.8), textcoords='offset points')
+
+    ax.scatter(ecol_bores_df['Easting'], ecol_bores_df['Northing'],
+               marker='+', color='orange', label='closest bores')
+    for idx in ecol_bores_df.index:
+        # Annotate closest bore
+        x_y = ecol_bores_df.loc[ecol_bores_df.index == idx, ["Easting", "Northing"]]
+        ax.annotate(idx, xy=x_y.values[0].tolist(), xycoords='data', xytext=(-120.0, 50.0),
+                    textcoords='offset points',
+                    arrowprops=dict(facecolor='orange', shrink=0.05))
+
     plt.legend()
     fig.suptitle('Finding nearest bores to stream gauges')
     plt.xlabel('Easting')
     plt.ylabel('Northing')
     plt.axis('equal')
+
+    plt.show()
 
     # set_ylabel('Northing')
 
@@ -1036,6 +1054,8 @@ if VERBOSE:
     # which have data that is recent .... can do this later!
     # It is interesting to note that the distance can be quite far from gauge to bore
     # Perhaps the restriction to top layer bores could be relaxed somewhat.
+
+    plt.show()
 
 if VERBOSE:
     print "************************************************************************"

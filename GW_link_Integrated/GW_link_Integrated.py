@@ -263,7 +263,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if rainfall_irrigation is not None:
         interp_rain = np.copy(rainfall_irrigation)
     else:
-        warnings.warn("Rainfall+Irrigation input currently ignored by GW model")
+        warnings.warn("Rainfall+Irrigation input ignored by GW model")
         interp_rain = np.copy(model_boundaries.bc['Rainfall']['bc_array'])
     # End if
 
@@ -518,7 +518,7 @@ if __name__ == "__main__":
     }
 
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
-    # print "swgw_exchanges", swgw_exchanges
-    # print "avg_depth_to_gw", avg_depth_to_gw
-    # print "ecol_depth_to_gw", ecol_depth_to_gw
-    # print "trigger_heads", trigger_heads
+    print "swgw_exchanges", swgw_exchanges
+    print "avg_depth_to_gw", avg_depth_to_gw
+    print "ecol_depth_to_gw", ecol_depth_to_gw
+    print "trigger_heads", trigger_heads
