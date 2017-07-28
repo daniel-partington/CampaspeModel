@@ -396,8 +396,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                                               in Stream_gauges])
 
     for gauge in Stream_gauges:
-        swgw_exchanges[gauge] = modflow_model.getRiverFluxNodes(
-            riv_reach_nodes[gauge])
+        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(riv_reach_nodes[gauge])
 
     if verbose:
         print("Upstream of weir", swgw_exchanges[
