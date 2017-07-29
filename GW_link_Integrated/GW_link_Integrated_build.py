@@ -1004,12 +1004,10 @@ with open(os.path.join(data_folder, "model_linking.csv"), 'w') as model_link:
 
 
 # Setup the outputs for head based on location of stream gauges
-#SS_model.observations.set_as_observations('head_stream_gauge', str_time_series, 
-#                                          new_riv_cells, domain='surface', 
-#                                          obs_type='head', units='m^3/d', 
+# SS_model.observations.set_as_observations('head_stream_gauge', str_time_series,
+#                                          new_riv_cells, domain='surface',
+#                                          obs_type='head', units='m^3/d',
 #                                          weights=0.0, real=False)
-
-
 
 
 # Visuals checks on getting nearest mapped bore from top layer for the ecology part:
@@ -1034,28 +1032,28 @@ if VERBOSE:
                     textcoords='offset points',
                     arrowprops=dict(facecolor='orange', shrink=0.05))
 
-    plt.legend()
-    fig.suptitle('Finding nearest bores to stream gauges')
-    plt.xlabel('Easting')
-    plt.ylabel('Northing')
-    plt.axis('equal')
-
-    plt.show()
+    # plt.legend()
+    # fig.suptitle('Finding nearest bores to stream gauges')
+    # plt.xlabel('Easting')
+    # plt.ylabel('Northing')
+    # plt.axis('equal')
+    #
+    # plt.show()
 
     # set_ylabel('Northing')
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    c = 'rgb'
-    for index, bore in enumerate(ecol_bores):
-        bore_data_levels[bore_data_levels['HydroCode'] == bore][
-            ['bore_date', 'result']].plot(x='bore_date', ax=ax, color=c[index])
-    # NOTE that the bores data is not going all the way to 2015, although bore filtering could include only those bores
-    # which have data that is recent .... can do this later!
-    # It is interesting to note that the distance can be quite far from gauge to bore
-    # Perhaps the restriction to top layer bores could be relaxed somewhat.
-
-    plt.show()
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # c = 'rgb'
+    # for index, bore in enumerate(ecol_bores):
+    #     bore_data_levels[bore_data_levels['HydroCode'] == bore][
+    #         ['bore_date', 'result']].plot(x='bore_date', ax=ax, color=c[index])
+    # # NOTE that the bores data is not going all the way to 2015, although bore filtering could include only those bores
+    # # which have data that is recent .... can do this later!
+    # # It is interesting to note that the distance can be quite far from gauge to bore
+    # # Perhaps the restriction to top layer bores could be relaxed somewhat.
+    #
+    # plt.show()
 
 if VERBOSE:
     print "************************************************************************"
