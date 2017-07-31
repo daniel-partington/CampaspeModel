@@ -971,8 +971,7 @@ obs_bores_list = zip(obs_filter_bores['Easting'], obs_filter_bores['Northing'])
 stream_active = river_flow_data[river_flow_data['Site ID'].isin([int(x) for x in Stream_gauges])]
 stream_gauges_list = zip(stream_active['Easting'], stream_active['Northing'])
 
-closest_bores_active = SS_model.find_closest_points_between_two_lists(
-    obs_bores_list, stream_gauges_list)
+closest_bores_active = SS_model.find_closest_points_between_two_lists(obs_bores_list, stream_gauges_list)
 
 ecol_bores = []
 for ind in closest_bores_active:
