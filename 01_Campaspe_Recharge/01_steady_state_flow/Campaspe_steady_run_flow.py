@@ -12,7 +12,7 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 
 def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
-    
+
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "03_recharge_flow_packaged.pkl"))
     name = MM.GW_build.keys()[0]
@@ -113,7 +113,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     # Need to make copies of all rainfall arrays
     interp_rain = m.boundaries.bc['Rainfall']['bc_array']
     for key in interp_rain.keys():
-        interp_rain[key] = np.copy(interp_rain[key])
+        interp_rain[key] = np.copy(np.zeros_like(interp_rain[key]))
 
     recharge_zone_array = m.boundaries.bc['Rain_reduced']['zonal_array']
     rch_zone_dict = m.boundaries.bc['Rain_reduced']['zonal_dict']
@@ -127,15 +127,30 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
             key, val = line.split()
             rech_dict[key] = float(val) 
 
+    import matplotlib.pyplot as plt
+    rech_zone_array_cp = np.copy(recharge_zone_array)
+    rech_zone_array_cp[m.model_mesh3D[1][0] == -1] = 0
+    rech_zone_array_cp[rech_zone_array_cp < 0] = 0
+    rech_zone_array_cp_mask = np.ma.masked_where(rech_zone_array_cp == 0, rech_zone_array_cp)
+    unique_vals = np.unique(rech_zone_array_cp)[1:]
+    import matplotlib as mpl
+    colors = mpl.cm.jet(unique_vals)
+    cmap = mpl.colors.ListedColormap(colors)
+    ax = plt.imshow(rech_zone_array_cp_mask, cmap=cmap)
+    cax = plt.colorbar(ax, ticks=unique_vals)
+    cax.set_ticklabels(unique_vals)
+    
+    zone_coverage = {}
     def update_recharge(rech_dict):
         for key in interp_rain.keys():
             for key2 in rech_dict:
+                zone_coverage[key2] = len(recharge_zone_array[(recharge_zone_array == float(key2)) & (m.model_mesh3D[1][0] != -1)])
                 interp_rain[key][recharge_zone_array == float(key2)] = \
                     rech_dict[key2] / (1000. * 365. * 86400.)
-
             interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
                 interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
             interp_rain[key][m.model_mesh3D[1][0] == -1] = 0.
+
         return interp_rain
 
     interp_rain = update_recharge(rech_dict)
@@ -254,8 +269,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     modflow_model.executable = mf_exe_folder
 
-    modflow_model.headtol = 1E-4
-    modflow_model.fluxtol = 1E0
+    modflow_model.headtol = 1E-5
+    modflow_model.fluxtol = 1E-1
     modflow_model.steady = True
 
     modflow_model.buildMODFLOW(transport=False, write=True, verbose=False, check=False)
@@ -271,7 +286,11 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     wat_bal_df = modflow_model.waterBalance(plot=False)
     rech_all = wat_bal_df.loc['RECHARGE_pos']['Flux m^3/d']
-    rech_area = len(rch[0][rch[0] > 0])  * 5000 * 5000
+    rech_cells = len(rch[0][(rch[0] > 0) & (m.model_mesh3D[1][0] != -1)]) 
+    rech_area = rech_cells * 5000 * 5000
+    for key in zone_coverage.keys():
+        print(key, zone_coverage[key] / float(rech_cells) * 100)
+        
     rech = rech_all / rech_area * 1000 * 365.
     #print("Recharge = {} mm/yr".format(rech))
     with open(os.path.join(data_folder, "model_03_recharge_flow", "recharge.txt"), 'w') as f:
@@ -279,7 +298,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     modflow_model.compareAllObs_metrics(to_file=True)
 
-    #modflow_model.compareAllObs()
+    modflow_model.compareAllObs()
 
     return modflow_model
 
