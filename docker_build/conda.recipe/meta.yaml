@@ -1,0 +1,37 @@
+package:
+    name: campaspemodel
+    version: "0.2"
+
+source:
+    git_url: https://github.com/daniel-partington/CampaspeModel.git
+    sha1: 1e984b4d2d262a0912a19759e3170ef744de5698
+
+build:
+    number: 0
+
+extra:
+    channels:
+        - conda-forge
+
+requirements:
+  build:
+    - gdal
+    - geos
+    - proj4
+    - numpy
+    - pandas
+    - openpyxl
+    - flopy
+    - nose
+  run:
+    - gdal
+    - geos
+    - proj4
+    - numpy
+    - pandas
+    - openpyxl
+    - flopy
+    - nose
+
+about:
+    license: Copyright
