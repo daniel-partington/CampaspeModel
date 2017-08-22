@@ -43,41 +43,19 @@ RUN wget http://water.usgs.gov/ogw/modflow-nwt/MODFLOW-NWT_1.1.2.zip \
     && rm -r MODFLOW-NWT_1.1.2 \
     && rm MODFLOW-NWT_1.1.2.zip
 
-# change backend as "windows" don't play with docker. http://matplotlib.org/users/customizing.html#the-matplotlibrc-file
-# RUN pip install \
-#         matplotlib \
-#         numpy \
-#     && MATPLOTLIB_RC_LOCATION=$(python -c "import matplotlib; print matplotlib.matplotlib_fname()") \
-#     && sed -i.bak 's/backend      : tkagg/backend      : Agg/gi' $MATPLOTLIB_RC_LOCATION \
-#     && pip install flopy
-
 # ----------------
 # HydroModelBuilder
 # ----------------
-RUN mkdir app; cd app
-RUN git clone https://github.com/daniel-partington/HydroModelBuilder.git
-RUN cd HydroModelBuilder; git reset --hard 4da7b80873e0eedb25be11be849a26220cad402c; cd ..
-RUN git clone https://github.com/daniel-partington/CampaspeModel.git
-RUN cd CampaspeModel; git reset --hard 1e984b4d2d262a0912a19759e3170ef744de5698; cd ..
 RUN conda install conda-build
-RUN cd HydroModelBuilder; cd docker_build
-RUN conda build conda.recipe
-RUN cd ..; cd CampaspeModel; cd docker_build
-RUN conda build conda.recipe
+RUN mkdir /app
+RUN git clone https://github.com/daniel-partington/HydroModelBuilder.git /app/HydroModelBuilder
+RUN cd /app/HydroModelBuilder; git reset --hard a9221513feda93d35530ced0bcf1ff48fd570f1c
+RUN conda build /app/HydroModelBuilder/docker_build/conda.recipe; cd /app
 
+RUN git clone https://github.com/daniel-partington/CampaspeModel.git  /app/CampaspeModel
+RUN cd /app/CampaspeModel; git reset --hard 6332960687118bab3a194fe62934928798639268
+RUN conda build /app/CampaspeModel/docker_build/conda.recipe; cd /app
 
-# ----------------
-# CampaspeIM
-# ----------------
-
-# TODO:
-#   Grab the code from respective bitbucket and github repos
-#   run python install_packages.py for campaspeim
-#   run python setup.py develop for each model
-#   (the above should compile if necessary)
-
-# docker run -it \
-#     -v $PWD:/shared \
-#     -e PYTHONPATH=/shared/CampaspeModel;/shared/HydroModelBuilder;/shared/CampaspeIM;/shared/CampasPyIHACRES \
-#     campaspeim \
-#     [run command]
+# change backend as "windows" don't play with docker. http://matplotlib.org/users/customizing.html#the-matplotlibrc-file
+RUN MATPLOTLIB_RC_LOCATION=$(python -c "import matplotlib; print matplotlib.matplotlib_fname()") \
+    && sed -i.bak 's/backend      : tkagg/backend      : Agg/gi' $MATPLOTLIB_RC_LOCATION

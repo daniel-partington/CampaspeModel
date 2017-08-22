@@ -4,7 +4,7 @@ package:
 
 source:
     git_url: https://github.com/daniel-partington/CampaspeModel.git
-    sha1: 1e984b4d2d262a0912a19759e3170ef744de5698
+    sha1: 6332960687118bab3a194fe62934928798639268
 
 build:
     number: 0
@@ -21,7 +21,6 @@ requirements:
     - numpy
     - pandas
     - openpyxl
-    - flopy
     - nose
   run:
     - gdal
@@ -30,8 +29,8 @@ requirements:
     - numpy
     - pandas
     - openpyxl
-    - flopy
     - nose
+    - matplotlib
 
 about:
     license: Copyright
