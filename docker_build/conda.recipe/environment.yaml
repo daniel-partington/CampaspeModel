@@ -1,0 +1,13 @@
+name: sample_env
+channels:
+dependencies:
+    - gdal
+    - geos
+    - proj4
+    - numpy
+    - pandas
+    - openpyxl
+    - flopy
+    - nose
+    - pip:
+        - "--editable=git+https://github.com/daniel-partington/HydroModelBuilder@4da7b80873e0eedb25be11be849a26220cad402c"
