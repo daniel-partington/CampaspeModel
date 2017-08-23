@@ -810,6 +810,7 @@ gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
 river_gauge_seg = SS_model.get_closest_riv_segments('Campaspe', gauge_points)
 river_seg.loc[:, 'bed_from_gauge'] = np.nan
 river_seg.loc[:, 'stage_from_gauge'] = np.nan
+river_seg.loc[:, 'gauge_id'] = 'none'
 
 Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 
                                   'Min value']].max(axis=1) 
@@ -826,6 +827,11 @@ river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()),
               'bed_from_gauge'] = \
                   sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), 
                          reverse=True)
+
+river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 
+              'gauge_id'] = \
+                  Campaspe_stage.sort_values('Mean stage (m)', ascending=False)['Site ID'].tolist() 
+                         
 
 river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 
               'stage_from_gauge'] = \

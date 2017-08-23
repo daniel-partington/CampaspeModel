@@ -143,15 +143,39 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), 
                                     known_points, strcond_val)
 
-#    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 
-#                  'stage_from_gauge'] = \
-#                      sorted(Campaspe_stage['Mean stage (m)'].tolist(), 
-#                             reverse=True)
-#    
-#    river_seg['stage_from_gauge'] = \
-#        river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
-#            interpolate(method='values', limit_direction='both').tolist()
+    river_seg.loc[:, 'stage_from_gauge'] = np.nan
 
+    gauge_val_dict = {}
+    for gauge, value in riv_stages:
+        if gauge in Stream_gauges:
+            gauge_val_dict[gauge] = value
+
+    Campaspe_stage = river_seg[river_seg['gauge_id'] != 'none']
+    new_riv_stages = []
+    for row in Campaspe_stage.iterrows():
+        ind = row[1]['gauge_id']
+        try:
+            print gauge_val_dict[str(ind)]
+            new_riv_stages += [gauge_val_dict[str(ind)]]
+        except:
+            print("No value for: {}".format(ind)) 
+            print river_seg[river_seg['gauge_id'] == ind]['stage']
+            new_riv_stages += river_seg[river_seg['gauge_id'] == ind]['stage'].tolist()
+
+    Campaspe_stage.loc[:, 'stage_from_gauge'] = new_riv_stages
+
+    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['iseg'].tolist()), 
+                  'stage_from_gauge'] = \
+                      sorted(Campaspe_stage['stage_from_gauge'].tolist(), 
+                             reverse=True)
+#    
+    river_seg['stage_from_gauge'] = \
+        river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
+            interpolate(method='values', limit_direction='both').tolist()
+
+    #river_seg['stage_from_gauge'] = river_seg['stage_from_gauge'].bfill()
+
+    river_seg['stage'] = river_seg['stage_from_gauge']
     
     simple_river = []
     
@@ -275,7 +299,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = True # is_steady  # This is to tell FloPy that is a transient model
+    modflow_model.steady = is_steady  # This is to tell FloPy that is a transient model
     modflow_model.executable = mf_exe_folder
 
     modflow_model.buildMODFLOW()
@@ -323,7 +347,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     for ecol_bore in ecol_depth_to_gw_bores:
         # NOTE: This returns the depth to groundwater below the surface in metres
         ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
-        # ecol_depth_to_gw[ecol_bore] = np.random.rand()
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
