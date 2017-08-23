@@ -56,7 +56,7 @@ def closest_node(node, nodes):
 def process_line(line):
     processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
     return processed
-
+# end process_line
 
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None, verbose=True, MM=None, recharge_amt=0.03, is_steady=False):
@@ -134,127 +134,51 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         print "************************************************************************"
         print " Updating river parameters "
 
-    # loadObj(data_folder, name, r"Campaspe_Riv_model.shp_mapped.pkl")
-    Campaspe_river = this_model.polyline_mapped['Campaspe_Riv_model.shp']
+    river_seg = this_model.river_mapping['Campaspe']
 
-    # Need to account for ~8m drop after Campaspe weir.
-    Campaspe_river_gauges = this_model.points_mapped['processed_river_sites_stage_clipped.shp']
-    filter_gauges = [riv_gauge for riv_gauge in Campaspe_river_gauges
-                     if str(riv_gauge[1][0]) in Stream_gauges]
+    num_reaches = this_model.pilot_points['Campaspe'].num_points #4
+    known_points = this_model.pilot_points['Campaspe'].points
 
+    strcond_val = [this_model.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, strcond_val)
+
+#    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 
+#                  'stage_from_gauge'] = \
+#                      sorted(Campaspe_stage['Mean stage (m)'].tolist(), 
+#                             reverse=True)
+#    
+#    river_seg['stage_from_gauge'] = \
+#        river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
+#            interpolate(method='values', limit_direction='both').tolist()
+
+    
     simple_river = []
-    riv_width_avg = 10.0  # m
-    riv_bed_thickness = 0.10  # m
+    
+    for row in river_seg.iterrows():
+        row = row[1]
+        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
+    # end for
+    
+    this_model.boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
-    # Map river from high to low
-    new_riv = Campaspe_river
-    for index, riv_cell in enumerate(Campaspe_river):
-        row = riv_cell[0][0]
-        col = riv_cell[0][1]
-        new_riv[index] += [mesh_0[0][row][col]]
-    # End for
 
-    new_riv = sorted(new_riv, key=lambda x: (x[0][1]), reverse=False)
-    new_riv = sorted(new_riv, key=lambda x: (x[0][0]), reverse=True)
-
-    stages = np.full((len(new_riv)), np.nan, dtype=np.float64)
-    beds = np.full((len(new_riv)), np.nan, dtype=np.float64)
-
-    # Identify cells that correspond to river gauges
-    riv_gauge_logical = np.full((len(new_riv)), False, dtype=np.bool)
-
-    # To account for fact that river shapefile and gauges shapefile are not perfect
-    # we get the closest river cell to the gauge cell
-
-    # Define river gauges at start of river cell
-    new_riv_cells = [x[0] for x in new_riv]
-    filter_gauge_loc = [new_riv_cells[x]
-                        for x in [closest_node(x[0], new_riv_cells) for x in filter_gauges]]
-
-    for index, riv in enumerate(new_riv):
-        # Create logical array to identify those which are gauges and those which are not
-        if riv[0] in filter_gauge_loc:
-            riv_gauge_logical[index] = True
-            gauge_ind = [i for i, x in enumerate(filter_gauge_loc) if x == riv[0]]
-
-            stages[index] = filter_gauges[gauge_ind[0]][1][0]
-            beds[index] = stages[index] - 1.0
-
-        # Add chainage to new_riv array:
-        if index == 0:
-            new_riv[index] += [0.0]
-        else:
-            new_riv_pos = new_riv[index - 1]
-            new_riv[index] += [new_riv_pos[3] + new_riv_pos[1]]
-        # End if
-    # End for
-
-    # River x in terms of chainage:
-    river_x = np.array([x[3] for x in new_riv])
-    river_x_unknown = river_x[~riv_gauge_logical]
-    river_x_known = river_x[riv_gauge_logical]
-
-    # Now interpolate know values of stage and bed to unknown river locations:
-    stages[~riv_gauge_logical] = np.interp(
-        river_x_unknown, river_x_known, stages[riv_gauge_logical])
-    beds[~riv_gauge_logical] = np.interp(river_x_unknown, river_x_known, beds[riv_gauge_logical])
-
-    # Need to create list of relevant riv nodes for each reach by
-    # splitting the riv nodes list up
-    riv_reach_nodes = {}
-    for index, gauge in enumerate(Stream_gauges):
-        if index == 0:
-            split_loc = new_riv_cells.index(filter_gauge_loc[index])
-            riv_reach_nodes[gauge] = new_riv_cells[0:split_loc + 1]
-        else:
-            split_loc_upstream = new_riv_cells.index(filter_gauge_loc[index - 1])
-            split_loc_downstream = new_riv_cells.index(filter_gauge_loc[index])
-            riv_reach_nodes[gauge] = new_riv_cells[split_loc_upstream:split_loc_downstream + 1]
-        # End if
-    # End for
-
-    model_boundaries = this_model.boundaries
-    model_params = this_model.parameters.param
-    for index, riv_cell in enumerate(Campaspe_river):
-        row = riv_cell[0][0]
-        col = riv_cell[0][1]
-
-        if mesh_1[0][row][col] == -1:
-            continue
-
-        bed_temp = mesh_0[1][row][col]
-        stage = bed_temp + 0.01 if stages[index] < bed_temp else stages[index]
-        bed = bed_temp if beds[index] < bed_temp else beds[index]
-
-        cond = riv_cell[1] * riv_width_avg * model_params['Kv_riv']['PARVAL1'] / riv_bed_thickness
-        simple_river += [[0, row, col, stage, cond, bed]]
-
-    model_boundaries.assign_boundary_array('Campaspe River', {0: simple_river})
 
     # Updating Murray River
 
-    # loadObj(data_folder, name, r"River_Murray_model.shp_mapped.pkl")
-    mapped_river = this_model.polyline_mapped['River_Murray_model.shp']
-
-    simple_river = []
-    for riv_cell in mapped_river:
-        cell = riv_cell[0]
-        row = cell[0]
-        col = cell[1]
-
-        if mesh_1[0][row][col] == -1:
-            continue
-        # End if
-
-        mesh_pos = mesh_0[0][row][col]
-
-        stage = mesh_pos - 0.01
-        bed = mesh_pos - 0.1 - model_params['RMstage']['PARVAL1']
-        cond = riv_cell[1] * riv_width_avg * model_params['Kv_RM']['PARVAL1'] / riv_bed_thickness
-        simple_river += [[0, row, col, stage, cond, bed]]
-    # End for
-
-    model_boundaries.assign_boundary_array('Murray River', {0: simple_river})
+    mriver_seg = this_model.river_mapping['Murray']
+    mriver_seg['strhc1'] = this_model.parameters.param['kv_rm']['PARVAL1']                      
+    
+    msimple_river = []
+    
+    for row in mriver_seg.iterrows():
+        row = row[1]
+        msimple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
+    # end for
+    
+    this_model.boundaries.update_boundary_array('Murray River', {0: msimple_river})
 
     if verbose:
         print "************************************************************************"
@@ -264,7 +188,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         interp_rain = np.copy(rainfall_irrigation)
     else:
         warnings.warn("Rainfall+Irrigation input ignored by GW model")
-        interp_rain = np.copy(model_boundaries.bc['Rainfall']['bc_array'])
+        interp_rain = np.copy(this_model.boundaries.bc['Rainfall']['bc_array'])
     # End if
 
     # integers reflect number of layers
@@ -280,45 +204,41 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         interp_rain[match] = interp_rain[match] * recharge_amt
     # End for
 
-    model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
+    this_model.boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
     if verbose:
         print "************************************************************************"
         print " Updating pumping boundary"
 
-    pumpy = model_boundaries.bc['licenced_wells']['bc_array']
+    pumpy = this_model.boundaries.bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
 
-    model_boundaries.assign_boundary_array('licenced_wells', wel)
+    this_model.boundaries.assign_boundary_array('licenced_wells', wel)
 
     if verbose:
         print "************************************************************************"
         print " Updating Murray River GHB boundary"
 
     MurrayGHB = []
-    dx = this_model.gridHeight
-    for MurrayGHB_cell in mapped_river:
-        row = MurrayGHB_cell[0][0]
-        col = MurrayGHB_cell[0][1]
 
-        mesh_pos = mesh_0[0][row][col]
-
-        for lay in xrange(mesh_1.shape[0]):
-            if mesh_1[0][row][col] == -1:
-                continue
-
-            dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
-            MGHBconductance = dx * dz * model_params['MGHBcond']['PARVAL1']
-            MurrayGHBstage = mesh_pos + model_params['MGHB_stage']['PARVAL1']
-            MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
-        # End for
+    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in this_model.boundaries.bc['GHB']['bc_array'][0]]
+    for MurrayGHB_cell in MurrayGHB_cells:
+        lay, row, col = MurrayGHB_cell[:3]
+        MurrayGHBstage = MurrayGHB_cell[3] #m.parameters.param['mghb_stage']['PARVAL1']
+        dx = this_model.gridHeight
+        dz = this_model.model_mesh3D[0][lay][row][col] - \
+             this_model.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * this_model.parameters.param['mghbk']['PARVAL1'] #/ 10000.
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
+    ghb = {}
+    ghb[0] = MurrayGHB
 
     if verbose:
         print "************************************************************************"
         print " Updating GHB boundary"
 
-    model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
+    this_model.boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
 
     if verbose:
         print "************************************************************************"
@@ -355,7 +275,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
     modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
     modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
-    modflow_model.steady = is_steady  # This is to tell FloPy that is a transient model
+    modflow_model.steady = True # is_steady  # This is to tell FloPy that is a transient model
     modflow_model.executable = mf_exe_folder
 
     modflow_model.buildMODFLOW()
@@ -364,45 +284,18 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if is_steady is False:
         modflow_model.checkConvergence()
 
-    # modflow_model.waterBalance()
-
-#    print("Campaspe River flux NET: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0]]).sum())
-#    print("Campaspe River flux +'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] > 0.0]).sum())
-#    print("Campaspe River flux -'ve: ", np.array([x[0] for x in modflow_model.getRiverFlux('Campaspe River')[0] if x[0] < 0.0]).sum())
-#
-#    camp_riv_flux = modflow_model.getRiverFlux('Campaspe River')[0]
-#    import matplotlib.pyplot as plt
-#
-#    plt.figure()
-#
-#    points = [x[1] for x in camp_riv_flux]
-#
-#    cmap = plt.get_cmap('spectral')
-#
-#    x = [ x[2] for x in points ]
-#    y = [ y[1] for y in points ]
-#    vals = [v[0] for v in camp_riv_flux]
-#    ax = plt.scatter(x, y, c=vals, cmap=cmap, vmin=-1000, vmax= 1000)
-#
-#    plt.colorbar(ax)
-
-    # modflow_model.viewHeads2()
-
-    # modflow_model.waterBalance(plot=False)
-    # modflow_model.viewHeads2()
-
     # SW-GW exchanges:
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
                                               in Stream_gauges])
-
-    for gauge in Stream_gauges:
-        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(riv_reach_nodes[gauge])
-
-    if verbose:
-        print("Upstream of weir", swgw_exchanges[
-              sw_stream_gauges[0]] + swgw_exchanges[sw_stream_gauges[1]])
-        print("Downstream of weir", swgw_exchanges[
-              sw_stream_gauges[2]] + swgw_exchanges[sw_stream_gauges[3]])
+            
+#    for gauge in Stream_gauges:
+#        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(riv_reach_nodes[gauge])
+#
+#    if verbose:
+#        print("Upstream of weir", swgw_exchanges[
+#              sw_stream_gauges[0]] + swgw_exchanges[sw_stream_gauges[1]])
+#        print("Downstream of weir", swgw_exchanges[
+#              sw_stream_gauges[2]] + swgw_exchanges[sw_stream_gauges[3]])
 
     # Average depth to GW table:
     avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
