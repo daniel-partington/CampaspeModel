@@ -63,8 +63,8 @@ RUN pip install git+https://github.com/daniel-partington/HydroModelBuilder@43b55
 # ----------------
 RUN mkdir /app
 RUN git clone https://github.com/daniel-partington/CampaspeModel.git /app/CampaspeModel
-RUN cd /app/CampaspeModel; git reset --hard 2fca8d6e56b82950b9cb5ef9c2febc0841547067
-# RUN pip install git+https://github.com/daniel-partington/CampaspeModel@2fca8d6e56b82950b9cb5ef9c2febc0841547067
+RUN cd /app/CampaspeModel; git reset --hard 0a2829992aaab4615bf3d147a5d038cf6cbc276d
+# RUN pip install git+https://github.com/daniel-partington/CampaspeModel@0a2829992aaab4615bf3d147a5d038cf6cbc276d
 
 # Add CampaspeModel to PYTHONPATH
 ENV PYTHONPATH /app/CampaspeModel:${PYTHONPATH}
