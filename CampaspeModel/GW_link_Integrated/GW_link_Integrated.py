@@ -58,6 +58,7 @@ def process_line(line):
     return processed
 # end process_line
 
+
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None, verbose=True, MM=None, recharge_amt=0.03, is_steady=False):
     """
@@ -136,19 +137,20 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     river_seg = this_model.river_mapping['Campaspe']
 
-    num_reaches = this_model.pilot_points['Campaspe'].num_points #4
+    num_reaches = this_model.pilot_points['Campaspe'].num_points  # 4
     known_points = this_model.pilot_points['Campaspe'].points
 
-    strcond_val = [this_model.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
-    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), 
+    strcond_val = [this_model.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)]
+    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(),
                                     known_points, strcond_val)
 
     river_seg.loc[:, 'stage_from_gauge'] = np.nan
 
     gauge_val_dict = {}
-    for gauge, value in riv_stages:
-        if gauge in Stream_gauges:
-            gauge_val_dict[gauge] = value
+    for gauge_id in riv_stages.dtype.names:
+        if gauge_id in Stream_gauges:
+            val = riv_stages[gauge_id]
+            gauge_val_dict[gauge_id] = val
 
     Campaspe_stage = river_seg[river_seg['gauge_id'] != 'none']
     new_riv_stages = []
@@ -158,50 +160,48 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             print gauge_val_dict[str(ind)]
             new_riv_stages += [gauge_val_dict[str(ind)]]
         except:
-            print("No value for: {}".format(ind)) 
+            print("No value for: {}".format(ind))
             print river_seg[river_seg['gauge_id'] == ind]['stage']
             new_riv_stages += river_seg[river_seg['gauge_id'] == ind]['stage'].tolist()
 
     Campaspe_stage.loc[:, 'stage_from_gauge'] = new_riv_stages
 
-    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['iseg'].tolist()), 
+    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['iseg'].tolist()),
                   'stage_from_gauge'] = \
-                      sorted(Campaspe_stage['stage_from_gauge'].tolist(), 
-                             reverse=True)
-#    
+        sorted(Campaspe_stage['stage_from_gauge'].tolist(),
+               reverse=True)
+#
     river_seg['stage_from_gauge'] = \
         river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
-            interpolate(method='values', limit_direction='both').tolist()
+        interpolate(method='values', limit_direction='both').tolist()
 
     #river_seg['stage_from_gauge'] = river_seg['stage_from_gauge'].bfill()
 
     river_seg['stage'] = river_seg['stage_from_gauge']
-    
+
     simple_river = []
-    
+
     for row in river_seg.iterrows():
         row = row[1]
-        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+        simple_river += [[row['k'], row['i'], row['j'], row['stage'],
                           row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
     # end for
-    
+
     this_model.boundaries.update_boundary_array('Campaspe River', {0: simple_river})
-
-
 
     # Updating Murray River
 
     mriver_seg = this_model.river_mapping['Murray']
-    mriver_seg['strhc1'] = this_model.parameters.param['kv_rm']['PARVAL1']                      
-    
+    mriver_seg['strhc1'] = this_model.parameters.param['kv_rm']['PARVAL1']
+
     msimple_river = []
-    
+
     for row in mriver_seg.iterrows():
         row = row[1]
-        msimple_river += [[row['k'], row['i'], row['j'], row['stage'], \
-                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
+        msimple_river += [[row['k'], row['i'], row['j'], row['stage'],
+                           row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
     # end for
-    
+
     this_model.boundaries.update_boundary_array('Murray River', {0: msimple_river})
 
     if verbose:
@@ -248,11 +248,11 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in this_model.boundaries.bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
         lay, row, col = MurrayGHB_cell[:3]
-        MurrayGHBstage = MurrayGHB_cell[3] #m.parameters.param['mghb_stage']['PARVAL1']
+        MurrayGHBstage = MurrayGHB_cell[3]  # m.parameters.param['mghb_stage']['PARVAL1']
         dx = this_model.gridHeight
         dz = this_model.model_mesh3D[0][lay][row][col] - \
-             this_model.model_mesh3D[0][lay + 1][row][col]
-        MGHBconductance = dx * dz * this_model.parameters.param['mghbk']['PARVAL1'] #/ 10000.
+            this_model.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * this_model.parameters.param['mghbk']['PARVAL1']  # / 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
     ghb = {}
@@ -311,7 +311,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # SW-GW exchanges:
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
                                               in Stream_gauges])
-            
+
 #    for gauge in Stream_gauges:
 #        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(riv_reach_nodes[gauge])
 #

@@ -44,7 +44,7 @@ climate_path = p_j(get_conf_set(['model_build', 'campaspe_data']), 'Climate')
 temp_data_path = get_conf_set(['model_build', 'temp_data'])
 input_data_path = get_conf_set(['model_build', 'input_data'])
 river_path = p_j(input_data_path, "Waterways")
-sw_data_path = p_j(temp_data_path, "Campaspe_data/SW/All_streamflow_Campaspe_catchment/Updated")
+sw_data_path = p_j(temp_data_path, "Campaspe_data/SW/All_streamflow_Campaspe_catchment")
 
 bore_levels_file = "bore_levels"
 bore_info_file = "bore_info"
@@ -229,8 +229,7 @@ else:
     river_stage_data = processRiverStations.getStage(path=sw_data_path, summary=True)
     SS_model.save_obj(river_stage_data, riv_stage_path)
 
-river_gauges = SS_model.read_points_data(p_j(sw_data_path, "Updated",
-                                             r"processed_river_sites_stage.shp"))
+river_gauges = SS_model.read_points_data(p_j(sw_data_path, "Updated", "processed_river_sites_stage.shp"))
 
 river_data_folder = p_j(sw_data_path, "Updated")
 site_details_file = "Site Details.csv"
