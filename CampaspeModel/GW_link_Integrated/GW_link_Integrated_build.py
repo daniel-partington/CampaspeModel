@@ -51,9 +51,9 @@ bore_info_file = "bore_info"
 model_build_input_path = get_conf_set(['model_build', 'input_data'])
 
 model_params = {
-    "name": "GW_link_Integrated", 
+    "name": "GW_link_Integrated",
     "data_folder": model_build_input_path,
-    "campaspe_data": get_conf_set(['model_build', 'campaspe_data']), 
+    "campaspe_data": get_conf_set(['model_build', 'campaspe_data']),
     "model_data_folder": model_config['data_folder'],
     "out_data_folder": get_conf_set(['model_build', 'data_build']),
     "GISInterface": Interface,
@@ -146,7 +146,7 @@ if os.path.exists(bore_lf) & os.path.exists(bore_if):
     bore_data_info = SS_model.load_dataframe(bore_if)
 else:
     bore_data_levels, bore_data_info, bore_data_salinity = \
-        getBoreData.getBoreData(path=os.path.join(SS_model.campaspe_data, 
+        getBoreData.getBoreData(path=os.path.join(SS_model.campaspe_data,
                                                   "ngis_shp_VIC"))
     SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_levels_file),
                             bore_data_levels)
@@ -232,19 +232,18 @@ else:
 river_gauges = SS_model.read_points_data(p_j(sw_data_path, "Updated",
                                              r"processed_river_sites_stage.shp"))
 
-
 river_data_folder = p_j(sw_data_path, "Updated")
 site_details_file = "Site Details.csv"
 site_details = pd.read_csv(os.path.join(river_data_folder, site_details_file))
 # As all of the stream data for the whole of the Camaspe catchment is in the folder
 # to be processed, we can prefilter sites to examine by specifying sites.
-Campaspe_relevant = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER") | \
-                        site_details['Site Name'].str.contains("MURRAY RIVER") | \
-                        site_details['Site Name'].str.contains("AXE CREEK") | \
-                        site_details['Site Name'].str.contains("MOUNT PLEASANT")]
+Campaspe_relevant = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER") |
+                                 site_details['Site Name'].str.contains("MURRAY RIVER") |
+                                 site_details['Site Name'].str.contains("AXE CREEK") |
+                                 site_details['Site Name'].str.contains("MOUNT PLEASANT")]
 
 Campaspe = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER")]
-Campaspe = Campaspe[Campaspe['Northing'] >= \
+Campaspe = Campaspe[Campaspe['Northing'] >=
                     Campaspe.loc[6]['Northing']]
 
 if VERBOSE:
@@ -254,7 +253,7 @@ if VERBOSE:
 Campaspe_river_poly = SS_model.read_poly("Campaspe_Riv.shp", path=river_path)
 Murray_river_poly = SS_model.read_poly("River_Murray.shp", path=river_path)
 Campaspe_river_poly_file = p_j(river_path, "Campaspe_Riv.shp")
-Murray_river_poly_file = p_j(river_path, "River_Murray.shp") 
+Murray_river_poly_file = p_j(river_path, "River_Murray.shp")
 
 
 if VERBOSE:
@@ -490,6 +489,7 @@ inflow_gauges = ['MILLEWA CREEK @ NORTHERN HIGHWAY ECHUCA',
                  'AXE CREEK @ LONGLEA',
                  'AXE CREEK @ STRATHFIELDSAYE']
 
+
 def find_layer(elev, col_vals):
     '''
     Function to find what layer a point lies within
@@ -503,7 +503,7 @@ def find_layer(elev, col_vals):
                 return index
             else:
                 return index - 1
-        #end if
+        # end if
 
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -524,7 +524,7 @@ Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clip
 
 filter_gauges = []
 for riv_gauge in Campaspe_river_gauges:
-    #if riv_gauge[1][0] in use_gauges:
+    # if riv_gauge[1][0] in use_gauges:
     if str(riv_gauge[1][0]) in use_gauges:
         filter_gauges += [riv_gauge]
 
@@ -542,82 +542,82 @@ camp_pp.set_uniform_points(river_seg['rchlen'].sum(), num_reaches)
 
 known_points = camp_pp.points
 
-# Define split on river for which unique values will be given to props at 
+# Define split on river for which unique values will be given to props at
 # those points which will then be interpolated along the length of the river
-#for reach in range(num_reaches):
+# for reach in range(num_reaches):
 # Setting up river bed hydraulic conductivity values
-SS_model.parameters.create_model_parameter_set('kv_riv', 
-                                           value=[1., 1., 0.01, 0.001], 
-                                           num_parameters=num_reaches)
-SS_model.parameters.parameter_options_set('kv_riv', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.01, 
-                                      PARUBND=10.0, 
-                                      PARGP='kv_riv', 
-                                      SCALE=1, 
-                                      OFFSET=0)
-# Setting up river bed elevation correction parameter to account for 
+SS_model.parameters.create_model_parameter_set('kv_riv',
+                                               value=[1., 1., 0.01, 0.001],
+                                               num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('kv_riv',
+                                          PARTRANS='log',
+                                          PARCHGLIM='factor',
+                                          PARLBND=0.01,
+                                          PARUBND=10.0,
+                                          PARGP='kv_riv',
+                                          SCALE=1,
+                                          OFFSET=0)
+# Setting up river bed elevation correction parameter to account for
 # uncertainty in where bed lies relative to zero gauge
-SS_model.parameters.create_model_parameter_set('beddep', 
-                                           value=0.01, 
-                                           num_parameters=num_reaches)
-SS_model.parameters.parameter_options_set('beddep', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=1.0, 
-                                      PARGP='rivbed', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+SS_model.parameters.create_model_parameter_set('beddep',
+                                               value=0.01,
+                                               num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('beddep',
+                                          PARTRANS='log',
+                                          PARCHGLIM='factor',
+                                          PARLBND=0.001,
+                                          PARUBND=1.0,
+                                          PARGP='rivbed',
+                                          SCALE=1,
+                                          OFFSET=0)
 # Setting up river bed roughness values
-SS_model.parameters.create_model_parameter_set('mn_riv', 
-                                           value=0.001, 
-                                           num_parameters=num_reaches)
-SS_model.parameters.parameter_options_set('mn_riv', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=0.1, 
-                                      PARGP='rough', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+SS_model.parameters.create_model_parameter_set('mn_riv',
+                                               value=0.001,
+                                               num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('mn_riv',
+                                          PARTRANS='log',
+                                          PARCHGLIM='factor',
+                                          PARLBND=0.001,
+                                          PARUBND=0.1,
+                                          PARGP='rough',
+                                          SCALE=1,
+                                          OFFSET=0)
 # Setting up river width values
-SS_model.parameters.create_model_parameter_set('rivwdth', 
-                                           value=20.0, 
-                                           num_parameters=num_reaches)
-SS_model.parameters.parameter_options_set('rivwdth', 
-                                      PARTRANS='fixed', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=4., 
-                                      PARUBND=40., 
-                                      PARGP='rivwdt', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+SS_model.parameters.create_model_parameter_set('rivwdth',
+                                               value=20.0,
+                                               num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('rivwdth',
+                                          PARTRANS='fixed',
+                                          PARCHGLIM='factor',
+                                          PARLBND=4.,
+                                          PARUBND=40.,
+                                          PARGP='rivwdt',
+                                          SCALE=1,
+                                          OFFSET=0)
 # Setting up riverbed thickness values
-SS_model.parameters.create_model_parameter_set('bedthck', 
-                                           value=0.10, 
-                                           num_parameters=num_reaches)
-SS_model.parameters.parameter_options_set('bedthck', 
-                                      PARTRANS='fixed', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.01, 
-                                      PARUBND=1., 
-                                      PARGP='bedthk', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+SS_model.parameters.create_model_parameter_set('bedthck',
+                                               value=0.10,
+                                               num_parameters=num_reaches)
+SS_model.parameters.parameter_options_set('bedthck',
+                                          PARTRANS='fixed',
+                                          PARCHGLIM='factor',
+                                          PARLBND=0.01,
+                                          PARUBND=1.,
+                                          PARGP='bedthk',
+                                          SCALE=1,
+                                          OFFSET=0)
 
 
-strcond_val = [SS_model.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
-river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), 
+strcond_val = [SS_model.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)]
+river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(),
                                 known_points, strcond_val)
 
-strthick_val = [SS_model.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
-river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(), 
+strthick_val = [SS_model.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in range(num_reaches)]
+river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(),
                                   known_points, strthick_val)
 
-strwidth_val = [SS_model.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
-river_seg['width1'] = np.interp(river_seg['Cumulative Length'].tolist(), 
+strwidth_val = [SS_model.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)]
+river_seg['width1'] = np.interp(river_seg['Cumulative Length'].tolist(),
                                 known_points, strwidth_val)
 
 amalg_riv_points = []
@@ -625,7 +625,7 @@ for row in river_seg[['i', 'j']].iterrows():
     amalg_riv_points += [[row[1]['j'], row[1]['i']]]
 
 # Sort out collocated stream reaches to avoid short circuiting:
-river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
+river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))
 river_seg_group = river_seg.groupby(by='amalg_riv_points_tuple').count()
 river_seg_group = river_seg_group[river_seg_group['amalg_riv_points'] > 1]
 
@@ -640,7 +640,7 @@ river_seg_group = river_seg_group[river_seg_group['amalg_riv_points'] > 1]
 #  Cumulative length = last entry
 #  strtop_raw = average weighted by rchlen
 #  slope = average weighted by rchlen
-#  k = first entry  
+#  k = first entry
 #  i = first entry
 #  j = first entry
 #  amalg_riv_points_collection = join lists of tuples into one
@@ -660,54 +660,63 @@ for ind in range(river_seg.shape[0]):
     if ind == 0:
         continue
     elif ind == river_seg.shape[0] - 1:
-        prev = river_seg.iloc[ind - 1]    
-        curr = river_seg.iloc[ind]    
+        prev = river_seg.iloc[ind - 1]
+        curr = river_seg.iloc[ind]
     else:
-        prev = river_seg.iloc[ind - 1]    
-        curr = river_seg.iloc[ind]    
+        prev = river_seg.iloc[ind - 1]
+        curr = river_seg.iloc[ind]
         nexx = river_seg.iloc[ind + 1]
-        #def loc_tup(row):
+        # def loc_tup(row):
         #    return (row['i'], row['j'])
         if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
             if curr['rchlen'] < max_length:
                 merge_row += [ind]
-            
+
 from operator import itemgetter
 from itertools import groupby
 merge_row_consec = []
-for k, g in groupby(enumerate(merge_row), lambda (i,x):i-x):
-    merge_row_consec.append(map(itemgetter(1), g))    
+for k, g in groupby(enumerate(merge_row), lambda (i, x): i - x):
+    merge_row_consec.append(map(itemgetter(1), g))
 
-first_entry = lambda x: x[0]
-last_entry = lambda x: x[-1]
-flatten = lambda l: [item for sublist in l for item in sublist]
+
+def first_entry(x): return x[0]
+
+
+def last_entry(x): return x[-1]
+
+
+def flatten(l): return [item for sublist in l for item in sublist]
+
 
 for merge_group in merge_row_consec:
     index_list = river_seg2.index.tolist()
-    index_dict = {x:index for index, x in enumerate(index_list)}
+    index_dict = {x: index for index, x in enumerate(index_list)}
     merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
-    merge_group = merge_group + [merge_group[-1] + 1] 
+    merge_group = merge_group + [merge_group[-1] + 1]
     river_seg_temp = river_seg2.loc[merge_group]
     rchlen_temp = river_seg_temp['rchlen']
     rchlen_sum = rchlen_temp.sum()
     rchlen_weights = rchlen_temp / rchlen_sum
+
     def weighted(col):
         return (col * rchlen_weights).sum()
-    
-    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
-    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
+
+    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop'])
+    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum
     river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
-    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
-    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
-    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
-    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
-    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
-    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
-    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
-    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
-    
+    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())
+    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw'])
+    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope'])
+    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist())
+    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist())
+    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist())
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection',
+                         flatten(river_seg_temp['amalg_riv_points_collection']))
+    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1'])
+    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick'])
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(
+        river_seg_temp['amalg_riv_points_tuple'].tolist()))
+
     river_seg2.drop(merge_group[1:], inplace=True)
 
 river_seg2.index = range(river_seg2.shape[0])
@@ -718,11 +727,11 @@ for ind in range(river_seg2.shape[0]):
     if ind == 0:
         continue
     elif ind == river_seg2.shape[0] - 1:
-        prev = river_seg2.iloc[ind - 1]    
-        curr = river_seg2.iloc[ind]    
+        prev = river_seg2.iloc[ind - 1]
+        curr = river_seg2.iloc[ind]
     else:
-        prev = river_seg2.iloc[ind - 1]    
-        curr = river_seg2.iloc[ind]    
+        prev = river_seg2.iloc[ind - 1]
+        curr = river_seg2.iloc[ind]
         nexx = river_seg2.iloc[ind + 1]
         if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
             pass
@@ -731,35 +740,38 @@ for ind in range(river_seg2.shape[0]):
                 merge_row_too_short += [ind]
 
 merge_row_too_short_consec = []
-for k, g in groupby(enumerate(merge_row_too_short), lambda (i,x):i-x):
-    merge_row_too_short_consec.append(map(itemgetter(1), g))    
+for k, g in groupby(enumerate(merge_row_too_short), lambda (i, x): i - x):
+    merge_row_too_short_consec.append(map(itemgetter(1), g))
 
 for merge_group in merge_row_too_short_consec:
     index_list = river_seg2.index.tolist()
-    index_dict = {x:index for index, x in enumerate(index_list)}
+    index_dict = {x: index for index, x in enumerate(index_list)}
     merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
-    #merge_group = merge_group + [merge_group[-1] + 1] 
+    #merge_group = merge_group + [merge_group[-1] + 1]
     river_seg_temp = river_seg2.loc[merge_group]
     rchlen_temp = river_seg_temp['rchlen']
     rchlen_sum = rchlen_temp.sum()
     rchlen_weights = rchlen_temp / rchlen_sum
+
     def weighted(col):
         return (col * rchlen_weights).sum()
-    
-    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
-    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
+
+    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop'])
+    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum
     river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
-    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
-    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
-    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
-    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
-    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
-    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
-    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
-    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
-    
+    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())
+    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw'])
+    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope'])
+    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist())
+    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist())
+    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist())
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection',
+                         flatten(river_seg_temp['amalg_riv_points_collection']))
+    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1'])
+    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick'])
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(
+        river_seg_temp['amalg_riv_points_tuple'].tolist()))
+
     river_seg2.drop(merge_group[1], inplace=True)
 
 river_seg = river_seg2
@@ -782,20 +794,20 @@ river_seg.loc[already_defined, 'strhc1'] = 0.0
 new_k = []
 
 for row in river_seg.iterrows():
-    j_mesh = row[1]['i'] 
+    j_mesh = row[1]['i']
     i_mesh = row[1]['j']
     strtop = row[1]['strtop']
-    strbot = row[1]['strtop'] - row[1]['strthick'] 
+    strbot = row[1]['strtop'] - row[1]['strthick']
     new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])]
 # end for
 
 river_seg['k'] = new_k
-       
+
 # Remove any stream segments for which the elevation could not be mapped to a layer
 river_seg['ireach'] = 1
 river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
 
-                      
+
 # Set up bed elevations based on the gauge zero levels:
 gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
 river_gauge_seg = SS_model.get_closest_riv_segments('Campaspe', gauge_points)
@@ -803,39 +815,39 @@ river_seg.loc[:, 'bed_from_gauge'] = np.nan
 river_seg.loc[:, 'stage_from_gauge'] = np.nan
 river_seg.loc[:, 'gauge_id'] = 'none'
 
-Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 
-                                  'Min value']].max(axis=1) 
-Campaspe['seg_loc'] = river_gauge_seg         
+Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level',
+                                  'Min value']].max(axis=1)
+Campaspe['seg_loc'] = river_gauge_seg
 Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # There are two values at the Campaspe weir, while it would be ideal to split the
 # reach here it will cause problems for the segment
 Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406218]
 
-Campaspe_stage = pd.merge(Campaspe, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
+Campaspe_stage = pd.merge(Campaspe, river_stage_data[1], on='Site Name', how='inner', suffixes=('', '_r'))
 Campaspe_stage = Campaspe_stage[[x for x in Campaspe_stage.columns if '_r' not in x]]
 
-river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 
+river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()),
               'bed_from_gauge'] = \
-                  sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), 
-                         reverse=True)
+    sorted(Campaspe_gauge_zero2['new_gauge'].tolist(),
+           reverse=True)
 
-river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 
+river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()),
               'gauge_id'] = \
-                  Campaspe_stage.sort_values('Mean stage (m)', ascending=False)['Site ID'].tolist() 
-                         
+    Campaspe_stage.sort_values('Mean stage (m)', ascending=False)['Site ID'].tolist()
 
-river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 
+
+river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()),
               'stage_from_gauge'] = \
-                  sorted(Campaspe_stage['Mean stage (m)'].tolist(), 
-                         reverse=True)
+    sorted(Campaspe_stage['Mean stage (m)'].tolist(),
+           reverse=True)
 
 river_seg['bed_from_gauge'] = \
     river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge']. \
-        interpolate(method='values', limit_direction='both').tolist()
+    interpolate(method='values', limit_direction='both').tolist()
 
 river_seg['stage_from_gauge'] = \
     river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
-        interpolate(method='values', limit_direction='both').tolist()
+    interpolate(method='values', limit_direction='both').tolist()
 
 
 new_k = []
@@ -843,22 +855,22 @@ surface_layers = {}
 bottom_layer = []
 
 for row in river_seg.iterrows():
-    j_mesh = row[1]['i'] 
+    j_mesh = row[1]['i']
     i_mesh = row[1]['j']
     strbot = row[1]['bed_from_gauge'] - row[1]['strthick']
     new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])]
     k = find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])
-    bottom_layer += [SS_model.model_mesh3D[0][k + 1, j_mesh, i_mesh]] 
+    bottom_layer += [SS_model.model_mesh3D[0][k + 1, j_mesh, i_mesh]]
     for layer in range(7):
         try:
-            surface_layers[layer] += [SS_model.model_mesh3D[0][layer, j_mesh, 
+            surface_layers[layer] += [SS_model.model_mesh3D[0][layer, j_mesh,
                                                                i_mesh]]
         except:
-            surface_layers[layer] = [SS_model.model_mesh3D[0][layer, j_mesh, 
+            surface_layers[layer] = [SS_model.model_mesh3D[0][layer, j_mesh,
                                                               i_mesh]]
         # end try
     # end for
-    
+
 for layer in range(7):
     river_seg["surf{}".format(layer)] = surface_layers[layer]
 # end for
@@ -868,17 +880,17 @@ river_seg['strtop'] = river_seg['bed_from_gauge']
 river_seg['bottom_layer'] = bottom_layer
 river_seg['stage'] = river_seg['stage_from_gauge']
 
-river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + \
-                   ["surf{}".format(x) for x in range(7)])
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] +
+               ["surf{}".format(x) for x in range(7)])
 river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
 
 river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'stage_from_gauge'], style='o')
 
-# For stream reaches that didn't map properly to the mesh for z elevation we 
+# For stream reaches that didn't map properly to the mesh for z elevation we
 # can still include by setting to layer 0 with a bed hydraulic conductivity of 0
 inds = np.where(river_seg['k'].isnull())[0]
 river_seg.dropna(inplace=True)
-          
+
 river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
 
 
@@ -889,8 +901,8 @@ SS_model.river_mapping['Campaspe'] = river_seg
 simple_river = []
 for row in river_seg.iterrows():
     row = row[1]
-    simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
-                      row['strhc1'] * row['rchlen'] * row['width1'], \
+    simple_river += [[row['k'], row['i'], row['j'], row['stage'],
+                      row['strhc1'] * row['rchlen'] * row['width1'],
                       row['strtop']]]
 # end for
 
@@ -904,60 +916,58 @@ SSbounds.create_model_boundary_condition('Campaspe River', 'river', bc_static=Tr
 SSbounds.assign_boundary_array('Campaspe River', riv)
 
 
-
-
 if VERBOSE:
     print "************************************************************************"
     print " Mapping Murray River to grid"
 
 SS_model.parameters.create_model_parameter('rmstage', value=0.01)
-SS_model.parameters.parameter_options('rmstage', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=0.1, 
-                                      PARGP='murr_riv', 
-                                      SCALE=1, 
+SS_model.parameters.parameter_options('rmstage',
+                                      PARTRANS='log',
+                                      PARCHGLIM='factor',
+                                      PARLBND=0.001,
+                                      PARUBND=0.1,
+                                      PARGP='murr_riv',
+                                      SCALE=1,
                                       OFFSET=0)
 # Parameter to all shifting the location of the bed which is only estimated based on assumed depth below zero gauge
 SS_model.parameters.create_model_parameter('rmbed', value=0.01)
-SS_model.parameters.parameter_options('rmbed', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=0.1, 
-                                      PARGP='murr_riv', 
-                                      SCALE=1, 
+SS_model.parameters.parameter_options('rmbed',
+                                      PARTRANS='log',
+                                      PARCHGLIM='factor',
+                                      PARLBND=0.001,
+                                      PARUBND=0.1,
+                                      PARGP='murr_riv',
+                                      SCALE=1,
                                       OFFSET=0)
 # Parameter for River Murray bed thickness
 SS_model.parameters.create_model_parameter('rmbedthk', value=0.01)
-SS_model.parameters.parameter_options('rmbedthk', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=0.001, 
-                                      PARUBND=0.5, 
-                                      PARGP='murr_riv', 
-                                      SCALE=1, 
+SS_model.parameters.parameter_options('rmbedthk',
+                                      PARTRANS='log',
+                                      PARCHGLIM='factor',
+                                      PARLBND=0.001,
+                                      PARUBND=0.5,
+                                      PARGP='murr_riv',
+                                      SCALE=1,
                                       OFFSET=0)
 # Parameter for the vertical hydraulic conductivity of the River Murray
 SS_model.parameters.create_model_parameter('kv_rm', value=5E-3)
-SS_model.parameters.parameter_options('kv_rm', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=1E-8, 
-                                      PARUBND=20, 
-                                      PARGP='murr_riv', 
-                                      SCALE=1, 
+SS_model.parameters.parameter_options('kv_rm',
+                                      PARTRANS='log',
+                                      PARCHGLIM='factor',
+                                      PARLBND=1E-8,
+                                      PARUBND=20,
+                                      PARGP='murr_riv',
+                                      SCALE=1,
                                       OFFSET=0)
 # Parameter for the width of the River Murray
 SS_model.parameters.create_model_parameter('rmwdth', value=30)
-SS_model.parameters.parameter_options('rmwdth', 
-                                      PARTRANS='fixed', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=20, 
-                                      PARUBND=50, 
-                                      PARGP='murr_riv', 
-                                      SCALE=1, 
+SS_model.parameters.parameter_options('rmwdth',
+                                      PARTRANS='fixed',
+                                      PARCHGLIM='factor',
+                                      PARLBND=20,
+                                      PARUBND=50,
+                                      PARGP='murr_riv',
+                                      SCALE=1,
                                       OFFSET=0)
 
 SS_model.create_river_dataframe('Murray', Murray_river_poly_file, surface_raster_high_res)
@@ -972,26 +982,28 @@ mriver_gauge_seg = SS_model.get_closest_riv_segments('Murray', gauge_points)
 mriver_seg.loc[:, 'bed_from_gauge'] = np.nan
 mriver_seg.loc[:, 'stage_from_gauge'] = np.nan
 
-Murray.loc[:, 'new_gauge'] = Murray[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
-Murray.loc[:, 'seg_loc'] = mriver_gauge_seg         
+Murray.loc[:, 'new_gauge'] = Murray[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1)
+Murray.loc[:, 'seg_loc'] = mriver_gauge_seg
 Murray_gauge_zero = Murray[Murray['new_gauge'] > 10.]
 mriver_seg['iseg'] = [x + 1 for x in range(mriver_seg.shape[0])]
 #Murray_gauge_zero['Cumulative Length'] = mriver_seg.loc[Murray_gauge_zero['seg_loc'].tolist(), 'Cumulative Length'].tolist()
 
 #Murray = pd.merge(Murray, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
-Murray_gauge_zero = pd.merge(Murray_gauge_zero, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
+Murray_gauge_zero = pd.merge(Murray_gauge_zero, river_stage_data[1], on='Site Name', how='inner', suffixes=('', '_r'))
 
 Murray_gauge_zero = Murray_gauge_zero[[x for x in Murray_gauge_zero.columns if '_r' not in x]]
 
+
 def values_from_gauge(column, reference):
-    mriver_seg.loc[mriver_seg['iseg'].isin( \
-        Murray_gauge_zero['seg_loc'].tolist()), column] = sorted( \
+    mriver_seg.loc[mriver_seg['iseg'].isin(
+        Murray_gauge_zero['seg_loc'].tolist()), column] = sorted(
         Murray_gauge_zero[reference].tolist(), reverse=True)
-    mriver_seg[column] = mriver_seg.set_index( \
-        mriver_seg['Cumulative Length'])[column].interpolate( \
+    mriver_seg[column] = mriver_seg.set_index(
+        mriver_seg['Cumulative Length'])[column].interpolate(
         method='values', limit_direction='both').tolist()
     mriver_seg[column].fillna(method='bfill', inplace=True)
 # end values_from_gauge
+
 
 values_to_edit = ['bed_from_gauge', 'stage_from_gauge']
 references = ['new_gauge', 'Mean stage (m)']
@@ -1011,7 +1023,7 @@ for row in mriver_seg.iterrows():
     strtop = row[1]['bed_from_gauge']
     k = find_layer(strtop, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])
     new_k += [k]
-    bottom_layer += [SS_model.model_mesh3D[0][k+1, j_mesh, i_mesh]] 
+    bottom_layer += [SS_model.model_mesh3D[0][k + 1, j_mesh, i_mesh]]
     active += [SS_model.model_mesh3D[1][k, j_mesh, i_mesh]]
     for layer in range(7):
         try:
@@ -1034,18 +1046,20 @@ mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'stage_from_gauge'])
 
 mriver_seg['k'] = new_k
 mriver_seg['active'] = active
-      
+
 # Remove any stream segments for which the elevation could not be mapped to a layer
 mriver_seg[mriver_seg['active'] == -1] = np.nan
 mriver_seg.dropna(inplace=True)
 SS_model.river_mapping['Murray'] = mriver_seg
 
-mriver_seg['strtop'] = mriver_seg['bed_from_gauge']                      
-mriver_seg['strhc1'] = SS_model.parameters.param['kv_rm']['PARVAL1']                      
+mriver_seg['strtop'] = mriver_seg['bed_from_gauge']
+mriver_seg['strhc1'] = SS_model.parameters.param['kv_rm']['PARVAL1']
 mriver_seg['width1'] = SS_model.parameters.param['rmwdth']['PARVAL1']
 mriver_seg['stage'] = mriver_seg['stage_from_gauge'] + SS_model.parameters.param['rmstage']['PARVAL1']
 
 # Avoid collisions with Campaspe River ...
+
+
 def is_in_other_river(riv_df_testing, riv_df_other):
     riv_df_other_locs = riv_df_other['amalg_riv_points'].tolist()
     cell_used = []
@@ -1053,12 +1067,13 @@ def is_in_other_river(riv_df_testing, riv_df_other):
         if row[1]['amalg_riv_points'] in riv_df_other_locs:
             cell_used += [0]
         else:
-            cell_used += [1] 
+            cell_used += [1]
         # end if
     # end for
-    
+
     return cell_used
 # end is_in_other_river0.
+
 
 cells_overlapping = is_in_other_river(mriver_seg, river_seg)
 mriver_seg['cell_used'] = cells_overlapping
@@ -1074,8 +1089,8 @@ simple_river = []
 
 for row in mriver_seg.iterrows():
     row = row[1]
-    simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
-                      row['strhc1'] * row['rchlen'] * row['width1'], \
+    simple_river += [[row['k'], row['i'], row['j'], row['stage'],
+                      row['strhc1'] * row['rchlen'] * row['width1'],
                       row['strtop']]]
 # end for
 
@@ -1093,25 +1108,25 @@ if VERBOSE:
     print " Setting up Murray River GHB boundary"
 
 SS_model.parameters.create_model_parameter('mghb_stage', value=0.01)
-SS_model.parameters.parameter_options('mghb_stage', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=-20.0, 
-                                      PARUBND=50, 
-                                      PARGP='ghb', 
-                                      SCALE=1, 
+SS_model.parameters.parameter_options('mghb_stage',
+                                      PARTRANS='log',
+                                      PARCHGLIM='factor',
+                                      PARLBND=-20.0,
+                                      PARUBND=50,
+                                      PARGP='ghb',
+                                      SCALE=1,
                                       OFFSET=0)
 SS_model.parameters.create_model_parameter('mghbk', value=10)
-SS_model.parameters.parameter_options('mghbk', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=1E-8, 
-                                      PARUBND=50, 
-                                      PARGP='ghb', 
-                                      SCALE=1, 
+SS_model.parameters.parameter_options('mghbk',
+                                      PARTRANS='log',
+                                      PARCHGLIM='factor',
+                                      PARLBND=1E-8,
+                                      PARUBND=50,
+                                      PARGP='ghb',
+                                      SCALE=1,
                                       OFFSET=0)
 
-# First find which cells should make up the boundary based on the mapping 
+# First find which cells should make up the boundary based on the mapping
 # from the Murray river polyline to the grid
 
 MurrayGHB = []
@@ -1125,7 +1140,7 @@ for mrow in mriver_seg.iterrows():
     row = int(mrow['i'])
     col = int(mrow['j'])
 
-    for lay in range(SS_model.model_mesh3D[1].shape[0]):    
+    for lay in range(SS_model.model_mesh3D[1].shape[0]):
         if [lay, row, col] in checked:
             continue
         # end if
@@ -1133,21 +1148,22 @@ for mrow in mriver_seg.iterrows():
         if SS_model.model_mesh3D[1][0][row][col] == -1:
             continue
         # end if
-        
+
         MurrayGHBstage = mrow['stage'] + \
-                             SS_model.parameters.param['mghb_stage']['PARVAL1']
+            SS_model.parameters.param['mghb_stage']['PARVAL1']
 
         if lay <= mrow['k']:
             continue
         # end if
-        
-        Murray_df_ind += [ind]        
+
+        Murray_df_ind += [ind]
         Active_MurrayGHB_cells += [[lay, row, col]]
-    
+
     # end for
-#end for
+# end for
 
 # Now make sure that no cells are being caught surrounded by other GHB cells to prevent short circuiting
+
 
 def active_check(check_param, check_val, ref_cell, zone_cell, Active_MurrayGHB_cells):
     """
@@ -1156,7 +1172,7 @@ def active_check(check_param, check_val, ref_cell, zone_cell, Active_MurrayGHB_c
     :param check_param: int, target parameter to check
     :param check_val: int, value to check against, target parameter should not equal this
     :param ref_cell: list, reference to neighbouring cell ([layer, row, column])
-    :param zone_cell: list, reference to HGU of cell with -1 indicating inactive cell 
+    :param zone_cell: list, reference to HGU of cell with -1 indicating inactive cell
     :param Active_MurrayGHB_cells: list, list of cell locations ([layer, row, column])
 
     :returns: bool, cell is active or not active
@@ -1168,6 +1184,7 @@ def active_check(check_param, check_val, ref_cell, zone_cell, Active_MurrayGHB_c
     # end if
     return False
 # end active_check()
+
 
 Murray_df_ind2 = []
 Final_MurrayGHB_cells = []
@@ -1182,34 +1199,34 @@ for index, ac in enumerate(Active_MurrayGHB_cells):
 
     # Check north:
     ref_cell = [acl, acr + 1, acc]
-    active_non_GHB = active_check(acr, 0, ref_cell, 
-                                  zone[acl, acr + 1, acc], 
+    active_non_GHB = active_check(acr, 0, ref_cell,
+                                  zone[acl, acr + 1, acc],
                                   Active_MurrayGHB_cells)
 
     # Check east:
     if not active_non_GHB:
         ref_cell = [acl, acr, acc + 1]
-        active_non_GHB = active_check(acc, shape[col] - 1, ref_cell, 
-                                      zone[acl, acr, acc + 1], 
+        active_non_GHB = active_check(acc, shape[col] - 1, ref_cell,
+                                      zone[acl, acr, acc + 1],
                                       Active_MurrayGHB_cells)
     # end if
 
     # Check south:
     if not active_non_GHB:
         ref_cell = [acl, acr - 1, acc]
-        active_non_GHB = active_check(acr, shape[row] - 1, ref_cell, 
-                                      zone[acl, acr - 1, acc], 
+        active_non_GHB = active_check(acr, shape[row] - 1, ref_cell,
+                                      zone[acl, acr - 1, acc],
                                       Active_MurrayGHB_cells)
     # end if
 
     # Check west:
     if not active_non_GHB:
         ref_cell = [acl, acr, acc - 1]
-        active_non_GHB = active_check(acc, 0, ref_cell, 
-                                      zone[acl, acr, acc - 1], 
+        active_non_GHB = active_check(acc, 0, ref_cell,
+                                      zone[acl, acr, acc - 1],
                                       Active_MurrayGHB_cells)
     # end if
-    
+
     if active_non_GHB:
         Final_MurrayGHB_cells += [ac]
         Murray_df_ind2 += [Murray_df_ind[index]]
@@ -1221,12 +1238,12 @@ for index, MurrayGHB_cell in enumerate(Final_MurrayGHB_cells):
     lay = MurrayGHB_cell[0]
     row = MurrayGHB_cell[1]
     col = MurrayGHB_cell[2]
-        
+
     MurrayGHBstage = mriver_seg['stage'].loc[Murray_df_ind2[index]] + \
-                         SS_model.parameters.param['mghb_stage']['PARVAL1']
+        SS_model.parameters.param['mghb_stage']['PARVAL1']
     dx = SS_model.gridHeight
     dz = SS_model.model_mesh3D[0][lay][row][col] - \
-             SS_model.model_mesh3D[0][lay + 1][row][col]
+        SS_model.model_mesh3D[0][lay + 1][row][col]
     MGHBconductance = dx * dz * SS_model.parameters.param['mghbk']['PARVAL1']
     MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 # end for
@@ -1239,11 +1256,6 @@ if VERBOSE:
 
 SSbounds.create_model_boundary_condition('GHB', 'general head', bc_static=True)
 SSbounds.assign_boundary_array('GHB', ghb)
-
-
-
-
-
 
 
 if VERBOSE:
