@@ -51,7 +51,7 @@ bore_info_file = "bore_info"
 model_build_input_path = get_conf_set(['model_build', 'input_data'])
 
 model_params = {
-    "name": "GW_link_Integrated",
+    "name": "GW_link_Integrated", 
     "data_folder": model_build_input_path,
     "campaspe_data": get_conf_set(['model_build', 'campaspe_data']), 
     "model_data_folder": model_config['data_folder'],
@@ -215,7 +215,7 @@ riv_flow_path = p_j(SS_model.out_data_folder, river_flow_file)
 if os.path.exists(riv_flow_path + '.pkl'):
     river_flow_data = SS_model.load_obj(riv_flow_path + '.pkl')
 else:
-    river_flow_data = processRiverStations.getFlow(path=sw_data_path)
+    river_flow_data = processRiverStations.getFlow(path=sw_data_path, summary=True)
     SS_model.save_obj(river_flow_data, riv_flow_path)
 # End if
 
@@ -226,10 +226,10 @@ riv_stage_path = p_j(SS_model.out_data_folder, river_stage_file)
 if os.path.exists(riv_stage_path + '.pkl'):
     river_stage_data = SS_model.load_obj(riv_stage_path + '.pkl')
 else:
-    river_stage_data = processRiverStations.getStage(path=sw_data_path)
+    river_stage_data = processRiverStations.getStage(path=sw_data_path, summary=True)
     SS_model.save_obj(river_stage_data, riv_stage_path)
 
-river_gauges = SS_model.read_points_data(p_j(sw_data_path,
+river_gauges = SS_model.read_points_data(p_j(sw_data_path, "Updated",
                                              r"processed_river_sites_stage.shp"))
 
 
@@ -505,17 +505,6 @@ def find_layer(elev, col_vals):
                 return index - 1
         #end if
 
-
-SS_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
-
-Campaspe_river_gauges = SS_model.points_mapped['processed_river_sites_stage_clipped.shp']
-
-filter_gauges = []
-for riv_gauge in Campaspe_river_gauges:
-    if str(riv_gauge[1][0]) in Stream_gauges:
-        filter_gauges += [riv_gauge]
-    # End if
-# End for
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -822,7 +811,7 @@ Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # reach here it will cause problems for the segment
 Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406218]
 
-Campaspe_stage = pd.merge(Campaspe, river_stage_data, on='Site Name', how='inner', suffixes=('','_r'))
+Campaspe_stage = pd.merge(Campaspe, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
 Campaspe_stage = Campaspe_stage[[x for x in Campaspe_stage.columns if '_r' not in x]]
 
 river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 
@@ -990,7 +979,7 @@ mriver_seg['iseg'] = [x + 1 for x in range(mriver_seg.shape[0])]
 #Murray_gauge_zero['Cumulative Length'] = mriver_seg.loc[Murray_gauge_zero['seg_loc'].tolist(), 'Cumulative Length'].tolist()
 
 #Murray = pd.merge(Murray, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
-Murray_gauge_zero = pd.merge(Murray_gauge_zero, river_stage_data, on='Site Name', how='inner', suffixes=('','_r'))
+Murray_gauge_zero = pd.merge(Murray_gauge_zero, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
 
 Murray_gauge_zero = Murray_gauge_zero[[x for x in Murray_gauge_zero.columns if '_r' not in x]]
 
@@ -1518,7 +1507,7 @@ obs_active_bores = obs_active_bores[obs_active_bores.isin(bores_in_top_layer)].t
 obs_filter_bores = bore_points3D[bore_points3D.index.isin(obs_active_bores)]
 obs_bores_list = zip(obs_filter_bores['Easting'], obs_filter_bores['Northing'])
 
-stream_active = river_flow_data[river_flow_data['Site ID'].isin([int(x) for x in Stream_gauges])]
+stream_active = river_flow_data[0][river_flow_data[0]['Site ID'].isin([int(x) for x in Stream_gauges])]
 stream_gauges_list = zip(stream_active['Easting'], stream_active['Northing'])
 
 closest_bores_active = SS_model.find_closest_points_between_two_lists(obs_bores_list, stream_gauges_list)
