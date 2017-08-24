@@ -34,7 +34,12 @@ RUN apt-get -y install \
     gcc \
     && apt-get clean \
     && rm -rf /tmp/* \
-    && conda install numpy=1.11.2=py27_0 -y
+    && conda install numpy=1.11.2=py27_0 matplotlib gdal xlrd pysal simplejson pytables -c conda-forge -y
+
+# Have to manually set GDAL_DATA env variable
+ENV GDAL_DATA /opt/conda/share/gdal
+
+RUN pip install pyevtk more_itertools jsmin
 
 RUN wget http://water.usgs.gov/ogw/modflow-nwt/MODFLOW-NWT_1.1.2.zip \
     && unzip MODFLOW-NWT_1.1.2.zip \
@@ -43,19 +48,36 @@ RUN wget http://water.usgs.gov/ogw/modflow-nwt/MODFLOW-NWT_1.1.2.zip \
     && rm -r MODFLOW-NWT_1.1.2 \
     && rm MODFLOW-NWT_1.1.2.zip
 
-# ----------------
+# -----------------
 # HydroModelBuilder
-# ----------------
-RUN conda install conda-build
-RUN mkdir /app
-RUN git clone https://github.com/daniel-partington/HydroModelBuilder.git /app/HydroModelBuilder
-RUN cd /app/HydroModelBuilder; git reset --hard a9221513feda93d35530ced0bcf1ff48fd570f1c
-RUN conda build /app/HydroModelBuilder/docker_build/conda.recipe; cd /app
+# -----------------
+ENV CONDA_PY 2.7
+# RUN conda install conda-build
+# RUN git clone https://github.com/daniel-partington/HydroModelBuilder.git /app/HydroModelBuilder
+# RUN cd /app/HydroModelBuilder; git reset --hard 43b55779574ec1b8a8d498a76606920e0e2a0de0
+# RUN conda build /app/HydroModelBuilder/docker_build/conda.recipe; cd /app
+RUN pip install git+https://github.com/daniel-partington/HydroModelBuilder@43b55779574ec1b8a8d498a76606920e0e2a0de0
 
-RUN git clone https://github.com/daniel-partington/CampaspeModel.git  /app/CampaspeModel
-RUN cd /app/CampaspeModel; git reset --hard 6332960687118bab3a194fe62934928798639268
-RUN conda build /app/CampaspeModel/docker_build/conda.recipe; cd /app
+# ----------------
+# CampaspeModel
+# ----------------
+RUN mkdir /app
+RUN git clone https://github.com/daniel-partington/CampaspeModel.git /app/CampaspeModel
+RUN cd /app/CampaspeModel; git reset --hard 2fca8d6e56b82950b9cb5ef9c2febc0841547067
+# RUN pip install git+https://github.com/daniel-partington/CampaspeModel@2fca8d6e56b82950b9cb5ef9c2febc0841547067
+
+# Add CampaspeModel to PYTHONPATH
+ENV PYTHONPATH /app/CampaspeModel:${PYTHONPATH}
 
 # change backend as "windows" don't play with docker. http://matplotlib.org/users/customizing.html#the-matplotlibrc-file
 RUN MATPLOTLIB_RC_LOCATION=$(python -c "import matplotlib; print matplotlib.matplotlib_fname()") \
-    && sed -i.bak 's/backend      : tkagg/backend      : Agg/gi' $MATPLOTLIB_RC_LOCATION
+&& sed -i.bak 's/backend      : qt5agg/backend      : Agg/gi' $MATPLOTLIB_RC_LOCATION
+
+# To use CampaspeModel, you must have a shared directory with model data set up, and the relevant settings
+# in model_config.json must point to this directory.
+# This defaults to /shared in the model_config.json file.
+
+# Docker run command
+# docker run -v [path to share folder on host]:[docker directory] -it [container]
+# so, for example
+# docker run -v C:/shared_folder:/shared -it campaspemodel
