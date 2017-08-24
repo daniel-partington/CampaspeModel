@@ -10,9 +10,9 @@
         "mf_exe_folder": "C:/UserData/takuyai/ownCloud/CampaspeModel/CampaspeModel/MODFLOW-NWT_64.exe",
         "model_build": {
             "input_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
-            "data_build": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/data_build",
+            "data_build": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/data_build",
             "campaspe_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
-            "temp_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/"
+            "temp_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data"
         }
       },
       "taku-clevolap\\takuya": {
@@ -60,9 +60,9 @@
         "mf_exe_folder": "/mfnwt/MODFLOW-NWT_64",
         "model_build": {
             "input_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
-            "data_build": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/data_build",
+            "data_build": "/shared/campaspeim_data/Groundwater/2017-08-21/data_build",
             "campaspe_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
-            "temp_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/"
+            "temp_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data"
         }
       }
     }
