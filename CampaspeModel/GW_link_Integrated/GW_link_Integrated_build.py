@@ -233,7 +233,7 @@ river_gauges = SS_model.read_points_data(p_j(sw_data_path, "Updated",
                                              r"processed_river_sites_stage.shp"))
 
 
-river_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated"
+river_data_folder = p_j(sw_data_path, "Updated")
 site_details_file = "Site Details.csv"
 site_details = pd.read_csv(os.path.join(river_data_folder, site_details_file))
 # As all of the stream data for the whole of the Camaspe catchment is in the folder
