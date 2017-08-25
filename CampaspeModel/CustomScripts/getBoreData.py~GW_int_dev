@@ -1,11 +1,7 @@
 import os
-
 import pandas as pd
 import xlrd
-
 import dbf2df
-
-
 """
 NOTES ON NGIS DATA
 The quality codes for water levels are:

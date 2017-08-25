@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-import dbf2df
 import xlrd
+import dbf2df
 """
 NOTES ON NGIS DATA
 The quality codes for water levels are:
@@ -81,7 +81,8 @@ def getBoreDataGMW(path=""):
     
     # Filter construction details to get screens:
     # Index by bore ID for the filter construction drails
-    Screen_info = df_set['Bore Construction'].loc[df_set['Bore Construction']['Component'] == 'Screen']
+    Screen_info = df_set['Bore Construction'].loc[
+        df_set['Bore Construction']['Component'] == 'Screen']
     
     # Filter lab chem sheet to get all of the salinities at bores
     WaterLevel = df_set['Water Levels']
@@ -89,7 +90,7 @@ def getBoreDataGMW(path=""):
 
 def getBoreData(get='transient', path=""): 
     '''
-    Function to process National Groudnwater Information System (NGIS) data
+    Function to process National Groundwater Information System (NGIS) data
     to extract bores with level readings and that have clear info on 
     the construction, i.e. top and bottom of screen.
     '''
@@ -102,7 +103,8 @@ def getBoreData(get='transient', path=""):
     fields_level = ['bore_id', 'bore_date', 'obs_point_datum', 'result', 'quality_flag', 'hydroid']
     fields_salinity = ['bore_id', 'bore_date', 'uom', 'result']
     
-    dfVIC_level = pd.read_csv(VIC_level_data, sep=r',', usecols=fields_level, dtype={fields_level[0]:str, fields_level[4]:str})
+    dfVIC_level = pd.read_csv(VIC_level_data, sep=r',', usecols=fields_level, dtype={
+                              fields_level[0]:str, fields_level[4]:str})
     #dfNSW_level = pd.read_csv(NSW_level_data, sep=r',', usecols=fields_level, dtype={fields_level[0]:str})
     dfVIC_salinity = pd.read_csv(VIC_salinity_data, sep=r',', usecols=fields_salinity, dtype={fields_salinity[0]:str})
     #dfNSW_salinity = pd.read_csv(NSW_salinity_data, sep=r',', usecols=fields_salinity, dtype={fields_salinity[0]:str})
