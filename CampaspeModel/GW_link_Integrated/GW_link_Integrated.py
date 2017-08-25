@@ -146,23 +146,19 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     river_seg.loc[:, 'stage_from_gauge'] = np.nan
 
-    gauge_val_dict = {}
-    for gauge_id in riv_stages.dtype.names:
-        if gauge_id in Stream_gauges:
-            val = riv_stages[gauge_id]
-            gauge_val_dict[gauge_id] = val
-
     Campaspe_stage = river_seg[river_seg['gauge_id'] != 'none']
     new_riv_stages = []
     for row in Campaspe_stage.iterrows():
         ind = row[1]['gauge_id']
         try:
-            print gauge_val_dict[str(ind)]
-            new_riv_stages += [gauge_val_dict[str(ind)]]
-        except:
+            print riv_stages[str(ind)]
+            new_riv_stages += [riv_stages[str(ind)]]
+        except ValueError:
             print("No value for: {}".format(ind))
-            print river_seg[river_seg['gauge_id'] == ind]['stage']
+            print(river_seg[river_seg['gauge_id'] == ind]['stage'])
             new_riv_stages += river_seg[river_seg['gauge_id'] == ind]['stage'].tolist()
+        # End try
+    # End for
 
     Campaspe_stage.loc[:, 'stage_from_gauge'] = new_riv_stages
 
@@ -170,12 +166,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                   'stage_from_gauge'] = \
         sorted(Campaspe_stage['stage_from_gauge'].tolist(),
                reverse=True)
-#
+
     river_seg['stage_from_gauge'] = \
         river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
         interpolate(method='values', limit_direction='both').tolist()
-
-    #river_seg['stage_from_gauge'] = river_seg['stage_from_gauge'].bfill()
 
     river_seg['stage'] = river_seg['stage_from_gauge']
 
@@ -248,15 +242,13 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in this_model.boundaries.bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
         lay, row, col = MurrayGHB_cell[:3]
-        MurrayGHBstage = MurrayGHB_cell[3]  # m.parameters.param['mghb_stage']['PARVAL1']
+        MurrayGHBstage = MurrayGHB_cell[3]
         dx = this_model.gridHeight
-        dz = this_model.model_mesh3D[0][lay][row][col] - \
-            this_model.model_mesh3D[0][lay + 1][row][col]
+        dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
         MGHBconductance = dx * dz * this_model.parameters.param['mghbk']['PARVAL1']  # / 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
-    ghb = {}
-    ghb[0] = MurrayGHB
+    ghb = {0: MurrayGHB}
 
     if verbose:
         print "************************************************************************"
@@ -419,11 +411,6 @@ if __name__ == "__main__":
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
     # End if
-
-    print model_folder
-    print data_folder
-    print mf_exe_folder
-    print param_file
 
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
