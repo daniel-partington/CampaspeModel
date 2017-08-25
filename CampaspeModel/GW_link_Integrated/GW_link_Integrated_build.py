@@ -229,10 +229,10 @@ else:
     river_stage_data = processRiverStations.getStage(path=sw_data_path, summary=True)
     SS_model.save_obj(river_stage_data, riv_stage_path)
 
-river_gauges = SS_model.read_points_data(p_j(sw_data_path, "Updated",
+river_gauges = SS_model.read_points_data(p_j(sw_data_path,
                                              r"processed_river_sites_stage.shp"))
 
-river_data_folder = p_j(sw_data_path, "Updated")
+river_data_folder = p_j(sw_data_path)
 site_details_file = "Site Details.csv"
 site_details = pd.read_csv(os.path.join(river_data_folder, site_details_file))
 # As all of the stream data for the whole of the Camaspe catchment is in the folder
@@ -880,11 +880,11 @@ river_seg['strtop'] = river_seg['bed_from_gauge']
 river_seg['bottom_layer'] = bottom_layer
 river_seg['stage'] = river_seg['stage_from_gauge']
 
-river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] +
-               ["surf{}".format(x) for x in range(7)])
-river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
-
-river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'stage_from_gauge'], style='o')
+#river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] +
+#               ["surf{}".format(x) for x in range(7)])
+#river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
+#
+#river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'stage_from_gauge'], style='o')
 
 # For stream reaches that didn't map properly to the mesh for z elevation we
 # can still include by setting to layer 0 with a bed hydraulic conductivity of 0
@@ -1040,9 +1040,9 @@ for layer in range(7):
 
 mriver_seg['bottom_layer'] = bottom_layer
 
-mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
-
-mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'stage_from_gauge'])
+#mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
+#
+#mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'stage_from_gauge'])
 
 mriver_seg['k'] = new_k
 mriver_seg['active'] = active
@@ -1278,7 +1278,6 @@ for index, bores in enumerate(SS_model.points_mapped["NGIS_Bores_clipped.shp"]):
             #    sys.exit('Halting model build due to bore not being found')
             if bore in Policy_bores:
                 print e
-                print bore_data_info.head()
                 print 'Policy bore not in info: ', bore
                 # sys.exit('Halting model build due to bore not being found')
             continue
