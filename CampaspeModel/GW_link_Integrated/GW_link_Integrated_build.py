@@ -44,7 +44,7 @@ climate_path = p_j(get_conf_set(['model_build', 'campaspe_data']), 'Climate')
 temp_data_path = get_conf_set(['model_build', 'temp_data'])
 input_data_path = get_conf_set(['model_build', 'input_data'])
 river_path = p_j(input_data_path, "Waterways")
-sw_data_path = p_j(temp_data_path, "Campaspe_data/SW/All_streamflow_Campaspe_catchment")
+sw_data_path = p_j(temp_data_path, "Campaspe_data/SW/All_streamflow_Campaspe_catchment/Updated")
 
 bore_levels_file = "bore_levels"
 bore_info_file = "bore_info"

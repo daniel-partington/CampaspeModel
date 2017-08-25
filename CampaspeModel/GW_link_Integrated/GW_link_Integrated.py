@@ -277,7 +277,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             this_model.initial_conditions.set_as_initial_condition("Head", head)
         except IndexError as e:
             raise IndexError(
-                "Corrupted MODFLOW hds file - check, replace, or remove {}".format(
+                "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
                     p_j(data_folder, fname, name + '.hds')))
     else:
         if verbose:
@@ -396,8 +396,13 @@ if __name__ == "__main__":
 
     # Example river level data (to be inputted from SW Model)
     # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
-    fname = r"dev_river_levels.pkl"
+    fname = "dev_river_levels.pkl"
     riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
+
+    print("Using the following gauges:")
+    for i in riv_stages.dtype.names:
+        print i
+    # End for
 
     args = sys.argv
     if len(args) > 1:
@@ -414,6 +419,11 @@ if __name__ == "__main__":
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
     # End if
+
+    print model_folder
+    print data_folder
+    print mf_exe_folder
+    print param_file
 
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
