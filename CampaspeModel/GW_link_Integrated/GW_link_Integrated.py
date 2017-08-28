@@ -308,14 +308,16 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
                                               in Stream_gauges])
 
-#    for gauge in Stream_gauges:
-#        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(riv_reach_nodes[gauge])
-#
-#    if verbose:
-#        print("Upstream of weir", swgw_exchanges[
-#              sw_stream_gauges[0]] + swgw_exchanges[sw_stream_gauges[1]])
-#        print("Downstream of weir", swgw_exchanges[
-#              sw_stream_gauges[2]] + swgw_exchanges[sw_stream_gauges[3]])
+    river_reach_cells = river_seg[['gauge_id', 'amalg_riv_points']]
+    river_reach_cells.loc[0, 'gauge_id'] = 'none'
+    river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan                     
+    river_reach_cells = river_reach_cells.bfill()
+    
+    for gauge in Stream_gauges:
+        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(
+                                    river_reach_cells[
+                                        river_reach_cells['gauge_id'] == int(gauge)]['amalg_riv_points']
+                                            .tolist())
 
     # Average depth to GW table:
     avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
