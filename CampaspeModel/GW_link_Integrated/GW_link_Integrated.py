@@ -308,16 +308,21 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     swgw_exchanges = np.recarray((1,), dtype=[(str(gauge), np.float) for gauge
                                               in Stream_gauges])
 
-    river_reach_cells = river_seg[['gauge_id', 'amalg_riv_points']]
+    river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
     river_reach_cells.loc[0, 'gauge_id'] = 'none'
     river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan                     
     river_reach_cells = river_reach_cells.bfill()
+    def make_list(row):
+        return [row['k'], row['i'], row['j']]
+        
+    river_reach_cells.loc[:, 'cell'] = river_reach_cells.apply(make_list, axis=1)
     
     for gauge in Stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(
                                     river_reach_cells[
-                                        river_reach_cells['gauge_id'] == int(gauge)]['amalg_riv_points']
+                                        river_reach_cells['gauge_id'] == int(gauge)]['cell']
                                             .tolist())
+
 
     # Average depth to GW table:
     avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
@@ -337,14 +342,29 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     Ecology heads of importance
     River gauges of importance for ecology: 406201, 406202, 406207, 406218, 406265
     Corresponding GW bores nearest to:      83003,  89586,  82999,  5662,   44828
+    
+    The bores are being ignored for nw as they are too far away from the stream
+    gauges. Instead the simulated head in the cell with the stream gauge is 
+    used which represents the average head over the 5 km x 5 km cell.
     """
     ecol_depth_to_gw_bores = Ecology_bores
     ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float)
                                                 for bore in ecol_depth_to_gw_bores])
-    # to set
-    for ecol_bore in ecol_depth_to_gw_bores:
-        # NOTE: This returns the depth to groundwater below the surface in metres
-        ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
+    
+    heads = modflow_model.getHeads()
+    river_reach_ecol =  river_seg[['gauge_id', 'k', 'j', 'i']]
+    river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
+    river_reach_ecol.loc[:, 'cell'] = river_reach_ecol.apply(make_list, axis=1)
+
+    for ind, ecol_bore in enumerate(ecol_depth_to_gw_bores):
+        loc = river_reach_ecol[river_reach_ecol['gauge_id'] == 
+                               int(Stream_gauges[ind])]['cell'].tolist()[0]
+        ecol_depth_to_gw[ecol_bore] = mesh_0[loc[0], loc[1], loc[2]] - \
+                                       heads[loc[0], loc[1], loc[2]]
+
+#    for ecol_bore in ecol_depth_to_gw_bores:
+#        # NOTE: This returns the depth to groundwater below the surface in metres
+#        ecol_depth_to_gw[ecol_bore] = modflow_model.getObservation(ecol_bore, 0, 'head')[1]
     # end for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
