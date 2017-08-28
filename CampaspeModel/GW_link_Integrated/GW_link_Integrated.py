@@ -148,14 +148,19 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     Campaspe_stage = river_seg[river_seg['gauge_id'] != 'none']
     new_riv_stages = []
+
+    riv_stages_dict = {record[0]: record[1] for record in riv_stages}
+
     for row in Campaspe_stage.iterrows():
         ind = row[1]['gauge_id']
         try:
-            print riv_stages[str(ind)]
-            new_riv_stages += [riv_stages[str(ind)]]
-        except ValueError:
-            print("No value for: {}".format(ind))
-            print(river_seg[river_seg['gauge_id'] == ind]['stage'])
+            #print riv_stages_dict[str(ind)]
+            new_riv_stages += [riv_stages_dict[str(ind)]]
+        except KeyError:
+            print("No value for: {}, using avearage: {}".
+                  format(ind, 
+                         river_seg[river_seg['gauge_id'] == ind]['stage']
+                         .tolist()[0]))
             new_riv_stages += river_seg[river_seg['gauge_id'] == ind]['stage'].tolist()
         # End try
     # End for
@@ -248,7 +253,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         MGHBconductance = dx * dz * this_model.parameters.param['mghbk']['PARVAL1']  # / 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
-    ghb = {0: MurrayGHB}
 
     if verbose:
         print "************************************************************************"
@@ -390,11 +394,6 @@ if __name__ == "__main__":
     # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
     fname = "dev_river_levels.pkl"
     riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
-
-    print("Using the following gauges:")
-    for i in riv_stages.dtype.names:
-        print i
-    # End for
 
     args = sys.argv
     if len(args) > 1:
