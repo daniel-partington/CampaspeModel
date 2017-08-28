@@ -147,7 +147,8 @@ if os.path.exists(bore_lf) & os.path.exists(bore_if):
 else:
     bore_data_levels, bore_data_info, bore_data_salinity = \
         getBoreData.getBoreData(path=os.path.join(SS_model.campaspe_data,
-                                                  "ngis_shp_VIC"))
+                                                  "ngis_shp_VIC"),
+                                construct_record_number_max=1000)
     SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_levels_file),
                             bore_data_levels)
     SS_model.save_dataframe(p_j(SS_model.out_data_folder, bore_info_file),

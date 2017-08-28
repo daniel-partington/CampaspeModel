@@ -88,7 +88,7 @@ def getBoreDataGMW(path=""):
     WaterLevel = df_set['Water Levels']
     water_level_bores = pd.unique(WaterLevel['Bore ID'])
 
-def getBoreData(get='transient', path=""): 
+def getBoreData(get='transient', path="", construct_record_number_max=3): 
     '''
     Function to process National Groundwater Information System (NGIS) data
     to extract bores with level readings and that have clear info on 
@@ -185,7 +185,8 @@ def getBoreData(get='transient', path=""):
     print 'Total number of bores with levels and screen info: ', df_bores_clear.shape[0] 
  
     # Filter bores by those with only one construction record as multiscreened wells are ambiguous with respect to observations in NGIS database   
-    df_bores_clear = df_bores_clear[df_bores_clear['result'] < 3]
+    df_bores_clear = df_bores_clear[df_bores_clear['result'] < \
+                                    construct_record_number_max]
 
     print 'Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0] 
     
