@@ -28,7 +28,7 @@ N	Deemed not anomalous by the data provider
 >	Measured value is approximate; true value is greater than measured
 <	Measured value is approximate; true value is less than measured
  	No code; assumed ok
- 
+
 
 The quality codes for salinity are:
 
@@ -50,35 +50,35 @@ N	Deemed not anomalous by the data provider
  	No code; assumed ok
 """
 
+
 def getBoreDataGMW(path=""):
     '''
     Function to process bore data received from Goulburn Murray Water
-    
+
     '''
     # Now load in the bore data to pandas dataframes
-    
+
     fname = os.path.join(path, r"Shallow monitoring bores bc301115.xlsx")
     fname2 = os.path.join(path, r"State Observation Bores bc271115.xlsx")
-    
+
     with xlrd.open_workbook(fname, on_demand=True) as xls:
         sheets = xls.sheet_names()
-    
+
     with xlrd.open_workbook(fname2, on_demand=True) as xls:
         sheets2 = xls.sheet_names()
-    
+
     df_set = {}
     df_set2 = {}
-    
+
     for sheet in sheets:
         df_set[sheet] = pd.read_excel(fname, sheetname=sheet, parse_dates=True)
-    
+
     for sheet in sheets2:
         df_set2[sheet] = pd.read_excel(fname2, sheetname=sheet, parse_dates=True)
-    
+
     for key in df_set:
         df_set[key] = pd.concat([df_set[key], df_set2[key]])
-    
-    
+
     # Filter construction details to get screens:
     # Index by bore ID for the filter construction drails
     Screen_info = df_set['Bore Construction'].loc[
@@ -99,32 +99,34 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     VIC_salinity_data = os.path.join(path, "salinity_VIC.csv")
     #NSW_level_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\level_NSW.csv"
     #NSW_salinity_data = r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\salinity_NSW.csv"
-    
+
     fields_level = ['bore_id', 'bore_date', 'obs_point_datum', 'result', 'quality_flag', 'hydroid']
     fields_salinity = ['bore_id', 'bore_date', 'uom', 'result']
     
     dfVIC_level = pd.read_csv(VIC_level_data, sep=r',', usecols=fields_level, dtype={
                               fields_level[0]:str, fields_level[4]:str})
     #dfNSW_level = pd.read_csv(NSW_level_data, sep=r',', usecols=fields_level, dtype={fields_level[0]:str})
-    dfVIC_salinity = pd.read_csv(VIC_salinity_data, sep=r',', usecols=fields_salinity, dtype={fields_salinity[0]:str})
+    dfVIC_salinity = pd.read_csv(VIC_salinity_data, sep=r',', usecols=fields_salinity, dtype={fields_salinity[0]: str})
     #dfNSW_salinity = pd.read_csv(NSW_salinity_data, sep=r',', usecols=fields_salinity, dtype={fields_salinity[0]:str})
-    
+
     #df_level = pd.concat([dfVIC_level, dfNSW_level])
     #df_salinity = pd.concat([dfVIC_salinity,dfNSW_salinity])
-    
+
     #del dfVIC_level
     #del dfNSW_level
     #del dfVIC_salinity
     #del dfNSW_salinity
 
-    df_ConstructionLog_VIC = dbf2df.dbf2df(os.path.join(path, r"ngis_shp_VIC\NGIS_ConstructionLog.dbf"), cols=["BoreID", "HydroCode", "TopElev", "BottomElev", "Constructi"])
-    df_HydrogeologicUnit_VIC = dbf2df.dbf2df(os.path.join(path, r"ngis_shp_VIC\NGIS_HydrogeologicUnit.dbf"), cols=["HGUNumber", "HGCCode"])
-    df_BoreholeLog_VIC = dbf2df.dbf2df(os.path.join(path, r"ngis_shp_VIC\NGIS_BoreholeLog.dbf"), cols=["HydroCode", "HGUNumber"])
+    df_ConstructionLog_VIC = dbf2df.dbf2df(os.path.join(path, r"ngis_shp_VIC\NGIS_ConstructionLog.dbf"), cols=[
+                                           "BoreID", "HydroCode", "TopElev", "BottomElev", "Constructi"])
+    df_HydrogeologicUnit_VIC = dbf2df.dbf2df(os.path.join(
+        path, r"ngis_shp_VIC\NGIS_HydrogeologicUnit.dbf"), cols=["HGUNumber", "HGCCode"])
+    df_BoreholeLog_VIC = dbf2df.dbf2df(os.path.join(
+        path, r"ngis_shp_VIC\NGIS_BoreholeLog.dbf"), cols=["HydroCode", "HGUNumber"])
 
     df_ConstructionLog_VIC["BoreID"] = df_ConstructionLog_VIC["BoreID"].astype(str)
-    df_BoreholeLog_VIC["HydroCode"] = df_BoreholeLog_VIC["HydroCode"].astype(str) 
-    
-    
+    df_BoreholeLog_VIC["HydroCode"] = df_BoreholeLog_VIC["HydroCode"].astype(str)
+
     #df_ConstructionLog_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_ConstructionLog.dbf", cols=["BoreID","TopElev", "BottomElev", "Constructi"])
     #df_HydrogeologicUnit_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_HydrogeologicUnit.dbf", cols=["HGUNumber", "HGCCode"])
     #df_BoreholeLog_NSW = dbf2df.dbf2df(r"C:\Workspace\part0075\MDB modelling\ngis_shp_NSW\ngis_shp_NSW\NGIS_BoreholeLog.dbf", cols=["BoreID", "HGUNumber"])
@@ -139,7 +141,7 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     #del df_ConstructionLog_NSW
     #del df_HydrogeologicUnit_NSW
     #del df_BoreholeLog_NSW
-    
+
     # Only use reading in AHD ... would be nice to later convert the other ones
     print 'Total level records: ', dfVIC_level.shape[0]
 
@@ -159,26 +161,26 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     # Group bores by ID and get the mean of the heads
     dfVIC_level_summary = dfVIC_level.groupby('bore_id').count()
     dfVIC_level_summary['mean level'] = dfVIC_level.groupby('bore_id').mean()
-   
+
     print 'Total number of unique bores with level readings: ', dfVIC_level_summary.shape[0]
     # Filter out bores with less than obs_num_min records
     obs_num_min = 1
     dfVIC_level_summary = dfVIC_level_summary[dfVIC_level_summary['result'] > obs_num_min]
 
-    print 'Total number of unique bores with at least %i readings: ' %(obs_num_min + 1), dfVIC_level_summary.shape[0]
+    print 'Total number of unique bores with at least %i readings: ' % (obs_num_min + 1), dfVIC_level_summary.shape[0]
     # Get column with index
     dfVIC_level_summary['HydroCode'] = dfVIC_level_summary.index
 
     # Filter original dataset
     dfVIC_level = dfVIC_level[dfVIC_level['bore_id'].isin(dfVIC_level_summary.index)]
-    
+
     # Rename column id of 'bore_id' to bring inline with dbf files 'HydroCode'
-    dfVIC_level.rename(columns={'bore_id':'HydroCode'}, inplace=True) 
-    dfVIC_salinity.rename(columns={'bore_id':'HydroCode'}, inplace=True) 
+    dfVIC_level.rename(columns={'bore_id': 'HydroCode'}, inplace=True)
+    dfVIC_salinity.rename(columns={'bore_id': 'HydroCode'}, inplace=True)
 
     # Get bore construction info
     df_bore_construction_info = pd.merge(dfVIC_level_summary, df_ConstructionLog_VIC, how='inner', on=['HydroCode'])
-    
+
     # For bores with multiple entries, they are ambiguous, so remove
     df_bores_clear = df_bore_construction_info.groupby('HydroCode').count()
  
@@ -188,9 +190,9 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     df_bores_clear = df_bores_clear[df_bores_clear['result'] < \
                                     construct_record_number_max]
 
-    print 'Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0] 
-    
-    # Assume bottom is the screened part and that well is not multi-screened    
+    print 'Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0]
+
+    # Assume bottom is the screened part and that well is not multi-screened
     df_bores_clear['mean level'] = df_bore_construction_info.groupby('HydroCode').min()['mean level']
     df_bores_clear['BottomElev'] = df_bore_construction_info.groupby('HydroCode').min()['BottomElev']
     df_bores_clear['TopElev'] = df_bore_construction_info.groupby('HydroCode').min()['TopElev']
@@ -199,23 +201,22 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     # Remove unnecessary columns
 
     df_bores_clear = df_bores_clear[['mean level', 'BottomElev', 'TopElev']]
-    
-    #print 'Total number of bores with levels and screen info that is non-ambiguous: ', df_bores_clear.shape[0]
- 
-    df_level_ordered = dfVIC_level.sort_values(['HydroCode', 'bore_date']) 
+
+    # print 'Total number of bores with levels and screen info that is non-ambiguous: ', df_bores_clear.shape[0]
+
+    df_level_ordered = dfVIC_level.sort_values(['HydroCode', 'bore_date'])
     df_salinity_ordered = dfVIC_salinity.sort_values(['HydroCode', 'bore_date'])
     # Need to kill bore obs for which the obervation is below the bottom of the screen.
-    
-    
-    
+
     #df_bores['HGUNumber'] = df_bores.lookup(df_BoreholeLog_VIC["BoreID"], df_BoreholeLog_VIC['HGUNumber'])
 
-    #if get == 'transient':
+    # if get == 'transient':
     #    return dfVIC_level[df_level['HydroCode'].isin()]
-    #else:
-    #    return df_level_ordered, df_bores_clear #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity    
+    # else:
+    #    return df_level_ordered, df_bores_clear #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity
 
-    return df_level_ordered, df_bores_clear, df_salinity_ordered #, df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity    
+    # , df_ConstructionLog_VIC #, df_HydrogeologicUnit, df_level, df_salinity
+    return df_level_ordered, df_bores_clear, df_salinity_ordered
 
     #filter_wells = getWells(df_level, wellslist)
     #date_sorted_wells = filter_wells.sort_values('bore_date')
@@ -224,8 +225,9 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     #ax.set_ylabel('Head (mAHD)')
     #ax.plot(title="Bore @" + wellslist[0])
 
+
 if __name__ == "__main__":
     path = r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC_2016"
 
-    df_level, df_bores, df_salinity = getBoreData(get='transient', path=path)    
-    #getBoreDataGMW()
+    df_level, df_bores, df_salinity = getBoreData(get='transient', path=path)
+    # getBoreDataGMW()
