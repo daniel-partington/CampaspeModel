@@ -71,7 +71,7 @@ SS_model = GWModelBuilder(**model_params)
 if VERBOSE:
     print "Attempting to map these bores..."
 # End if
-model_linking = r"../testbox/integrated/data/model_bores.csv"
+model_linking = os.path.join(data_folder, "model_bores.csv")
 with open(model_linking, 'r') as f:
     lines = f.readlines()
 
@@ -881,7 +881,7 @@ river_seg['strtop'] = river_seg['bed_from_gauge']
 river_seg['bottom_layer'] = bottom_layer
 river_seg['stage'] = river_seg['stage_from_gauge']
 
-#river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] +
+# river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] +
 #               ["surf{}".format(x) for x in range(7)])
 #river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
 #
