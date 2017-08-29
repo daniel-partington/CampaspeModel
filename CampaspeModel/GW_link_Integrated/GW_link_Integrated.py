@@ -149,18 +149,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     Campaspe_stage = river_seg[river_seg['gauge_id'] != 'none']
     new_riv_stages = []
 
-    riv_stages_dict = {record[0]: record[1] for record in riv_stages}
-
+    riv_stages_dict = {g_id: riv_stages[g_id][0] for g_id in riv_stages.dtype.names}
     for row in Campaspe_stage.iterrows():
         ind = row[1]['gauge_id']
         try:
-            #print riv_stages_dict[str(ind)]
             new_riv_stages += [riv_stages_dict[str(ind)]]
         except KeyError:
-            print("No value for: {}, using avearage: {}".
-                  format(ind, 
-                         river_seg[river_seg['gauge_id'] == ind]['stage']
-                         .tolist()[0]))
+            warnings.warn("""GW Model will use average stage values when no value found
+            No value found for gauge: {}
+            """.format(ind))
             new_riv_stages += river_seg[river_seg['gauge_id'] == ind]['stage'].tolist()
         # End try
     # End for
@@ -310,14 +307,14 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     river_reach_cells = river_seg[['gauge_id', 'amalg_riv_points']]
     river_reach_cells.loc[0, 'gauge_id'] = 'none'
-    river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan                     
+    river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
     river_reach_cells = river_reach_cells.bfill()
-    
+
     for gauge in Stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(
-                                    river_reach_cells[
-                                        river_reach_cells['gauge_id'] == int(gauge)]['amalg_riv_points']
-                                            .tolist())
+            river_reach_cells.loc[river_reach_cells['gauge_id'] == int(gauge), 'amalg_riv_points'].tolist()
+        )
+    # End for
 
     # Average depth to GW table:
     avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
@@ -393,8 +390,7 @@ if __name__ == "__main__":
         # End if
 
     # Example river level data (to be inputted from SW Model)
-    # folder = r"C:\Workspace\part0075\GIT_REPOS\CampaspeModel\testbox\integrated\data"
-    fname = "dev_river_levels.pkl"
+    fname = "initial_river_levels.pkl"
     riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
 
     args = sys.argv
