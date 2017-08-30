@@ -96,6 +96,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     model_params = this_model.parameters.param
     model_boundaries = this_model.boundaries
+    model_boundaries_bc = model_boundaries.bc
 
     river_seg = this_model.river_mapping['Campaspe']
     num_reaches = this_model.pilot_points['Campaspe'].num_points  # 4
@@ -103,23 +104,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
     river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), known_points, strcond_val)
-    river_seg.loc[:, 'stage_from_gauge'] = np.nan
-
+    river_seg['stage_from_gauge'] = river_seg['stage']
     Campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
 
-    new_riv_stages = []
-    for ind in Campaspe_stage.loc[:, 'gauge_id']:
-        try:
-            new_riv_stages += [riv_stages[str(ind)][0]]
-        except (KeyError, ValueError):
-            warnings.warn("""GW Model will use average stage values when no value found
-            No value found for gauge: {}
-            """.format(ind))
-            new_riv_stages += river_seg[river_seg['gauge_id'] == ind]['stage'].tolist()
-        # End try
-    # End for
-
-    Campaspe_stage.loc[:, 'stage_from_gauge'] = new_riv_stages
+    # Get common gauges, and fill specific values
+    common = list(set(Campaspe_stage['gauge_id'].astype(str).tolist()).intersection(riv_stages.dtype.names))
+    Campaspe_stage.loc[river_seg['gauge_id'].isin(map(int, common)), 'stage_from_gauge'] = list(riv_stages[common][0])
 
     river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['iseg']), 'stage_from_gauge'] = \
         sorted(Campaspe_stage['stage_from_gauge'].tolist(), reverse=True)
@@ -128,7 +118,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
         interpolate(method='values', limit_direction='both').tolist()
 
-    river_seg['multi'] = river_seg['k'] * river_seg['rchlen'] * river_seg['width1']
+    river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
 
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
@@ -137,7 +127,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     mriver_seg = this_model.river_mapping['Murray']
     mriver_seg['strhc1'] = model_params['kv_rm']['PARVAL1']
-    mriver_seg['multi'] = mriver_seg['k'] * mriver_seg['rchlen'] * mriver_seg['width1']
+    mriver_seg['multi'] = mriver_seg['strhc1'] * mriver_seg['rchlen'] * mriver_seg['width1']
     msimple_river = mriver_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
 
     model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
@@ -146,14 +136,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         interp_rain = np.copy(rainfall_irrigation)
     else:
         warnings.warn("Rainfall+Irrigation input ignored by GW model")
-        interp_rain = np.copy(model_boundaries.bc['Rainfall']['bc_array'])
+        interp_rain = np.copy(model_boundaries_bc['Rainfall']['bc_array'])
     # End if
 
     # integers reflect number of layers
-    for i in [1, 2, 3, 4, 5, 6, 7]:
+    temp_lst = [4, 5, 6]
+    for i in xrange(1, 8):
         match = mesh_1[0] == i
 
-        if i in [4, 5, 6]:
+        if i in temp_lst:
             interp_rain[match] = 0
             continue
         # End if
@@ -164,13 +155,13 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
-    pumpy = model_boundaries.bc['licenced_wells']['bc_array']
+    pumpy = model_boundaries_bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
 
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
     MurrayGHB = []
-    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries.bc['GHB']['bc_array'][0]]
+    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
         lay, row, col = MurrayGHB_cell[:3]
         MurrayGHBstage = MurrayGHB_cell[3]
@@ -215,19 +206,30 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if is_steady is False:
         modflow_model.checkConvergence()
 
-    # SW-GW exchanges:
-    swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge
-                                              in Stream_gauges])
+    try:
+        swgw_exchanges = cache['swgw_exchanges']
+        avg_depth_to_gw = cache['avg_depth_to_gw']
+        ecol_depth_to_gw = cache['ecol_depth_to_gw']
+    except KeyError:
+        # SW-GW exchanges:
+        swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge
+                                                  in Stream_gauges])
+
+        avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
+
+        ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float)
+                                                    for bore in Ecology_bores])
+
+        cache['swgw_exchanges'] = swgw_exchanges
+        cache['avg_depth_to_gw'] = avg_depth_to_gw
+        cache['ecol_depth_to_gw'] = ecol_depth_to_gw
+    # End try
 
     river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
     river_reach_cells.loc[0, 'gauge_id'] = 'none'
     river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
     river_reach_cells = river_reach_cells.bfill()
-    river_reach_cells['cell'] = object
-
-    for row in river_reach_cells.itertuples():
-        river_reach_cells.set_value(row.Index, 'cell', [row.k, row.i, row.j])
-    # End for
+    river_reach_cells['cell'] = river_reach_cells.loc[:, ['k', 'i', 'j']].values.tolist()
     for gauge in Stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(
             river_reach_cells.loc[river_reach_cells['gauge_id'] == int(gauge), 'cell'].tolist()
@@ -235,7 +237,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # End for
 
     # Average depth to GW table:
-    avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
     tgt_mesh = modflow_model.model_data.model_mesh3D[1][0]
 
     # Mask all cells that are either Coonambidgal or Shepparton formation
@@ -257,20 +258,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     gauges. Instead the simulated head in the cell with the stream gauge is
     used which represents the average head over the 5 km x 5 km cell.
     """
-    ecol_depth_to_gw_bores = Ecology_bores
-    ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float)
-                                                for bore in ecol_depth_to_gw_bores])
 
     heads = modflow_model.getHeads()
     river_reach_ecol = river_seg.loc[:, ['gauge_id', 'k', 'j', 'i']]
     river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
-    river_reach_ecol['cell'] = object
-
-    for row in river_reach_ecol.itertuples():
-        river_reach_ecol.set_value(row.Index, 'cell', [row.k, row.i, row.j])
-    # End for
-
-    for ind, ecol_bore in enumerate(ecol_depth_to_gw_bores):
+    river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
+    for ind, ecol_bore in enumerate(Ecology_bores):
         _i, _h, _j = river_reach_ecol.loc[river_reach_ecol['gauge_id'] == int(Stream_gauges[ind]), 'cell'].tolist()[0]
         ecol_depth_to_gw[ecol_bore] = mesh_0[_i, _h, _j] - heads[_i, _h, _j]
     # End for
