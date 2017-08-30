@@ -110,7 +110,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     new_riv_stages = []
     for ind in Campaspe_stage.loc[:, 'gauge_id']:
         try:
-            new_riv_stages += riv_stages[str(ind)]
+            new_riv_stages += [riv_stages[str(ind)][0]]
         except (KeyError, ValueError):
             warnings.warn("""GW Model will use average stage values when no value found
             No value found for gauge: {}
@@ -359,7 +359,7 @@ def main():
 
     run(**run_params)
     run_params.update({"is_steady": False})
-    for i in xrange(48):
+    for i in xrange(10):
         run(**run_params)
     # End for
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
