@@ -351,7 +351,7 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 10.0,  # {'5': 10},
+        "pumping": 0.1,
         "MM": MM,
         "verbose": False,
         "is_steady": True
@@ -359,7 +359,7 @@ def main():
 
     run(**run_params)
     run_params.update({"is_steady": False})
-    for i in xrange(10):
+    for i in xrange(50):
         run(**run_params)
     # End for
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
