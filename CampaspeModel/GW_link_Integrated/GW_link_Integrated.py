@@ -354,12 +354,14 @@ def main():
         "pumping": 10.0,  # {'5': 10},
         "MM": MM,
         "verbose": False,
-        "is_steady": False
+        "is_steady": True
     }
 
     run(**run_params)
-    run_params.update({"is_steady": True})
-    [run(**run_params) for i in xrange(5)]
+    run_params.update({"is_steady": False})
+    for i in xrange(48):
+        run(**run_params)
+    # End for
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
     print "swgw_exchanges", swgw_exchanges
     print "avg_depth_to_gw", avg_depth_to_gw
