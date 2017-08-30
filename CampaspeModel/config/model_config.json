@@ -31,8 +31,8 @@
       },
       "uds\\u5121114": {
         "grid_resolution": "5000m",
-        "model_folder": "D:/windows_utils/ownCloud/CampaspeModel/CampaspeModel/testbox/integrated/data/structured_model_grid_",
-        "data_folder": "D:/windows_utils/ownCloud/CampaspeModel/CampaspeModel/testbox/integrated/data",
+        "model_folder": "D:/development/campaspe/groundwater/devbox/integrated/data/structured_model_grid_",
+        "data_folder": "D:/development/campaspe/groundwater/devbox/integrated/data",
         "param_file": "",
         "working_dir": "",
         "mf_exe_folder": "D:/windows_utils/ownCloud/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
