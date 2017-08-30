@@ -78,10 +78,14 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             "Policy_bores": Policy_bores,
             "Stream_gauges": Stream_gauges
         }
+
+        cache['Ecology_bores'] = Ecology_bores
+        cache['Policy_bores'] = Policy_bores
+        cache['Stream_gauges'] = Stream_gauges
     else:
-        Ecology_bores = MM.ext_linkage_bores["Ecology_bores"]
-        Policy_bores = MM.ext_linkage_bores["Policy_bores"]
-        Stream_gauges = MM.ext_linkage_bores["Stream_gauges"]
+        Ecology_bores = cache['Ecology_bores']
+        Policy_bores = cache['Policy_bores']
+        Stream_gauges = cache['Stream_gauges']
     # End if
 
     name = MM.GW_build.keys()[0]
@@ -103,20 +107,27 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     known_points = this_model.pilot_points['Campaspe'].points
 
     strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
-    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(), known_points, strcond_val)
+    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
     river_seg['stage_from_gauge'] = river_seg['stage']
     Campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
 
     # Get common gauges, and fill specific values
-    common = list(set(Campaspe_stage['gauge_id'].astype(str).tolist()).intersection(riv_stages.dtype.names))
-    Campaspe_stage.loc[river_seg['gauge_id'].isin(map(int, common)), 'stage_from_gauge'] = list(riv_stages[common][0])
+    try:
+        common_gauges = cache['common_gauges']
+    except KeyError:
+        common_gauges = list(set(Campaspe_stage['gauge_id'].values).intersection(riv_stages.dtype.names))
+        cache['common_gauges'] = common_gauges
+    # End try
+
+    Campaspe_stage.loc[Campaspe_stage['gauge_id'].isin(common_gauges), 'stage_from_gauge'] = \
+        riv_stages[common_gauges][0].tolist()
 
     river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['iseg']), 'stage_from_gauge'] = \
-        sorted(Campaspe_stage['stage_from_gauge'].tolist(), reverse=True)
+        sorted(Campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
 
     river_seg['stage'] = \
         river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
-        interpolate(method='values', limit_direction='both').tolist()
+        interpolate(method='values', limit_direction='both').values.tolist()
 
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
@@ -210,29 +221,43 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         swgw_exchanges = cache['swgw_exchanges']
         avg_depth_to_gw = cache['avg_depth_to_gw']
         ecol_depth_to_gw = cache['ecol_depth_to_gw']
+        trigger_heads = cache['trigger_heads']
     except KeyError:
         # SW-GW exchanges:
-        swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge
-                                                  in Stream_gauges])
-
+        swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge in Stream_gauges])
         avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
-
-        ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float)
-                                                    for bore in Ecology_bores])
+        ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float) for bore in Ecology_bores])
+        trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in Policy_bores])
 
         cache['swgw_exchanges'] = swgw_exchanges
         cache['avg_depth_to_gw'] = avg_depth_to_gw
         cache['ecol_depth_to_gw'] = ecol_depth_to_gw
+        cache['trigger_heads'] = trigger_heads
     # End try
 
-    river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
-    river_reach_cells.loc[0, 'gauge_id'] = 'none'
-    river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
-    river_reach_cells = river_reach_cells.bfill()
-    river_reach_cells['cell'] = river_reach_cells.loc[:, ['k', 'i', 'j']].values.tolist()
+    try:
+        river_reach_cells = cache['river_reach_cells']
+        river_reach_ecol = cache['river_reach_ecol']
+    except KeyError:
+        river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
+        river_reach_cells.loc[0, 'gauge_id'] = 'none'
+        river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
+        river_reach_cells = river_reach_cells.bfill()
+        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(Stream_gauges), [
+            'k', 'i', 'j']].values.tolist()
+
+        cache['river_reach_cells'] = river_reach_cells
+
+        river_reach_ecol = river_seg.loc[:, ['gauge_id', 'k', 'j', 'i']]
+        river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
+        river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
+
+        cache['river_reach_ecol'] = river_reach_ecol
+    # End try
+
     for gauge in Stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(
-            river_reach_cells.loc[river_reach_cells['gauge_id'] == int(gauge), 'cell'].tolist()
+            river_reach_cells.loc[river_reach_cells['gauge_id'] == gauge, 'cell'].values  # .tolist()
         )
     # End for
 
@@ -260,11 +285,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     """
 
     heads = modflow_model.getHeads()
-    river_reach_ecol = river_seg.loc[:, ['gauge_id', 'k', 'j', 'i']]
-    river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
-    river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
     for ind, ecol_bore in enumerate(Ecology_bores):
-        _i, _h, _j = river_reach_ecol.loc[river_reach_ecol['gauge_id'] == int(Stream_gauges[ind]), 'cell'].tolist()[0]
+        _i, _h, _j = river_reach_ecol.loc[river_reach_ecol['gauge_id'] == Stream_gauges[ind], 'cell'].values[0]
         ecol_depth_to_gw[ecol_bore] = mesh_0[_i, _h, _j] - heads[_i, _h, _j]
     # End for
 
@@ -286,9 +308,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
        integrated model as well (if it isn't already)?
     """
 
-    trigger_head_bores = Policy_bores
-    trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in trigger_head_bores])
-    for trigger_bore in trigger_head_bores:
+    for trigger_bore in Policy_bores:
         # NOTE: This returns the head in mAHD
         trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
     # end for
@@ -352,7 +372,7 @@ def main():
 
     run(**run_params)
     run_params.update({"is_steady": False})
-    for i in xrange(50):
+    for i in xrange(100):
         run(**run_params)
     # End for
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
