@@ -114,13 +114,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # Get common gauges, and fill specific values
     try:
         common_gauges = cache['common_gauges']
+        common_gauges_loc = cache['common_gauges_loc']
     except KeyError:
         common_gauges = list(set(Campaspe_stage['gauge_id'].values).intersection(riv_stages.dtype.names))
         cache['common_gauges'] = common_gauges
+        common_gauges_loc = Campaspe_stage['gauge_id'].isin(common_gauges)
+        cache['common_gauges_loc'] = common_gauges_loc
     # End try
 
-    Campaspe_stage.loc[Campaspe_stage['gauge_id'].isin(common_gauges), 'stage_from_gauge'] = \
-        riv_stages[common_gauges][0].tolist()
+    Campaspe_stage.loc[common_gauges_loc, 'stage_from_gauge'] = riv_stages[common_gauges][0].tolist()
 
     river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['iseg']), 'stage_from_gauge'] = \
         sorted(Campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
@@ -238,6 +240,9 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     try:
         river_reach_cells = cache['river_reach_cells']
         river_reach_ecol = cache['river_reach_ecol']
+        farm_map = cache['farm_map']
+        farm_map_dict = cache['farm_map_dict']
+        geo_mask = cache['geo_mask']
     except KeyError:
         river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
         river_reach_cells.loc[0, 'gauge_id'] = 'none'
@@ -246,29 +251,46 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(Stream_gauges), [
             'k', 'i', 'j']].values.tolist()
 
-        cache['river_reach_cells'] = river_reach_cells
+        reach_cells = {}
+        for gauge in Stream_gauges:
+            reach_cells[gauge] = river_reach_cells.loc[river_reach_cells['gauge_id'] == gauge, 'cell'].values
+        # End for
+
+        river_reach_cells = reach_cells
+        cache['river_reach_cells'] = reach_cells
 
         river_reach_ecol = river_seg.loc[:, ['gauge_id', 'k', 'j', 'i']]
         river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
         river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
 
-        cache['river_reach_ecol'] = river_reach_ecol
+        eco_cells = {}
+        for ind, ecol_bore in enumerate(Ecology_bores):
+            eco_cells[Stream_gauges[ind]] = river_reach_ecol.loc[river_reach_ecol['gauge_id']
+                                                                 == Stream_gauges[ind], 'cell'].values[0]
+        # End for
+
+        river_reach_ecol = eco_cells
+        cache['river_reach_ecol'] = eco_cells
+
+        # Mask all cells that are either Coonambidgal or Shepparton formation
+        # A mask could also be constructed for farm areas by using the mapped farms
+        # from the groundwater model builder object
+        tgt_mesh = modflow_model.model_data.model_mesh3D[1][0]
+        geo_mask = (tgt_mesh == 3) | (tgt_mesh == 1)
+        farm_map, farm_map_dict = this_model.polygons_mapped['farm_v1_prj_model.shp']
+        cache['farm_map'] = farm_map
+        cache['farm_map_dict'] = farm_map_dict
+        cache['geo_mask'] = geo_mask
     # End try
 
     for gauge in Stream_gauges:
-        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(
-            river_reach_cells.loc[river_reach_cells['gauge_id'] == gauge, 'cell'].values  # .tolist()
-        )
+        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(river_reach_cells[gauge])
     # End for
 
     # Average depth to GW table:
-    tgt_mesh = modflow_model.model_data.model_mesh3D[1][0]
-
     # Mask all cells that are either Coonambidgal or Shepparton formation
     # A mask could also be constructed for farm areas by using the mapped farms
     # from the groundwater model builder object
-    geo_mask = (tgt_mesh == 3) | (tgt_mesh == 1)
-    farm_map, farm_map_dict = this_model.polygons_mapped['farm_v1_prj_model.shp']
     for farm_zone in farm_zones:
         mask = geo_mask & (farm_map == farm_map_dict[int(farm_zone)])
         avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
@@ -286,7 +308,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     heads = modflow_model.getHeads()
     for ind, ecol_bore in enumerate(Ecology_bores):
-        _i, _h, _j = river_reach_ecol.loc[river_reach_ecol['gauge_id'] == Stream_gauges[ind], 'cell'].values[0]
+        _i, _h, _j = river_reach_ecol[Stream_gauges[ind]]
         ecol_depth_to_gw[ecol_bore] = mesh_0[_i, _h, _j] - heads[_i, _h, _j]
     # End for
 
