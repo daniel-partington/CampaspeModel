@@ -103,7 +103,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries_bc = model_boundaries.bc
 
     river_seg = this_model.river_mapping['Campaspe']
-    num_reaches = this_model.pilot_points['Campaspe'].num_points  # 4
+    num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
 
     strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
@@ -111,21 +111,30 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     river_seg['stage_from_gauge'] = river_seg['stage']
     Campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
 
-    # Get common gauges, and fill specific values
     try:
         common_gauges = cache['common_gauges']
         common_gauges_loc = cache['common_gauges_loc']
+        iseg_loc = cache['iseg_loc']
     except KeyError:
+        # Get common gauges, and fill specific values
         common_gauges = list(set(Campaspe_stage['gauge_id'].values).intersection(riv_stages.dtype.names))
+        common_gauges_loc = Campaspe_stage.loc[Campaspe_stage.gauge_id.isin(common_gauges), 'gauge_id']
+        iseg_loc = river_seg.loc[river_seg.iseg.isin(Campaspe_stage.iseg), 'stage_from_gauge']
+
         cache['common_gauges'] = common_gauges
-        common_gauges_loc = Campaspe_stage['gauge_id'].isin(common_gauges)
         cache['common_gauges_loc'] = common_gauges_loc
+        cache['iseg_loc'] = iseg_loc
     # End try
 
-    Campaspe_stage.loc[common_gauges_loc, 'stage_from_gauge'] = riv_stages[common_gauges][0].tolist()
+    tmp = riv_stages[common_gauges][0].tolist()
+    for idx, row in enumerate(common_gauges_loc.index):
+        Campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
+    # End if
 
-    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['iseg']), 'stage_from_gauge'] = \
-        sorted(Campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
+    tmp = sorted(Campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
+    for idx, row in enumerate(iseg_loc.index):
+        river_seg.set_value(row, 'stage_from_gauge', tmp[idx])
+    # End for
 
     river_seg['stage'] = \
         river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
@@ -137,7 +146,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
     # Updating Murray River
-
     mriver_seg = this_model.river_mapping['Murray']
     mriver_seg['strhc1'] = model_params['kv_rm']['PARVAL1']
     mriver_seg['multi'] = mriver_seg['strhc1'] * mriver_seg['rchlen'] * mriver_seg['width1']
@@ -186,22 +194,20 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
     fname = 'model_{}'.format(name)
-    if os.path.exists(p_j(data_folder, fname, name + '.hds')):
-        try:
-            headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
-            times = headobj.get_times()
-            head = headobj.get_data(totim=times[-1])
-            this_model.initial_conditions.set_as_initial_condition("Head", head)
-        except (IndexError, IOError):
-            raise IndexError(
-                "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
-                    p_j(data_folder, fname, name + '.hds')))
-        # End try
-    else:
+    try:
+        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
+        times = headobj.get_times()
+        head = headobj.get_data(totim=times[-1])
+        this_model.initial_conditions.set_as_initial_condition("Head", head)
+    except IndexError:
+        raise IndexError(
+            "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
+                p_j(data_folder, fname, name + '.hds')))
+    except IOError:
         if verbose:
             print "Using initial head conditions"
         # End if
-    # End if
+    # End try
 
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(this_model, data_folder=data_folder)
@@ -224,6 +230,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         avg_depth_to_gw = cache['avg_depth_to_gw']
         ecol_depth_to_gw = cache['ecol_depth_to_gw']
         trigger_heads = cache['trigger_heads']
+
+        river_reach_cells = cache['river_reach_cells']
+        river_reach_ecol = cache['river_reach_ecol']
+        farm_map = cache['farm_map']
+        farm_map_dict = cache['farm_map_dict']
+        geo_mask = cache['geo_mask']
     except KeyError:
         # SW-GW exchanges:
         swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge in Stream_gauges])
@@ -235,15 +247,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['avg_depth_to_gw'] = avg_depth_to_gw
         cache['ecol_depth_to_gw'] = ecol_depth_to_gw
         cache['trigger_heads'] = trigger_heads
-    # End try
 
-    try:
-        river_reach_cells = cache['river_reach_cells']
-        river_reach_ecol = cache['river_reach_ecol']
-        farm_map = cache['farm_map']
-        farm_map_dict = cache['farm_map_dict']
-        geo_mask = cache['geo_mask']
-    except KeyError:
         river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
         river_reach_cells.loc[0, 'gauge_id'] = 'none'
         river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
