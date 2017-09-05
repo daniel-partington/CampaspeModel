@@ -129,7 +129,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     tmp = riv_stages[common_gauges][0].tolist()
     for idx, row in enumerate(common_gauges_loc.index):
         Campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
-    # End if
+    # End for
 
     tmp = sorted(Campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
     for idx, row in enumerate(iseg_loc.index):
@@ -160,12 +160,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         interp_rain = np.copy(model_boundaries_bc['Rainfall']['bc_array'])
     # End if
 
-    # integers reflect number of layers
+    # integers (1 - 7) reflect number of layers
     temp_lst = [4, 5, 6]
     for i in xrange(1, 8):
         match = mesh_1[0] == i
 
-        if i in temp_lst:
+        if i in temp_lst:  # (4 - 6)
             interp_rain[match] = 0
             continue
         # End if
@@ -222,9 +222,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.buildMODFLOW()
     modflow_model.runMODFLOW()
 
-    if is_steady is False:
-        modflow_model.checkConvergence()
-
     try:
         swgw_exchanges = cache['swgw_exchanges']
         avg_depth_to_gw = cache['avg_depth_to_gw']
@@ -249,7 +246,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['trigger_heads'] = trigger_heads
 
         river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
-        river_reach_cells.loc[0, 'gauge_id'] = 'none'
+        river_reach_cells.set_value(0, 'gauge_id', 'none')
         river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
         river_reach_cells = river_reach_cells.bfill()
         river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(Stream_gauges), [
@@ -337,7 +334,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     for trigger_bore in Policy_bores:
         # NOTE: This returns the head in mAHD
         trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
-    # end for
+    # End for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
     # are available for inspection
