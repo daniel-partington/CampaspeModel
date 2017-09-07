@@ -350,8 +350,14 @@ def main():
 
     def load_obj(filename):
         if filename[-4:] == '.pkl':
-            with open(filename, 'r') as f:
-                return pickle.load(f)
+            try:
+                with open(filename, 'r') as f:
+                    f = pickle.load(f)
+                    return f
+            except ImportError:
+                with open(filename, 'rb') as f:
+                    f = pickle.load(f)
+                    return f
         else:
             print 'File type not recognised as "pkl"'
         # End if
