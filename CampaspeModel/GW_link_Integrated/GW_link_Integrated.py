@@ -56,7 +56,11 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     # Complimentary models requirements, i.e. bore and gauge data that should be
     # referenceable to this model for parsing specific outputs and receiving inputs:
-    if not hasattr(MM, 'ext_linkage_bores') or MM.ext_linkage_bores is None:
+    if hasattr(MM, 'ext_linkage_bores'):
+        Ecology_bores = cache['Ecology_bores']
+        Policy_bores = cache['Policy_bores']
+        Stream_gauges = cache['Stream_gauges']
+    elif not hasattr(MM, 'ext_linkage_bores') or MM.ext_linkage_bores is None:
 
         # Read in bores that relate to external models
         model_linking = p_j(data_folder, "model_linking.csv")
@@ -82,10 +86,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['Ecology_bores'] = Ecology_bores
         cache['Policy_bores'] = Policy_bores
         cache['Stream_gauges'] = Stream_gauges
-    else:
-        Ecology_bores = cache['Ecology_bores']
-        Policy_bores = cache['Policy_bores']
-        Stream_gauges = cache['Stream_gauges']
     # End if
 
     name = MM.GW_build.keys()[0]
