@@ -1,12 +1,13 @@
 Follow these steps to build and run the Campaspe model.
 
-### download data
+### Download data
 ```
+# Data will be publicly hosted at some point, but for now...
 wget <SECRET URL ASK TAKUYA>
-tar -xvf campaspeim_data.tar 
+tar -xvf campaspeim_data.tar
 ```
 
-### download code
+### Download code
 ```
 git clone git@github.com:daniel-partington/HydroModelBuilder.git
 cd HydroModelBuilder
@@ -20,17 +21,19 @@ git checkout Amalgamation
 cd ..
 ```
 
-### build dockerfile
+### Build dockerfile
 ```
 docker build -t campaspe CampaspeModel/docker_build/.
 ```
 
-### prepare folder for output
+### Prepare folder for output
 ```
 mkdir data_build
 ```
 
-### build model
+### Build model
+
+#### Linux
 ```
 docker run -it \
 -e PYTHONPATH=/shared/CampaspeModel:/shared/HydroModelBuilder \
@@ -39,12 +42,32 @@ campaspe \
 python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated_build.py
 ```
 
-### run model
+#### Windows
+```
+docker run -it ^
+-e PYTHONPATH=/shared/CampaspeModel:/shared/HydroModelBuilder ^
+-v %cd%:/shared ^
+campaspe ^
+python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated_build.py
+```
+
+### Run model
+
+#### Linux
 ```
 docker run -it \
 -e PYTHONPATH=/shared/CampaspeModel:/shared/HydroModelBuilder \
 -v $PWD:/shared \
 campaspe \
+python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated.py
+```
+
+#### Windows
+```
+docker run -it ^
+-e PYTHONPATH=/shared/CampaspeModel:/shared/HydroModelBuilder ^
+-v %cd%:/shared ^
+campaspe ^
 python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated.py
 ```
 
