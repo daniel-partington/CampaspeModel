@@ -58,7 +58,7 @@ RUN MATPLOTLIB_RC_LOCATION=$(python -c "import matplotlib; print matplotlib.matp
 # HydroModelBuilder
 # -----------------
 ENV CONDA_PY 2.7
-# RUN pip install git+https://github.com/daniel-partington/HydroModelBuilder@43b55779574ec1b8a8d498a76606920e0e2a0de0
+RUN pip install git+https://github.com/daniel-partington/HydroModelBuilder@32f8bb6bc8885b3ac4685f4459d772220c242b30
 
 # while in development install this at runtime ie. PYTHONPATH to shared folder
 
@@ -73,7 +73,7 @@ ENV CONDA_PY 2.7
 # ENV PYTHONPATH /app/CampaspeModel:$PYTHONPATH
 
 
-# To use CampaspeModel, you must have a shared directory with model data set up, and 
+# To use CampaspeModel, you must have a shared directory with model data set up, and
 # the relevant settings in model_config.json must point to this directory.
 # This defaults to /shared in the model_config.json file.
 
