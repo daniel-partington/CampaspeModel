@@ -58,7 +58,7 @@ RUN MATPLOTLIB_RC_LOCATION=$(python -c "import matplotlib; print matplotlib.matp
 # HydroModelBuilder
 # -----------------
 ENV CONDA_PY 2.7
-RUN pip install git+https://github.com/daniel-partington/HydroModelBuilder@43b55779574ec1b8a8d498a76606920e0e2a0de0
+# RUN pip install git+https://github.com/daniel-partington/HydroModelBuilder@43b55779574ec1b8a8d498a76606920e0e2a0de0
 
 # while in development install this at runtime ie. PYTHONPATH to shared folder
 

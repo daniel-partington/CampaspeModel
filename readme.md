@@ -22,26 +22,31 @@ cd ..
 docker build -t campaspe CampaspeModel/docker_build/.
 ```
 
-### run
+### prepare folder for output
+```
+mkdir data_build
+```
+
+### build model
 ```
 docker run -it \
--e PYTHONPATH=/shared/CampaspeModel \
+-e PYTHONPATH=/shared/CampaspeModel:/shared/HydroModelBuilder \
 -v $PWD:/shared \
 campaspe \
 python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated_build.py
 ```
 
-
-### TODO
-cp /shared/campaspeim_data/Groundwater/2017-08-21/GW_data/model_*.csv /app/CampaspeModel/CampaspeModel/testbox/integrated/data/
-
-# edit /app/CampaspeModel/CampaspeModel/config/model_config.json
-
-# BUILD
-python /app/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated_build.py
-
-# RUN
-python /app/CampaspeModel/CampaspeModel/GW_link_Integetrated/GW_link_Integrated.py
-
+### TODO run model
+```
+# just edit paths in config?
 mkdir /app/CampaspeModel/CampaspeModel/testbox/integrated/data/structured_model_grid_5000m
 cp /shared/campaspeim_data/Groundwater/2017-08-21/structured_model_grid_5000m/* /app/CampaspeModel/CampaspeModel/testbox/integrated/data/structured_model_grid_5000m/
+
+
+docker run -it \
+-e PYTHONPATH=/shared/CampaspeModel:/shared/HydroModelBuilder \
+-v $PWD:/shared \
+campaspe \
+python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated.py
+```
+

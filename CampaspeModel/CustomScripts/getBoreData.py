@@ -117,12 +117,12 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     #del dfVIC_salinity
     #del dfNSW_salinity
 
-    df_ConstructionLog_VIC = dbf2df.dbf2df(os.path.join(path, r"ngis_shp_VIC\NGIS_ConstructionLog.dbf"), cols=[
+    df_ConstructionLog_VIC = dbf2df.dbf2df(os.path.join(path, "ngis_shp_VIC", "NGIS_ConstructionLog.dbf"), cols=[
                                            "BoreID", "HydroCode", "TopElev", "BottomElev", "Constructi"])
     df_HydrogeologicUnit_VIC = dbf2df.dbf2df(os.path.join(
-        path, r"ngis_shp_VIC\NGIS_HydrogeologicUnit.dbf"), cols=["HGUNumber", "HGCCode"])
+        path, r"ngis_shp_VIC", "NGIS_HydrogeologicUnit.dbf"), cols=["HGUNumber", "HGCCode"])
     df_BoreholeLog_VIC = dbf2df.dbf2df(os.path.join(
-        path, r"ngis_shp_VIC\NGIS_BoreholeLog.dbf"), cols=["HydroCode", "HGUNumber"])
+        path, r"ngis_shp_VIC", "NGIS_BoreholeLog.dbf"), cols=["HydroCode", "HGUNumber"])
 
     df_ConstructionLog_VIC["BoreID"] = df_ConstructionLog_VIC["BoreID"].astype(str)
     df_BoreholeLog_VIC["HydroCode"] = df_BoreholeLog_VIC["HydroCode"].astype(str)

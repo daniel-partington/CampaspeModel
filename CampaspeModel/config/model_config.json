@@ -74,7 +74,7 @@
         "mf_exe_folder": "/mfnwt",
         "model_build": {
             "input_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
-            "data_build": "/app/data_build",
+            "data_build": "/shared/data_build",
             "campaspe_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
             "temp_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data"
         }
