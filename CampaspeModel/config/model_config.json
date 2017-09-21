@@ -67,14 +67,14 @@
       },
       "default": {
         "grid_resolution": "5000m",
-        "model_folder": "testbox/integrated/data/structured_model_grid_",
-        "data_folder": "testbox/integrated/data",
+        "model_folder": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/structured_model_grid_",
+        "data_folder": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/",
         "param_file": "",
         "working_dir": "",
         "mf_exe_folder": "/mfnwt",
         "model_build": {
             "input_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
-            "data_build": "/app/data_build",
+            "data_build": "/shared/data_build",
             "campaspe_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
             "temp_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data"
         }
