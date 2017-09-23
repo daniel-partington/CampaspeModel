@@ -59,10 +59,6 @@ campaspe ^
 python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated_build.py
 ```
 
-#### Message on successful build
-
-`Packaged into /shared/campaspeim_data/Groundwater/2017-08-21/GW_data/structured_model_grid_5000m`
-
 #### Powershell
 ```
 docker run -it `
@@ -71,6 +67,10 @@ docker run -it `
 campaspe `
 python /shared/CampaspeModel/CampaspeModel/GW_link_Integrated/GW_link_Integrated_build.py
 ```
+
+#### Message on successful build
+
+`Packaged into /shared/campaspeim_data/Groundwater/2017-08-21/GW_data/structured_model_grid_5000m`
 
 ### Example model run
 
