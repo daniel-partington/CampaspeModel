@@ -8,7 +8,8 @@ from utils import cache
 from modules import boundary
 from modules import discrete
 from modules import acquifer
-from modules import edges
+# from modules import edges
+from modules import ghb
 from modules import wells
 from modules import recharge
 from modules import river
@@ -24,45 +25,61 @@ zbot = -50.
 start_date = datetime.datetime(2014, 1, 1)
 end_date = datetime.datetime(2014, 12, 31)
 
-boundary_params = boundary.boundary(data_folder=config.data_folder, 
-								clipped_and_projected_folder=config.clipped_and_projected_folder,
-								shape=shape)
+
+boundary_params = boundary.boundary(
+	boundary_file=config.boundary_file, 
+	clipped_and_projected_folder=config.clipped_and_projected_folder,
+	shape=shape
+)
+print('delr * delc', boundary_params['dels'])
 
 """
 MODFLOW/flopy *_inputs objects
 all data inter-dependencies should be visible here (ie. modules shouldn't import one another)
 """
 
-boundary_inputs = boundary.load(projected_boundary_file=boundary_params['projected_boundary_file'],
-								shape=shape,
-								bbox=boundary_params['bbox'],
-								dels=boundary_params['dels'])
+boundary_inputs = boundary.load(
+	projected_boundary_file=boundary_params['projected_boundary_file'],
+	shape=shape,
+	bbox=boundary_params['bbox'],
+	dels=boundary_params['dels'])
 
-discrete_inputs = discrete.load(shape=shape, 
-							bbox=boundary_params["bbox"], 
-							dels=boundary_params["dels"],
-							zbot=zbot)
+discrete_inputs = discrete.load(
+	shape=shape, 
+	bbox=boundary_params["bbox"], 
+	dels=boundary_params["dels"],
+	zbot=zbot)
 
 acquifer_inputs = acquifer.load(shape=shape)
 
-edge_inputs = edges.load(shape=shape, 
-						hk=acquifer_inputs['hk'], 
-						dels=boundary_params['dels'], 
-						zbot=zbot)
+edge_inputs = ghb.load(
+	shape=shape, 
+	hk=acquifer_inputs['hk'], 
+	dels=boundary_params['dels'], 
+	zbot=zbot)
 
-well_inputs = wells.load(shape=shape)
+well_inputs = wells.load(
+	clipped_and_projected_folder=config.clipped_and_projected_folder, 
+    licenses_file=config.licenses_file, 
+    model_projection=boundary.model_projection, 
+    bbox=boundary_params['bbox'], dels=boundary_params['dels'], 
+    start_date=start_date, end_date=end_date)
 
-recharge_inputs = cache.money(recharge.load)(data_folder=config.data_folder, 
-							model_projection=boundary.model_projection, 
-							mesh_centroids=boundary_params['mesh_centroids'],
-							start_date=start_date, end_date=end_date)
+recharge_inputs = recharge.load(
+	bom_stations=config.bom_stations,
+	silo_stations=config.silo_stations, 
+	model_projection=boundary.model_projection, 
+	mesh_centroids=boundary_params['mesh_centroids'],
+	start_date=start_date, end_date=end_date)
 
-river_inputs = cache.money(river.load)(data_folder=config.data_folder, 
-				clipped_and_projected_folder=config.clipped_and_projected_folder, 
-				model_projection=boundary.model_projection,
-				bbox=boundary_params['bbox'],
-				shape=shape,
-				hk=acquifer_inputs['hk'])
+river_inputs = river.load(
+	data_folder=config.data_folder, 
+	clipped_and_projected_folder=config.clipped_and_projected_folder, 
+	model_projection=boundary.model_projection,
+	bbox=boundary_params['bbox'],
+	shape=shape,
+	hk=acquifer_inputs['hk'])
+
 
 output_control_inputs = output.load()
 

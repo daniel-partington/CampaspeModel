@@ -10,6 +10,44 @@ from GIS import raster
 from GIS import project
 
 
+# TODO this is boilerplate from example
+def load(shape, hk, dels, zbot):
+    nlay, nrow, ncol = shape
+    delr, delc = dels
+    # Make list for stress period 1
+    stageleft = 10.
+    stageright = 10.
+    bound_sp1 = []
+    for il in range(nlay):
+        for ir in range(nrow):
+            condleft = hk[il, ir, 0] * (stageleft - zbot) * delc
+            condright = hk[il, ir,  ncol - 1] * (stageright - zbot) * delc
+            bound_sp1.append([il, ir, 0, stageleft, condleft])
+            bound_sp1.append([il, ir, ncol - 1, stageright, condright])
+    print('Adding ', len(bound_sp1), 'GHBs for stress period 1.')
+
+    # Make list for stress period 2
+    stageleft = 10.
+    stageright = 0.
+
+    bound_sp2 = []
+    for il in range(nlay):
+        for ir in range(nrow):
+            condleft = hk[il, ir, 0] * (stageleft - zbot) * delc
+            condright = hk[il, ir, ncol - 1] * (stageright - zbot) * delc
+            bound_sp2.append([il, ir, 0, stageleft, condleft])
+            bound_sp2.append([il, ir, ncol - 1, stageright, condright])
+    print('Adding ', len(bound_sp2), 'GHBs for stress period 2.')
+
+    # We do not need to add a dictionary entry for stress period 3.
+    # Flopy will automatically take the list from stress period 2 and apply it
+    # to the end of the simulation
+    stress_period_data = {0: bound_sp1, 1: bound_sp2}
+
+    return {"stress_period_data": stress_period_data}
+    
+
+
 """ break points """
 west_murray = [144.3136837132862, -35.75643626236702]
 east_murray = [144.8098159275796, -36.118135894677835]
@@ -97,7 +135,7 @@ if __name__ == '__main__':
     import boundary
 
     shape = (1, 30, 20)  # (nlay, nrow, ncol)
-    boundary_params = boundary.boundary(data_folder=config.data_folder, 
+    boundary_params = boundary.boundary(boundary_file=config.boundary_file,
                                     clipped_and_projected_folder=config.clipped_and_projected_folder,
                                     shape=shape)
 

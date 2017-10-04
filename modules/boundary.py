@@ -10,9 +10,8 @@ from GIS import interpolate
 model_projection = "EPSG:28355"
 
 
-def boundary(data_folder, clipped_and_projected_folder, shape):
-    boundary_file = os.path.join(data_folder, "GW_model_area", "GW_model_area.shp")
-
+def boundary(boundary_file, clipped_and_projected_folder, shape):
+    
     # this is just for documentation
     project.ogr2ogr(src_datasource_name=boundary_file,
         dst_datasource_name=os.path.join(clipped_and_projected_folder, "UNPROJECTED_GW_model_area.json"),

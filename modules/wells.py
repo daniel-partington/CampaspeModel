@@ -24,10 +24,73 @@ def load(shape):
 
 
 import pandas
-import os 
+import os
+import collections
 import json
+import datetime
+import numpy as np
 
 from GIS import project
+from GIS import interpolate
+
+
+def day_range(start_date, end_date):
+    for n in range((end_date - start_date).days + 1):
+        yield start_date + datetime.timedelta(n)
+
+
+def month_range(start_date, end_date):
+    return [day for i, day in enumerate(day_range(start_date, end_date)) if i == 0 or day.day == 1]
+
+
+def combined_licences(period_start, licenses):
+    year = period_start.year
+    if period_start.month < 8:
+        year = year - 1
+    # 'start_date': datetime.date(year, 8, 1),
+    #  'end_date': datetime.date(year, 7, 30),
+    cells = collections.defaultdict(float)
+    for l in licenses:
+        key = 'Use %4d/%02d' % (year, (year + 1) % 1000)
+        # ML / year to m3 / day
+        val = - 1000. / 365. * l[key]
+        cells[(l['layer'], l['row'], l['col'])] += val
+    print(cells)
+    return list([
+        list(k + (v,)) for k, v in cells.items()
+    ])
+
+
+def remove_outside(licenses, bbox):
+    min_x, max_x, min_y, max_y = bbox
+    idxs =  (min_x <= licenses['Easting'])  &  (licenses['Easting'] <= max_x) & (min_y <= licenses['Northing'])  &  (licenses['Northing'] <= max_y)
+    return licenses.drop(licenses.index[~idxs])
+
+
+def load(clipped_and_projected_folder, licenses_file, model_projection, bbox, dels, start_date, end_date):
+    licenses = read_licences(clipped_and_projected_folder, model_projection, licenses_file)
+
+    licenses = remove_outside(licenses, bbox)
+
+    min_x, max_x, min_y, max_y = bbox
+    delr, delc = dels
+
+    licenses['row'] = (licenses['Northing'] - min_y) / delr
+    licenses['row'] = licenses['row'].astype(np.int)
+    licenses['col'] = (licenses['Easting'] - min_x) / delc
+    licenses['col'] = licenses['col'].astype(np.int)
+    licenses['layer'] = 0 
+
+    licenses_rows = licenses.T.to_dict().values()
+
+    stress_period_data = {}
+    for period_start in month_range(start_date, end_date):
+        days_since_start_date = (period_start - start_date).days
+        # print("period_start", period_start, days_since_start_date)
+        stress_period_data[days_since_start_date] = combined_licences(period_start, licenses_rows)
+        # print(period_start, sum([s[3] for s in stress_period_data[days_since_start_date]]))
+
+    return {"stress_period_data": stress_period_data}
 
 
 def read_licences(clipped_and_projected_folder, model_projection, licenses_file):
@@ -55,11 +118,12 @@ def read_licences(clipped_and_projected_folder, model_projection, licenses_file)
     licenses = pandas.read_excel(licenses_file, skiprows=10, usecols=cols)
     licenses = licenses.fillna(value=0.0)    
 
+    licenses['x'], licenses['y'] = project.project_points(
+        xs=licenses['Easting'].values, 
+        ys=licenses['Northing'].values,
+        projector=project.geojson_transformer(model_projection, "EPSG:4326")
+    )
 
-    licenses['x'], licenses['y'] = project.project_points(xs=licenses['Easting'].values, 
-                                                    ys=licenses['Northing'].values,
-                                                    projector=project.geojson_transformer(model_projection, "EPSG:4326"))
-    
     with open(os.path.join(clipped_and_projected_folder, 'UNPROJECTED_bores.json'), 'w') as f:
         f.write(json.dumps({
             "features": [{
@@ -74,21 +138,7 @@ def read_licences(clipped_and_projected_folder, model_projection, licenses_file)
             "type": "FeatureCollection"
         }))
 
-
-    # with open('UNPROJECTED_bores.json', 'w') as f:
-    #     f.write(json.dumps({
-    #         "features": [{
-    #             "geometry": {
-    #                         # "coordinates": [site["Easting"], site["Northing"]],
-    #                         "coordinates": [site["x"], site["y"]],
-    #                         "type": "Point"
-    #             },
-    #             "properties": site,
-    #             "type": "Feature"
-    #         } for site in licenses.T.to_dict().values()],
-    #         "type": "FeatureCollection"
-    #     }))
-
+    return licenses
 
 
 if __name__ == '__main__':
@@ -96,10 +146,23 @@ if __name__ == '__main__':
     import config
     import boundary
 
+    # licences = read_licences(
+    #     clipped_and_projected_folder=config.clipped_and_projected_folder,
+    #     model_projection=boundary.model_projection,
+    #     licenses_file=config.licenses_file
+    # )
 
-    read_licences(
-        clipped_and_projected_folder=config.clipped_and_projected_folder,
-        model_projection=boundary.model_projection,
-        licenses_file=os.path.join(config.data_folder, "GW", "Bore data", "Groundwater licence information for Dan Partington bc301115.xlsx")
-    )
+    start_date = datetime.datetime(2014, 1, 1)
+    end_date = datetime.datetime(2014, 12, 31)
 
+    shape = (1, 30, 20)  # (nlay, nrow, ncol)
+    boundary_params = boundary.boundary(boundary_file=config.boundary_file, 
+                                clipped_and_projected_folder=config.clipped_and_projected_folder,
+                                shape=shape)
+
+    sp = load(clipped_and_projected_folder=config.clipped_and_projected_folder, 
+        licenses_file=config.licenses_file, 
+        model_projection=boundary.model_projection, 
+        bbox=boundary_params['bbox'], dels=boundary_params['dels'], 
+        start_date=start_date, end_date=end_date)
+    print(sp)

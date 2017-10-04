@@ -98,7 +98,7 @@ if __name__ == '__main__':
     import matplotlib.pylab as plt
 
     shape = (1, 30, 20)  # (nlay, nrow, ncol)
-    boundary_params = boundary.boundary(data_folder=config.data_folder, 
+    boundary_params = boundary.boundary(boundary_file=config.boundary_file, 
                                     clipped_and_projected_folder=config.clipped_and_projected_folder,
                                     shape=shape)
 
