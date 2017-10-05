@@ -1,4 +1,5 @@
 too_big_to_git/
+.DS_Store
 
 dont_git/*
 
