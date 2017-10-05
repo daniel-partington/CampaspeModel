@@ -8,6 +8,10 @@ from GIS import project
 from GIS import interpolate
 
 
+def mm_day_to_m_day(rainfall):
+    return rainfall / 1000.0
+
+
 def load(silo_stations, bom_stations, model_projection, mesh_centroids, start_date, end_date):
     # load in stations
     stations = [read_bom_weather(**s) for s in bom_stations]\
@@ -26,21 +30,25 @@ def load(silo_stations, bom_stations, model_projection, mesh_centroids, start_da
         
     points = np.array([[station['x'], station['y']] for station in stations])
 
+    # avg for first steady state
+    period_mean = np.array([station['timeseries']['Rain'].mean() for station in stations])
+    interp_rain = interpolate.interpolate(points, period_mean, mesh_centroids)
+    rech = {0: mm_day_to_m_day(interp_rain)}
+
     # change recharge at the start of each month to that month's mean
-    rech = {}
     
     # resample each stations data
     station_means = [station['timeseries']['Rain'][start_date: end_date].resample("M", label='left').mean() for station in stations] 
     for period_start in station_means[0].index:
         # TODO zero indexing?
-        days_since_start_date = (period_start - start_date).days + 1
+        days_since_start_date = (period_start - start_date).days + 1 + 1
         # print("period_start", period_start, days_since_start_date)
         period_mean = np.array([station_mean[period_start] for station_mean in station_means])
         interp_rain = interpolate.interpolate(points, period_mean, mesh_centroids)
 
         # Adjust rainfall from mm/year to m/day
-        rech[days_since_start_date] = interp_rain / 1000.0 / 365.0
-        # print(period_start, np.sum(rech[days_since_start_date]) * 4350.0 * 4866.666666666667)
+        rech[days_since_start_date] = mm_day_to_m_day(interp_rain)
+        print(period_start, np.nanmean(rech[days_since_start_date]))
 
     return {
         "rech": rech

@@ -33,7 +33,7 @@ def save_doc(sites, file_name):
 def read_site_file(site_file_name, site_height, model_start, model_end):
 
     if not os.path.exists(site_file_name):
-        print "doesn't exist", site_file_name
+        print("doesn't exist", site_file_name)
         return None
 
     site_df = pd.read_csv(site_file_name, skiprows=2, index_col='Date', parse_dates=True,
@@ -43,13 +43,13 @@ def read_site_file(site_file_name, site_height, model_start, model_end):
     site_df = site_df.fillna(0)        
 
     if site_df['Mean'].max() == 0.0 or pd.isnull(site_df['Mean'].max()):
-        print "No data", site_file_name
+        print("No data", site_file_name)
         return None
 
     # more QC for MeanWaterLevel files only
 
     if 'Level' in site_file_name and set(site_df['Qual'].tolist()).intersection({8, 9}):
-        print 'Quality code indicates poor or incorrect reading for: ', site_file_name        
+        print('Quality code indicates poor or incorrect reading for: ', site_file_name        )
         return None
 
     # hack if elevation is not AHD
@@ -143,4 +143,4 @@ if __name__ == '__main__':
                         projected_boundary_file=boundary_params['projected_boundary_file'],
                         model_start=model_start, model_end=model_end)
 
-    print flow_sites, level_sites
+    print(flow_sites, level_sites)

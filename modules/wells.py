@@ -53,9 +53,24 @@ def combined_licences(period_start, licenses):
     for l in licenses:
         key = 'Use %4d/%02d' % (year, (year + 1) % 1000)
         # ML / year to m3 / day
-        val = - 1000. / 365. * l[key]
+        val = -1. * 1000. / 365. * l[key]
         cells[(l['layer'], l['row'], l['col'])] += val
-    print(cells)
+
+    return list([
+        list(k + (v,)) for k, v in cells.items()
+    ])
+
+
+def avg_licences(licenses_rows):
+    cells = collections.defaultdict(float)
+    years = list(range(2005, 2014))
+    for l in licenses_rows:
+        for year in years:
+            key = 'Use %4d/%02d' % (year, (year + 1) % 1000)
+            # ML / year to m3 / day
+            val = -1. * 1000. / 365. * l[key] / len(years)
+            cells[(l['layer'], l['row'], l['col'])] += val
+
     return list([
         list(k + (v,)) for k, v in cells.items()
     ])
@@ -83,12 +98,14 @@ def load(clipped_and_projected_folder, licenses_file, model_projection, bbox, de
 
     licenses_rows = licenses.T.to_dict().values()
 
-    stress_period_data = {}
+    stress_period_data = {
+        0: avg_licences(licenses_rows)
+    }
     for period_start in month_range(start_date, end_date):
-        days_since_start_date = (period_start - start_date).days
+        days_since_start_date = (period_start - start_date).days + 1
         # print("period_start", period_start, days_since_start_date)
         stress_period_data[days_since_start_date] = combined_licences(period_start, licenses_rows)
-        # print(period_start, sum([s[3] for s in stress_period_data[days_since_start_date]]))
+        print(period_start, sum([s[3] for s in stress_period_data[days_since_start_date]]))
 
     return {"stress_period_data": stress_period_data}
 

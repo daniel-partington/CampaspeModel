@@ -19,11 +19,11 @@ from modules import output
 parameters should go here
 """
 shape = (1, 30, 20)  # (nlay, nrow, ncol)
-zbot = -50.
+zbot = -10.
 
 # inclusive
-start_date = datetime.datetime(2014, 1, 1)
-end_date = datetime.datetime(2014, 12, 31)
+start_date = datetime.datetime(2013, 1, 1)
+end_date = datetime.datetime(2013, 12, 31)
 
 
 boundary_params = boundary.boundary(
@@ -31,7 +31,6 @@ boundary_params = boundary.boundary(
 	clipped_and_projected_folder=config.clipped_and_projected_folder,
 	shape=shape
 )
-print('delr * delc', boundary_params['dels'])
 
 """
 MODFLOW/flopy *_inputs objects
@@ -94,8 +93,8 @@ bas = flopy.modflow.ModflowBas(mf, **boundary_inputs)
 lpf = flopy.modflow.ModflowLpf(mf, **acquifer_inputs)
 pcg = flopy.modflow.ModflowPcg(mf)
 ghb = flopy.modflow.ModflowGhb(mf, **edge_inputs)
-well = flopy.modflow.ModflowWel(mf, **well_inputs)
-rch = flopy.modflow.ModflowRch(mf, **recharge_inputs)
+# well = flopy.modflow.ModflowWel(mf, **well_inputs)
+# rch = flopy.modflow.ModflowRch(mf, **recharge_inputs)
 # TODO
 # riv = flopy.modflow.ModflowRiv(mf, **river_inputs)
 oc = flopy.modflow.ModflowOc(mf, **output_control_inputs)
