@@ -45,11 +45,11 @@ def run_modflow(plot=False):
     delc = Ly / nrow
     # delv = (ztop - zbot) / nlay
     # botm = [0 * np.ones((nrow, ncol)), -35. * np.ones((nrow, ncol)), -55. * np.ones((nrow, ncol))]
-    botm = [
-        np.meshgrid(np.ones(ncol), np.linspace(0, -40, nrow))[1],
-        np.meshgrid(np.ones(ncol), np.linspace(-20, -100, nrow))[1],
-        np.meshgrid(np.ones(ncol), np.linspace(-23, -140, nrow))[1],
-    ]
+    botm = np.array([
+        np.meshgrid(np.ones(ncol), np.linspace(-40, 0, nrow))[1],
+        np.meshgrid(np.ones(ncol), np.linspace(-100, -20, nrow))[1],
+        np.meshgrid(np.ones(ncol), np.linspace(-140, -23, nrow))[1],
+    ])
     zbot = botm[0]
 
     hk = [4., 1000.]  # hydraulic conductivity in meters/day
@@ -95,6 +95,9 @@ def run_modflow(plot=False):
         bound_sp1.append([0, 0, ic, stage_murray, cond_murray[0, ic], rbot])
     for ir in range(nrow):
         bound_sp1.append([0, ir, ncol/2, stage_campaspe, cond_campaspe[ir, ncol/2], rbot])
+    
+    print(botm[:, 0, ncol/2], 'to', botm[:, nrow - 1, ncol/2])
+
     print('Adding ', len(bound_sp1), 'RIVs for stress period 1.')
 
     # Make list for stress period 2
@@ -151,10 +154,7 @@ def run_modflow(plot=False):
     cbb = flopy.utils.binaryfile.CellBudgetFile(os.path.join(model_dir, model_name+'.cbc'))
 
     if plot:
-
-        # Imports
         import matplotlib.pyplot as plt
-
 
         # Setup contour parameters
         levels = np.linspace(0, 10, 11)
@@ -164,7 +164,6 @@ def run_modflow(plot=False):
 
         # Well point
         wpt = ((float(ncol/2)-0.5)*delr, (float(nrow/2-1)+0.5)*delc)
-        # wpt = (450., 550.)
 
         # Make the plots
         print('times', times)
