@@ -834,7 +834,7 @@ river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()),
 
 river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()),
               'gauge_id'] = \
-    Campaspe_stage.sort_values('Mean stage (m)', ascending=False)['Site ID'].tolist()
+    Campaspe_stage.sort_values('Mean stage (m)', ascending=False)['Site ID'].astype(str).tolist()
 
 
 river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()),
