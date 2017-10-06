@@ -41,8 +41,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating river parameters "
     
-    reach_df = m.mf_sfr_df['Campaspe'].reach_df 
-    segment_data = m.mf_sfr_df['Campaspe'].seg_df
+    reach_df = m.mf_sfr_df['Campaspe']['reach_df'] 
+    segment_data = m.mf_sfr_df['Campaspe']['seg_df']
 
     num_reaches = m.pilot_points['Campaspe'].num_points #4
     known_points = m.pilot_points['Campaspe'].points

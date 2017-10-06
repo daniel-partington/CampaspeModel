@@ -280,6 +280,8 @@ if pilot_points:
         pp_grp.generate_cov_mat_by_zones(zones)    
     
         #print("Running pyfac2real")
+        import time
+        time.sleep(3)
         pp_grp.run_pyfac2real_by_zones(zones)
     
     SS_model.save_pilot_points()
@@ -781,11 +783,12 @@ Campaspe['seg_loc'] = river_gauge_seg
 Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # There are two values at the Campaspe weir, while it would be ideal to split the
 # reach here it will cause problems for the segment
-Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406218]
+Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406203]
 
 #river_seg['bed_from_gauge'][river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist())] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
+river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].bfill()
 #river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].interpolate(limit_direction='both')
 
 

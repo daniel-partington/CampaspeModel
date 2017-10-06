@@ -24,8 +24,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    if param_file != "":
-        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    #if param_file != "":
+    #    m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
         print "************************************************************************"
@@ -66,6 +66,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                              m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
+    Kh[Kh > 10000.] = 25.
+
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
@@ -91,8 +93,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
         print "************************************************************************"
         print " Updating river parameters "
 
-    reach_df = m.mf_sfr_df['Campaspe'].reach_df 
-    segment_data = m.mf_sfr_df['Campaspe'].seg_df
+    reach_df = m.mf_sfr_df['Campaspe']['reach_df'] 
+    segment_data = m.mf_sfr_df['Campaspe']['seg_df']
 
     num_reaches = m.pilot_points['Campaspe'].num_points #4
     known_points = m.pilot_points['Campaspe'].points
@@ -271,9 +273,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 
         modflow_model.executable = mf_exe_folder
     
-        modflow_model.buildMODFLOW(transport=True, verbose=verbose, check=False)
-    
+        modflow_model.buildMODFLOW(transport=True, verbose=verbose, check=True)
+
         converge = modflow_model.runMODFLOW(silent=True)
+
+       # return
     
         if converge:
             break
@@ -282,13 +286,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             print(" Trying new initial conditions")
 
     if not converge:
-        retries = 5 #5
+        retries = 1 #5
         if verbose:
             print(" Modifying recharge")
 
         for i in range(retries):
             
-            rech_steps = [0.1, 0.08, 0.05, 0.02, 0.01]
+            rech_steps = [0.01] # [0.1, 0.08, 0.05, 0.02, 0.01]
             if verbose:
                 print(" Trying recharge reduction of: {}".format(rech_steps[i]))
             interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
@@ -307,11 +311,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
             modflow_model.perlen = 40000 * 365  # This is the period of time which is set to 40000 yrs
             modflow_model.nstp = 100 # This is the number of sub-steps to do in each stress period
             modflow_model.steady = False # This is to tell FloPy that is a transient model
-            modflow_model.headtol = 1E-4 # Initially relax head convergence criteria to get convergence
+            modflow_model.headtol = 1 #1E-3 # Initially relax head convergence criteria to get convergence
+            modflow_model.fluxtol = 1E6 # 
                 
             modflow_model.buildMODFLOW(transport=True)
         
-            converge = modflow_model.runMODFLOW(silent=verbose)
+            converge = modflow_model.runMODFLOW(silent=False)
         
             print("Convergence?: {}".format(converge))
         
@@ -343,11 +348,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                 head = modflow_model.getFinalHeads(str(filename))
                 modflow_model.strt = head
 
-                for converge_criterion in [1E-5]:
+                for converge_criterion in [1E-4]:
                     print("Testing steady state solution with convergence criteria set to {}".format(converge_criterion))
                     modflow_model.headtol = converge_criterion # Initially relax head convergence criteria to get convergence
                     modflow_model.buildMODFLOW(transport=True)
-                    converge = modflow_model.runMODFLOW(silent=verbose)
+                    converge = modflow_model.runMODFLOW(silent=True)
                     #break
                     filename = os.path.join(modflow_model.data_folder, modflow_model.name + '.hds')
                     head = modflow_model.getFinalHeads(str(filename))
@@ -358,18 +363,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                                 data_folder)
                     break
                 
-#    if converge:
-#        modflow_model.waterBalance()
-#        modflow_model.viewGHB()
-#        modflow_model.viewHeads()
-#        modflow_model.viewHeads2()
+    if converge:
+        modflow_model.waterBalance(1)
+        modflow_model.viewGHB()
+        modflow_model.viewHeads()
+        modflow_model.viewHeads2()
         #modflow_model.viewHeadsByZone()
         #modflow_model.viewHeadLayer(figsize=(20,10))
   
 
 if __name__ == "__main__":
 
-    verbose = False
+    verbose = True
                     
     args = sys.argv
     if len(args) > 1:
