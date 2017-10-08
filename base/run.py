@@ -112,18 +112,20 @@ def run_modflow(plot=False):
         bound_sp1.append([0, ir, ncol/2, stage_campaspe, cond_campaspe[ir, ncol/2], rbot])
     print('Adding ', len(bound_sp2), 'RIVs for stress period 2.')
 
+
     # We do not need to add a dictionary entry for stress period 3.
     # Flopy will automatically take the list from stress period 2 and apply it
     # to the end of the simulation
     riv_data = {0: bound_sp1, 1: bound_sp2}
 
-    # # Create the flopy ghb object
+
+    # Create the flopy ghb object
     riv = flopy.modflow.ModflowRiv(mf, stress_period_data=riv_data)
+
 
     # Create the well package
     # Remember to use zero-based layer, row, column indices!
     ml_year_to_m3_day = 1. * 1000 / 365
-    pumping_rate = -500.
     wel_sp1 = [[1, nrow/2 - 1, ncol/2 - 1, -8000 * ml_year_to_m3_day]]
     wel_sp2 = [[1, nrow/2 - 1, ncol/2 - 1, 1.]]
     wel_sp3 = [[1, nrow/2 - 1, ncol/2 - 1, -4000 * ml_year_to_m3_day]]
