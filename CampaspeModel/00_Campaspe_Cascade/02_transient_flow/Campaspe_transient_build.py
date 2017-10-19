@@ -446,7 +446,7 @@ def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
 
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 5000
+resolution = 1000
 tr_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
@@ -1405,7 +1405,7 @@ for row in river_seg.iterrows():
         already_defined += [ind]
     old += [new]
 
-river_seg['strhc1'].loc[already_defined] = 0.0
+river_seg.loc[already_defined, 'strhc1'] = 0.0
 
 new_k = []
 
@@ -1440,12 +1440,11 @@ FieldData_info['seg_loc'] = river_field_seg
 Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # There are two values at the Campaspe weir, while it would be ideal to split the
 # reach here it will cause problems for the segment
-Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406218]
+Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406203]
 
-#river_seg['bed_from_gauge'][river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist())] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
-#river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].interpolate(limit_direction='both')
+river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].bfill()
 
 new_k = []
 surface_layers = {}
@@ -1501,6 +1500,7 @@ reach_data = reach_df.to_records(index=False)
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 nseg = river_seg['iseg'].tolist()
+icalc = [1] * len(nseg)
 outseg = river_seg['iseg'] + 1
 outseg = outseg.tolist()
 outseg[-1] = 0
@@ -1840,6 +1840,7 @@ reach_no = range(len(gauge_locations))
 river_seg['reach'] = np.nan    
 river_seg.loc[river_seg['iseg'].isin(gauge_locations), 'reach'] = reach_no         
 river_seg['reach'].fillna(method='ffill', inplace=True)
+river_seg['reach'].fillna(method='bfill', inplace=True)
 river_seg['reach'].astype(int, inplace=True)
 river_segs_reach = [river_seg['iseg'][river_seg['reach'] == x].tolist() for x in reach_no]
 
