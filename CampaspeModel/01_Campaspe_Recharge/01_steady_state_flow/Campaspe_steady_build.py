@@ -80,7 +80,7 @@ if os.path.exists(tr_model.out_data_folder + bore_levels_file + ".h5") & \
     bore_data_info = tr_model.load_dataframe(tr_model.out_data_folder + bore_info_file + ".h5")
     bore_data_salinity = tr_model.load_dataframe(tr_model.out_data_folder + bore_salinity_file + ".h5")
 else:
-    bore_data_levels, bore_data_info, bore_data_salinity = getBoreData.getBoreData(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC_2016")
+    bore_data_levels, bore_data_info, bore_data_salinity = getBoreData.getBoreData(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC")
     tr_model.save_dataframe(tr_model.out_data_folder + bore_levels_file, bore_data_levels)
     tr_model.save_dataframe(tr_model.out_data_folder + bore_info_file, bore_data_info)
     tr_model.save_dataframe(tr_model.out_data_folder + bore_salinity_file, bore_data_salinity)
@@ -97,7 +97,7 @@ bore_data_info["HydroCode"] = bore_data_info.index
 print "************************************************************************"
 print " Read in and filtering bore spatial data "
 
-bores_shpfile = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC_2016\ngis_shp_VIC\NGIS_Bores.shp")
+bores_shpfile = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
 
 bores_filtered_from_shpfile = tr_model.points_shapefile_obj2dataframe(bores_shpfile, feature_id="HydroCode")
 
@@ -423,7 +423,7 @@ def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
 
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 5000
+resolution = 1000
 tr_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
@@ -1382,7 +1382,7 @@ for row in river_seg.iterrows():
         already_defined += [ind]
     old += [new]
 
-river_seg['strhc1'].loc[already_defined] = 0.0
+river_seg.loc[already_defined, 'strhc1'] = 0.0
 
 new_k = []
 
@@ -1417,12 +1417,13 @@ FieldData_info['seg_loc'] = river_field_seg
 Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # There are two values at the Campaspe weir, while it would be ideal to split the
 # reach here it will cause problems for the segment
-Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406218]
+Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406203]
 
 #river_seg['bed_from_gauge'][river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist())] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
 #river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].interpolate(limit_direction='both')
+river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].bfill()
 
 new_k = []
 surface_layers = {}
