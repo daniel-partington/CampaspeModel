@@ -753,7 +753,6 @@ for row in river_seg.iterrows():
 
 river_seg.loc[already_defined, 'strhc1'] = 0.0
 
-
 new_k = []
 
 for row in river_seg.iterrows():
@@ -769,7 +768,6 @@ river_seg['k'] = new_k
 #river_seg.dropna(inplace=True)
 
 river_seg['ireach'] = 1
-#river_seg['iseg'] = river_seg.index + 1
 river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
 
                       
@@ -785,12 +783,8 @@ Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
 # reach here it will cause problems for the segment
 Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406203]
 
-#river_seg['bed_from_gauge'][river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist())] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
-river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].bfill()
-#river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].interpolate(limit_direction='both')
-
 
 new_k = []
 surface_layers = {}
