@@ -20,22 +20,25 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
-    if param_file != "":
-        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    #if param_file != "":
+    #    m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
         print "************************************************************************"
         print " Updating HGU parameters "
     
-#    Kh = m.load_array(os.path.join(data_folder, 'Kh.npy'))
-#    Kv = m.load_array(os.path.join(data_folder, 'Kv.npy'))
-#    Sy = m.load_array(os.path.join(data_folder, 'Sy.npy'))
-#    SS = m.load_array(os.path.join(data_folder, 'SS.npy'))
-#
-#    m.properties.update_model_properties('Kh', Kh)
-#    m.properties.update_model_properties('Kv', Kv)
-#    m.properties.update_model_properties('Sy', Sy)
-#    m.properties.update_model_properties('SS', SS)
+    Kh = m.load_array(os.path.join(data_folder, 'Kh.npy'))
+    Kv = m.load_array(os.path.join(data_folder, 'Kv.npy'))
+    Sy = m.load_array(os.path.join(data_folder, 'Sy.npy'))
+    SS = m.load_array(os.path.join(data_folder, 'SS.npy'))
+
+    Kh[Kh > 1000] = 10.
+    Kv[Kv > 1000] = 1.
+
+    m.properties.update_model_properties('Kh', Kh)
+    m.properties.update_model_properties('Kv', Kv)
+    m.properties.update_model_properties('Sy', Sy)
+    m.properties.update_model_properties('SS', SS)
     
     if verbose:
         print "************************************************************************"
@@ -284,10 +287,10 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
         modflow_model.writeObservations()
 
-    wat_bal_df = modflow_model.waterBalance(plot=False)
+    wat_bal_df = modflow_model.waterBalance(1, plot=False)
     rech_all = wat_bal_df.loc['RECHARGE_pos']['Flux m^3/d']
     rech_cells = len(rch[0][(rch[0] > 0) & (m.model_mesh3D[1][0] != -1)]) 
-    rech_area = rech_cells * 5000 * 5000
+    rech_area = rech_cells * 1000 * 1000
     for key in zone_coverage.keys():
         print(key, zone_coverage[key] / float(rech_cells) * 100)
         
