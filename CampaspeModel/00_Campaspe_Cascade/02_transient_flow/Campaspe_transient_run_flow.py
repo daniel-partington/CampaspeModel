@@ -252,7 +252,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     ###########################################################################
     ## Currently using flopyInterface directly rather than running from the ModelManager ...
 
-    modflow_model = flopyInterface.ModflowModel(m, data_folder=data_folder)
+    modflow_model = flopyInterface.ModflowModel(m, data_folder=os.path.join(data_folder, "model_" + m.name))
 
     modflow_model.executable = mf_exe_folder
 

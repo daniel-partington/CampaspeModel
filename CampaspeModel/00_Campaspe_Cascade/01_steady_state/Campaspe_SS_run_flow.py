@@ -248,7 +248,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
     
 
         # Override temporal aspects of model build:
-        modflow_model = flopyInterface.ModflowModel(m, data_folder=data_folder)
+        modflow_model = flopyInterface.ModflowModel(m, data_folder=os.path.join(data_folder, "model_" + m.name))
 
         if verbose:
             print "************************************************************************"
