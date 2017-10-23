@@ -399,7 +399,7 @@ print " Interpolating rainfall data to grid "
 
 interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall, feature_id='Name', method='linear')
 # Adjust rainfall to m from mm and from year to day
-interp_rain = interp_rain/1000.0/365.0
+interp_rain = interp_rain / 1000.0 / 365.0
 # Adjust rainfall to recharge using 10% magic number
 
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
@@ -504,7 +504,13 @@ SS_model.create_river_dataframe('Campaspe', Campaspe_river_poly_file, surface_ra
 # Create reach data
 river_seg = SS_model.river_mapping['Campaspe']
 # Parameters are ordered from upstream to downstream
-num_reaches = 4
+num_reaches = 20
+base_guesses_for_k_bed_x = [0., 0.33, 0.66, 1.0]
+base_guesses_for_k_bed_y = [1., 1., 0.01, 0.001]
+interp_guesses_for_k_bed_x = np.linspace(0., 1., num_reaches)
+interp_guesses_for_k_bed_y = np.interp(interp_guesses_for_k_bed_x, 
+                                       base_guesses_for_k_bed_x,
+                                       base_guesses_for_k_bed_y) 
 
 SS_model.create_pilot_points('Campaspe', linear=True)
 camp_pp = SS_model.pilot_points['Campaspe']
@@ -517,7 +523,7 @@ known_points = camp_pp.points
 #for reach in range(num_reaches):
 # Setting up river bed hydraulic conductivity values
 SS_model.parameters.create_model_parameter_set('kv_riv', 
-                                           value=[1., 1., 0.01, 0.001], 
+                                           value=list(interp_guesses_for_k_bed_y), 
                                            num_parameters=num_reaches)
 SS_model.parameters.parameter_options_set('kv_riv', 
                                       PARTRANS='log', 
@@ -785,6 +791,7 @@ Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406
 
 river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
+river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].bfill() 
 
 new_k = []
 surface_layers = {}
@@ -793,8 +800,8 @@ for row in river_seg.iterrows():
     j_mesh = row[1]['i'] 
     i_mesh = row[1]['j']
     strbot = row[1]['bed_from_gauge'] - row[1]['strthick']
-    new_k += [find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])]
     k = find_layer(strbot, SS_model.model_mesh3D[0][:, j_mesh, i_mesh])
+    new_k += [k]
     bottom_layer += [SS_model.model_mesh3D[0][k + 1, j_mesh, i_mesh]] 
     for layer in range(7):
         try:
@@ -809,8 +816,7 @@ river_seg['k'] = new_k
 river_seg['strtop'] = river_seg['bed_from_gauge']
 river_seg['bottom_layer'] = bottom_layer
 
-river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
-river_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)] + ['bottom_layer'])
 
 # For stream reaches that didn't map properly to the mesh for z elevation we 
 # can still include by setting to layer 0 with a bed hydraulic conductivity of 0
