@@ -377,7 +377,7 @@ def main():
     try:
         fname = "initial_river_levels.pkl"
         riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
-    except (IOError):
+    except (IOError, ImportError):
         fname = "initial_river_levels.npy"
         riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
 
