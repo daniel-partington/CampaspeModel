@@ -85,7 +85,7 @@ if os.path.exists(tr_model.out_data_folder + bore_levels_file + ".h5") & \
     bore_data_info = tr_model.load_dataframe(tr_model.out_data_folder + bore_info_file + ".h5")
     bore_data_salinity = tr_model.load_dataframe(tr_model.out_data_folder + bore_salinity_file + ".h5")
 else:
-    bore_data_levels, bore_data_info, bore_data_salinity = getBoreData.getBoreData(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC_2016")
+    bore_data_levels, bore_data_info, bore_data_salinity = getBoreData.getBoreData(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC")
     tr_model.save_dataframe(tr_model.out_data_folder + bore_levels_file, bore_data_levels)
     tr_model.save_dataframe(tr_model.out_data_folder + bore_info_file, bore_data_info)
     tr_model.save_dataframe(tr_model.out_data_folder + bore_salinity_file, bore_data_salinity)
@@ -102,7 +102,7 @@ bore_data_info["HydroCode"] = bore_data_info.index
 print "************************************************************************"
 print " Read in and filtering bore spatial data "
 
-bores_shpfile = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC_2016\ngis_shp_VIC\NGIS_Bores.shp")
+bores_shpfile = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
 
 bores_filtered_from_shpfile = tr_model.points_shapefile_obj2dataframe(bores_shpfile, feature_id="HydroCode")
 
@@ -335,6 +335,8 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
                                  fill='mean', stat='50%', df_freq=None, 
                                  index_report=True, label='left', debug=False):
 
+    pd_dt = pd.to_datetime
+
     if len(frequencies) != len(date_group) - 1:
         print("Frequencies list must have one less item than the date_group list")
         return
@@ -342,7 +344,7 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
     if df_freq != None:
         df = df.resample(df_freq).mean()
     # end if
-    df = df.ix[start:end]
+    df = df.loc[start:end]
 
     #However if the time period for the model is longer we need to reindex the dataseries
     if df_freq == None:
@@ -356,14 +358,15 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
     df = _fill_in_time_series_nan(df, fill=fill, stat=stat)
     # Create empty list for placing the resampled parts of the dataframe
     df_resamples = []
+
+    len_frequencies = len(frequencies)
+
     for index, frequency in enumerate(frequencies):
         #print(frequency)
         p_start, p_end = date_group[index], date_group[index + 1]
         #resample = df[df.index.isin(pd.date_range(p_start, p_end))] \
-        def pd_dt(dt):
-            return pd.to_datetime(dt)
         
-        if index < len(frequencies) - 1:
+        if index < len_frequencies - 1:
             resample = df[(df.index >= pd_dt(p_start)) & (df.index < pd_dt(p_end))] \
                           .resample(frequency, label=label).mean()
         else:
@@ -371,7 +374,7 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
                           .resample(frequency, label=label).mean()
             
         if debug: print resample.index
-        if index < len(frequencies) - 1:
+        if index < len_frequencies - 1:
             if label == 'left':
                 df_resamples += [resample.iloc[1:]]
             elif label == 'right':
@@ -446,7 +449,7 @@ def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
 
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 1000
+resolution = 5000
 tr_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:

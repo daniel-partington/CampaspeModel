@@ -20,8 +20,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
-    if param_file != "":
-        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    #if param_file != "":
+    #    m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
         print "************************************************************************"
@@ -49,29 +49,29 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     # Create reach data
     river_seg = m.river_mapping['Campaspe']
     
-    strcond_val = [m.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    strcond_val = [m.parameters.param['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)] 
     river_seg.loc[river_seg['strhc1'] != 0.0, 'strhc1'] = np.interp(
             river_seg[river_seg['strhc1'] != 0.0]['Cumulative Length'].tolist(), 
             known_points, strcond_val)
     
-    strthick_val = [m.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    strthick_val = [m.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)] 
     river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(), known_points, strthick_val)
     
     reach_df = river_seg[['k','i','j','iseg','ireach','rchlen','strtop','slope','strthick','strhc1']]
     reach_data = reach_df.to_records(index=False)
     
     # Set the roughness for the channel
-    roughch_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    roughch_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)] 
     roughch = np.interp(river_seg['Cumulative Length'].tolist(), 
                                     known_points, roughch_val)
     # Set the roughness for the banks
-    roughbk_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    roughbk_val = [m.parameters.param['mn_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)] 
     roughbk = np.interp(river_seg['Cumulative Length'].tolist(), 
                                     known_points, roughbk_val)
     river_seg['roughch'] = roughch
     river_seg['roughbk'] = roughbk
     
-    width1_val = [m.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    width1_val = [m.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)] 
     width1 = np.interp(river_seg['Cumulative Length'].tolist(), 
                                     known_points, width1_val)
 
@@ -121,14 +121,14 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     rch_zones = len(rch_zone_dict.keys())
 
     par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
-                     for i in range(rch_zones - 1)]
+                     for i in xrange(rch_zones - 1)]
 
 #    par_rech_vals = [0.02 \
 #                     for i in range(rch_zones - 1)]
 
     def update_recharge(vals):
         for key in interp_rain.keys():
-            for i in range(rch_zones - 1):
+            for i in xrange(rch_zones - 1):
                 interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
                     interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
                     vals[i]
