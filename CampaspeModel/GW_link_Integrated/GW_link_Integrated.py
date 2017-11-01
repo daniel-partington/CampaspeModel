@@ -17,9 +17,9 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
-
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
+
 
 def process_line(line):
     return [x.strip() for x in line.split(':')[1].strip().split(',')]
@@ -361,14 +361,17 @@ def main():
             try:
                 with open(filename, 'r') as f:
                     f = pickle.load(f)
-                    return f
             except ImportError:
                 with open(filename, 'rb') as f:
                     f = pickle.load(f)
-                    return f
+            # End if
+        elif filename.endswith(".npy"):
+            f = np.load(filename)
         else:
             print 'File type not recognised as "pkl"'
         # End if
+
+        return f
 
     # Example river level data (to be inputted from SW Model)
     fname = "initial_river_levels.pkl"

@@ -1,7 +1,8 @@
 import datetime
 import os
+from itertools import groupby
+from operator import itemgetter
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from osgeo import osr
@@ -21,7 +22,7 @@ CONFIG = ConfigLoader(p_j(dir_name(dir_name(os.path.realpath(__file__))),
                           "config", "model_config.json"))\
     .set_environment("GW_link_Integrated")
 
-VERBOSE = True
+VERBOSE = False
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
@@ -673,8 +674,6 @@ for ind in range(river_seg.shape[0]):
             if curr['rchlen'] < max_length:
                 merge_row += [ind]
 
-from operator import itemgetter
-from itertools import groupby
 merge_row_consec = []
 for k, g in groupby(enumerate(merge_row), lambda (i, x): i - x):
     merge_row_consec.append(map(itemgetter(1), g))
@@ -1562,6 +1561,7 @@ with open(os.path.join(data_folder, "model_linking.csv"), 'w') as model_link:
 
 # Visuals checks on getting nearest mapped bore from top layer for the ecology part:
 if VERBOSE:
+    import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
