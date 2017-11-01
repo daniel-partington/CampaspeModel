@@ -380,6 +380,12 @@ def main():
     except (IOError, ImportError):
         fname = "initial_river_levels.npy"
         riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
+    # End try
+
+    if fname.endswith(".pkl"):
+        warnings.warn("Loading of initial river levels from pickled file will be unsupported in the future",
+                      FutureWarning)
+    # End if
 
     args = sys.argv
     if len(args) > 1:
