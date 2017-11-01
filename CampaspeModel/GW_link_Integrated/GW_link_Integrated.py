@@ -374,8 +374,12 @@ def main():
         return f
 
     # Example river level data (to be inputted from SW Model)
-    fname = "initial_river_levels.pkl"
-    riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
+    try:
+        fname = "initial_river_levels.pkl"
+        riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
+    except (IOError):
+        fname = "initial_river_levels.npy"
+        riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
 
     args = sys.argv
     if len(args) > 1:
