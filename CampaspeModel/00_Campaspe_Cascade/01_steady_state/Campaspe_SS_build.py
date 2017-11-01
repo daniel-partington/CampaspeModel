@@ -164,7 +164,7 @@ print '########################################################################'
 # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
 print "************************************************************************"
 print " Defining structured mesh"
-resolution = 1000
+resolution = 5000
 SS_model.define_structured_mesh(resolution, resolution)
 
 # Read in hydrostratigraphic raster info for layer elevations:
@@ -211,15 +211,21 @@ HGU = list(set([x.split('_')[0] for x in hu_raster_files]))
 
 # NOTE *** utam is mapping to Shepparton Sands but it represents the 
 # Loxton-Parilla Sand ... the HGU database needs updating to include this.
-HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts', 
-           'utaf':'Calivil', 'lta':'Renmark', 
-           'qa':'Coonambidgal Sands', 'utqa':'Shepparton Sands',
+HGU_map = {'bse':'Bedrock', 
+           'utb':'Newer Volcanics Basalts', 
+           'utaf':'Calivil', 
+           'lta':'Renmark', 
+           'qa':'Coonambidgal Sands', 
+           'utqa':'Shepparton Sands',
            'utam':'Shepparton Sands'}
 
-HGU_zone = {'bse':6, 'utb':1, 
-           'utaf':4, 'lta':5, 
-           'qa':0, 'utqa':2,
-           'utam':3}
+HGU_zone = {'qa'  :0, 
+            'utb' :1,
+            'utqa':2,
+            'utam':3,             
+            'utaf':4, 
+            'lta' :5, 
+            'bse' :6}
            
 zone_HGU = {HGU_zone[x]:x for x in HGU_zone.keys()}
            
@@ -250,6 +256,9 @@ if pilot_points:
         elif resolution == 500:
             skip=[0, 0, 12, 0, 12, 12, 12] 
             skip_active=[100, 40, 0, 70, 0, 0, 0]
+        elif resolution == 20000:
+            skip=[0, 0, 0, 0, 0, 0, 0] 
+            skip_active=[0, 0, 0, 0, 0, 0, 0]
         else:
             skip=[0,  0, 3, 0, 2, 3, 3] 
             skip_active=[3, 20, 0, 4, 0, 0, 0]
@@ -525,6 +534,7 @@ known_points = camp_pp.points
 SS_model.parameters.create_model_parameter_set('kv_riv', 
                                            value=list(interp_guesses_for_k_bed_y), 
                                            num_parameters=num_reaches)
+
 SS_model.parameters.parameter_options_set('kv_riv', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
@@ -538,6 +548,7 @@ SS_model.parameters.parameter_options_set('kv_riv',
 SS_model.parameters.create_model_parameter_set('beddep', 
                                            value=0.01, 
                                            num_parameters=num_reaches)
+
 SS_model.parameters.parameter_options_set('beddep', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
@@ -562,6 +573,7 @@ SS_model.parameters.parameter_options_set('mn_riv',
 SS_model.parameters.create_model_parameter_set('rivwdth', 
                                            value=20.0, 
                                            num_parameters=num_reaches)
+
 SS_model.parameters.parameter_options_set('rivwdth', 
                                       PARTRANS='fixed', 
                                       PARCHGLIM='factor', 
@@ -574,6 +586,7 @@ SS_model.parameters.parameter_options_set('rivwdth',
 SS_model.parameters.create_model_parameter_set('bedthck', 
                                            value=0.10, 
                                            num_parameters=num_reaches)
+
 SS_model.parameters.parameter_options_set('bedthck', 
                                       PARTRANS='fixed', 
                                       PARCHGLIM='factor', 
@@ -785,9 +798,15 @@ river_seg.loc[:, 'bed_from_gauge'] = np.nan
 Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
 Campaspe['seg_loc'] = river_gauge_seg         
 Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
+
 # There are two values at the Campaspe weir, while it would be ideal to split the
 # reach here it will cause problems for the segment
-Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406203]
+#Campaspe_gauge_zero2 = Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] != 406203]
+if Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] == 406203]['seg_loc'].tolist() == \
+   Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] == 406218]['seg_loc'].tolist():
+    Campaspe_gauge_zero.at[Campaspe_gauge_zero['Site Id'] == 406203, 'seg_loc'] = \
+        Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] == 406203]['seg_loc'].tolist()[0] + 1
+Campaspe_gauge_zero2 = Campaspe_gauge_zero
 
 river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
 river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()

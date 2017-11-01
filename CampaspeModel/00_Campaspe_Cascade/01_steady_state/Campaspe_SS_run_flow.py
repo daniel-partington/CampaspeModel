@@ -390,7 +390,7 @@ if __name__ == "__main__":
         CONFIG = ConfigLoader('../../config/model_config.json')\
                         .set_environment("01_steady_state")
         model_config = CONFIG.model_config
-        model_folder = os.path.join(model_config['model_folder'], model_config['grid_resolution'])
+        model_folder = model_config['model_folder'] + model_config['grid_resolution']
         data_folder = model_config['data_folder']
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
