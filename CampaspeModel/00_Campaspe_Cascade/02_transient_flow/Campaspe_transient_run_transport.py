@@ -30,7 +30,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
     if param_file:
-        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'))
+        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
 
     if verbose:
         print "************************************************************************"
@@ -41,7 +41,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     ###########################################################################
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(MM.GW_build[name], 
-                                                data_folder=data_folder)
+                                                data_folder=os.path.join(data_folder, "model_" + m.name))
     modflow_model.buildMODFLOW(transport=True, write=False, verbose=False)
 
     if verbose:
@@ -50,7 +50,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
     species = ['EC', 'C14']
 
-    path=os.path.join(data_folder,"model_01_steady_state")
+    path=os.path.join(data_folder, "model_01_steady_state")
     concobj = bf.UcnFile(os.path.join(path, 'MT3D001.UCN'))
     times = concobj.get_times()        
     C14_init = concobj.get_data(totim=times[-1])
@@ -88,7 +88,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                                ftlfilename='mt3d_link.ftl',
                                ftlfree = True,
                                modflowmodel=modflow_model.mf, 
-                               model_ws=modflow_model.data_folder, 
+                               model_ws=path, #modflow_model.data_folder, 
                                exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
         
         if verbose:

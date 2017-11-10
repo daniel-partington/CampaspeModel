@@ -273,7 +273,7 @@ if pilot_points:
         pp_grp.write_settings_fig()
         pp_grp.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
         pp_grp.write_struct_file(mesh_array, nugget=0.0, 
-                                 transform='log',numvariogram=1, variogram=0.15, 
+                                 transform='log', numvariogram=1, variogram=0.15, 
                                  vartype=2, bearing=0.0, a=20000.0, anisotropy=1.0)
         
         # These search_radius values have been tested on the 1000m grid, would be good
@@ -603,12 +603,9 @@ river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].tolist(),
 strthick_val = [SS_model.parameters.param['bedthck{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
 river_seg['strthick'] = np.interp(river_seg['Cumulative Length'].tolist(), known_points, strthick_val)
 
-amalg_riv_points = []
-for row in river_seg[['i', 'j']].iterrows():
-    amalg_riv_points += [[row[1]['j'], row[1]['i']]]
-
 # The depths in the column at row j and col i can be obtained using:
 # SS_model.model_mesh3D[0][:,0,1]
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 def find_layer(elev, col_vals):
     for index, val in enumerate(col_vals):
         if elev > val:
@@ -618,147 +615,156 @@ def find_layer(elev, col_vals):
                 return index - 1
         #end if
 
-# Sort out collocated stream reaches to avoid short circuiting:
-river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
-river_seg_group = river_seg.groupby(by='amalg_riv_points_tuple').count()
-river_seg_group = river_seg_group[river_seg_group['amalg_riv_points'] > 1]
-
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# THINGS THAT NEED TO BE DONE FOR EACH COLUMN OF river_seg WHEN MERGING ROW
-# BASED ON THE merge_group:
-# For some testing
-#
-#  strtop = average weighted by rchlen
-#  rchlen = sum()
-#  amalg_riv_points = first entry
-#  Cumulative length = last entry
-#  strtop_raw = average weighted by rchlen
-#  slope = average weighted by rchlen
-#  k = first entry  
-#  i = first entry
-#  j = first entry
-#  amalg_riv_points_collection = join lists of tuples into one
-#  strhc1 = average weighted by rchlen
-#  strthick = average weighted by rchlen
-#  amalg_riv_points_tuple = first entry
-#
-#  1. Create new row based on above rules
-#  2. Replace first row indexed in merge_group with new row
-#  3. Delete all other rows indexed in merge_group
-#
-river_seg2 = river_seg.copy()
-
-max_length = 3000.
-merge_row = []
-for ind in range(river_seg.shape[0]):
-    if ind == 0:
-        continue
-    elif ind == river_seg.shape[0] - 1:
-        prev = river_seg.iloc[ind - 1]    
-        curr = river_seg.iloc[ind]    
-    else:
-        prev = river_seg.iloc[ind - 1]    
-        curr = river_seg.iloc[ind]    
-        nexx = river_seg.iloc[ind + 1]
-        #def loc_tup(row):
-        #    return (row['i'], row['j'])
-        if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
-            if curr['rchlen'] < max_length:
-                merge_row += [ind]
-            
+        
 from operator import itemgetter
 from itertools import groupby
-merge_row_consec = []
-for k, g in groupby(enumerate(merge_row), lambda (i,x):i-x):
-    merge_row_consec.append(map(itemgetter(1), g))    
 
-first_entry = lambda x: x[0]
-last_entry = lambda x: x[-1]
-flatten = lambda l: [item for sublist in l for item in sublist]
+river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
 
-for merge_group in merge_row_consec:
-    index_list = river_seg2.index.tolist()
-    index_dict = {x:index for index, x in enumerate(index_list)}
-    merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
-    merge_group = merge_group + [merge_group[-1] + 1] 
-    river_seg_temp = river_seg2.loc[merge_group]
-    rchlen_temp = river_seg_temp['rchlen']
-    rchlen_sum = rchlen_temp.sum()
-    rchlen_weights = rchlen_temp / rchlen_sum
-    def weighted(col):
-        return (col * rchlen_weights).sum()
+def merge_collocated_stream_reaches(river_segment):
+    # Sort out collocated stream reaches to avoid short circuiting:
     
-    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
-    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
-    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
-    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
-    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
-    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
-    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
-    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
-    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
-    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    # THINGS THAT NEED TO BE DONE FOR EACH COLUMN OF river_seg WHEN MERGING ROW
+    # BASED ON THE merge_group:
+    # For some testing
+    #
+    #  strtop = average weighted by rchlen
+    #  rchlen = sum()
+    #  amalg_riv_points = first entry
+    #  Cumulative length = last entry
+    #  strtop_raw = average weighted by rchlen
+    #  slope = average weighted by rchlen
+    #  k = first entry  
+    #  i = first entry
+    #  j = first entry
+    #  amalg_riv_points_collection = join lists of tuples into one
+    #  strhc1 = average weighted by rchlen
+    #  strthick = average weighted by rchlen
+    #  amalg_riv_points_tuple = first entry
+    #
+    #  1. Create new row based on above rules
+    #  2. Replace first row indexed in merge_group with new row
+    #  3. Delete all other rows indexed in merge_group
+    #
+    river_seg2 = river_segment.copy()
     
-    river_seg2.drop(merge_group[1:], inplace=True)
-
-river_seg2.index = range(river_seg2.shape[0])
-
-max_length = 500.
-merge_row_too_short = []
-for ind in range(river_seg2.shape[0]):
-    if ind == 0:
-        continue
-    elif ind == river_seg2.shape[0] - 1:
-        prev = river_seg2.iloc[ind - 1]    
-        curr = river_seg2.iloc[ind]    
-    else:
-        prev = river_seg2.iloc[ind - 1]    
-        curr = river_seg2.iloc[ind]    
-        nexx = river_seg2.iloc[ind + 1]
-        if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
-            pass
+    max_length = 3000.
+    merge_row = []
+    for ind in range(river_seg2.shape[0]):
+        if ind == 0:
+            continue
+        elif ind == river_seg2.shape[0] - 1:
+            prev = river_seg2.iloc[ind - 1]    
+            curr = river_seg2.iloc[ind]    
         else:
-            if curr['rchlen'] < max_length:
-                merge_row_too_short += [ind]
-
-merge_row_too_short_consec = []
-for k, g in groupby(enumerate(merge_row_too_short), lambda (i,x):i-x):
-    merge_row_too_short_consec.append(map(itemgetter(1), g))    
-
-for merge_group in merge_row_too_short_consec:
-    index_list = river_seg2.index.tolist()
-    index_dict = {x:index for index, x in enumerate(index_list)}
-    merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
-    #merge_group = merge_group + [merge_group[-1] + 1] 
-    river_seg_temp = river_seg2.loc[merge_group]
-    rchlen_temp = river_seg_temp['rchlen']
-    rchlen_sum = rchlen_temp.sum()
-    rchlen_weights = rchlen_temp / rchlen_sum
-    def weighted(col):
-        return (col * rchlen_weights).sum()
+            prev = river_seg2.iloc[ind - 1]    
+            curr = river_seg2.iloc[ind]    
+            nexx = river_seg2.iloc[ind + 1]
+            #def loc_tup(row):
+            #    return (row['i'], row['j'])
+            if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
+                if curr['rchlen'] < max_length:
+                    merge_row += [ind]
+                
+    merge_row_consec = []
+    for k, g in groupby(enumerate(merge_row), lambda (i,x):i-x):
+        merge_row_consec.append(map(itemgetter(1), g))    
     
-    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
-    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
-    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
-    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
-    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
-    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
-    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
-    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
-    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
-    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
-    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
+    first_entry = lambda x: x[0]
+    last_entry = lambda x: x[-1]
+    flatten = lambda l: [item for sublist in l for item in sublist]
     
-    river_seg2.drop(merge_group[1], inplace=True)
+    for merge_group in merge_row_consec:
+        index_list = river_seg2.index.tolist()
+        index_dict = {x:index for index, x in enumerate(index_list)}
+        merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
+        merge_group = merge_group + [index_list[index_dict[merge_group[-1]] + 1]] 
+        #merge_group = merge_group + [merge_group[-1] + 1] 
+        river_seg_temp = river_seg2.loc[merge_group]
+        rchlen_temp = river_seg_temp['rchlen']
+        rchlen_sum = rchlen_temp.sum()
+        rchlen_weights = rchlen_temp / rchlen_sum
+        def weighted(col):
+            return (col * rchlen_weights).sum()
+        
+        river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
+        river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
+        river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
+        river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
+        river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
+        river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
+        river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
+        river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
+        river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
+        river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
+        river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
+        river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
+        river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
+        
+        river_seg2.drop(merge_group[1:], inplace=True)
+    
+    river_seg2.index = range(river_seg2.shape[0])
 
-river_seg = river_seg2
-SS_model.river_mapping['Campaspe'] = river_seg
+    ###########################################################################
+    # BREAK THIS NEXT BIT INTO NEW FUNCTION
+    
+    max_length = 500.
+    merge_row_too_short = []
+    for ind in range(river_seg2.shape[0]):
+        if ind == 0:
+            continue
+        elif ind == river_seg2.shape[0] - 1:
+            prev = river_seg2.iloc[ind - 1]    
+            curr = river_seg2.iloc[ind]    
+        else:
+            prev = river_seg2.iloc[ind - 1]    
+            curr = river_seg2.iloc[ind]    
+            nexx = river_seg2.iloc[ind + 1]
+            if prev['amalg_riv_points_tuple'] == nexx['amalg_riv_points_tuple']:
+                pass
+            else:
+                if curr['rchlen'] < max_length:
+                    merge_row_too_short += [ind]
+    
+    merge_row_too_short_consec = []
+    for k, g in groupby(enumerate(merge_row_too_short), lambda (i,x):i-x):
+        merge_row_too_short_consec.append(map(itemgetter(1), g))    
+    
+    for merge_group in merge_row_too_short_consec:
+        index_list = river_seg2.index.tolist()
+        index_dict = {x:index for index, x in enumerate(index_list)}
+        merge_group = [index_list[index_dict[merge_group[0]] - 1]] + merge_group
+        #merge_group = merge_group + [merge_group[-1] + 1] 
+        river_seg_temp = river_seg2.loc[merge_group]
+        rchlen_temp = river_seg_temp['rchlen']
+        rchlen_sum = rchlen_temp.sum()
+        rchlen_weights = rchlen_temp / rchlen_sum
+        def weighted(col):
+            return (col * rchlen_weights).sum()
+        
+        river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
+        river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
+        river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
+        river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
+        river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
+        river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
+        river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
+        river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
+        river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
+        river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
+        river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
+        river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
+        river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
+        
+        river_seg2.drop(merge_group[1], inplace=True)
+
+    #river_seg = river_seg2
+    return river_seg2
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+river_seg = merge_collocated_stream_reaches(river_seg)
+SS_model.river_mapping['Campaspe'] = river_seg
 
 already_defined = []
 old = []
@@ -836,6 +842,7 @@ river_seg['strtop'] = river_seg['bed_from_gauge']
 river_seg['bottom_layer'] = bottom_layer
 
 river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)] + ['bottom_layer'])
+river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ['bottom_layer'])
 
 # For stream reaches that didn't map properly to the mesh for z elevation we 
 # can still include by setting to layer 0 with a bed hydraulic conductivity of 0
@@ -927,7 +934,7 @@ SS_model.boundaries.assign_boundary_array('Campaspe River', [reach_data, seg_dic
 print "************************************************************************"
 print " Mapping Murray River to grid"
 
-SS_model.map_polyline_to_grid(Murray_river_poly)
+#SS_model.map_polyline_to_grid(Murray_river_poly)
 
 # Parameter to modify the stage, thus accounting for errors in values specified for stage
 SS_model.parameters.create_model_parameter('rmstage', value=0.01)
@@ -989,7 +996,8 @@ mriver_seg['strthick'] = SS_model.parameters.param['rmbedthk']['PARVAL1']
 Murray = Campaspe_relevant[Campaspe_relevant['Site Name'].str.contains("MURRAY RIVER")]
 gauge_points = [x for x in zip(Murray.Easting, Murray.Northing)]
 mriver_gauge_seg = SS_model.get_closest_riv_segments('Murray', gauge_points)
-mriver_seg.loc[:, 'bed_from_gauge'] = np.nan
+#mriver_seg.loc[:, 'bed_from_gauge'] = np.nan
+mriver_seg.loc[:, 'bed_from_gauge'] = mriver_seg['strtop']
 mriver_seg.loc[:, 'stage_from_gauge'] = np.nan
 
 Murray.loc[:, 'new_gauge'] = Murray[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
@@ -1009,7 +1017,8 @@ def values_from_gauge(column):
         method='values', limit_direction='both').tolist()
     mriver_seg[column].fillna(method='bfill', inplace=True)
 
-values_to_edit = ['bed_from_gauge', 'stage_from_gauge']
+#values_to_edit = ['bed_from_gauge', 'stage_from_gauge']
+values_to_edit = ['stage_from_gauge']
 for value in values_to_edit:
     values_from_gauge(value)
 
@@ -1036,9 +1045,6 @@ for layer in range(7):
 
 mriver_seg['bottom_layer'] = bottom_layer
 
-mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
-#mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer'])
-
 mriver_seg['k'] = new_k
 mriver_seg['active'] = active
       
@@ -1047,13 +1053,13 @@ mriver_seg[mriver_seg['active'] == -1] = np.nan
 mriver_seg.dropna(inplace=True)
 SS_model.river_mapping['Murray'] = mriver_seg
 
-mriver_seg['strtop'] = mriver_seg['stage_from_gauge']                      
+mriver_seg['strtop'] = mriver_seg['bed_from_gauge']                      
                       
 mriver_seg['strhc1'] = SS_model.parameters.param['kv_rm']['PARVAL1']                      
 
 mriver_seg['width1'] = SS_model.parameters.param['rmwdth']['PARVAL1']
 
-mriver_seg['stage'] = mriver_seg['strtop'] + SS_model.parameters.param['rmstage']['PARVAL1']
+mriver_seg['stage'] = mriver_seg['stage_from_gauge'] #+ SS_model.parameters.param['rmstage']['PARVAL1']
 
 # Avoid collisions with Campaspe River ...
 def is_in_other_river(riv_df_testing, riv_df_other):
@@ -1069,13 +1075,26 @@ def is_in_other_river(riv_df_testing, riv_df_other):
 
 cells_overlapping = is_in_other_river(mriver_seg, river_seg)
 mriver_seg['cell_used'] = cells_overlapping
-mriver_seg[mriver_seg['cell_used'] == 0] = np.nan
-mriver_seg.dropna(inplace=True)
+mriver_seg_ghb = mriver_seg.copy()
+
+#mriver_seg[mriver_seg['cell_used'] == 0] = np.nan
+#mriver_seg.dropna(inplace=True)
+
+#mriver_seg['cell_loc_tuple'] = [(x[1]['k'], x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
+#mriver_seg['cell_loc_tuple'] = [(x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
+#mriver_seg = mriver_seg.groupby(by='cell_loc_tuple').mean()
+#mriver_seg.index = range(mriver_seg.shape[0])
+
+mriver_seg['amalg_riv_points_tuple'] = mriver_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
+mriver_seg3 = mriver_seg.iloc[::-1]
+mriver_seg3.index = range(mriver_seg3.shape[0])
+mriver_seg = merge_collocated_stream_reaches(mriver_seg3)
 SS_model.river_mapping['Murray'] = mriver_seg
 
-mriver_seg['cell_loc_tuple'] = [(x[1]['k'], x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
-mriver_seg = mriver_seg.groupby(by='cell_loc_tuple').mean()
-mriver_seg.index = range(mriver_seg.shape[0])
+
+mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)])
+mriver_seg.plot(x='Cumulative Length', y=['bed_from_gauge', 'bottom_layer', 'strtop', 'surf0'])
+mriver_seg.plot(x='Cumulative Length', y=['strtop', 'stage'])
 
 simple_river = []
 for row in mriver_seg.iterrows():
@@ -1123,7 +1142,7 @@ MurrayGHB = []
 Active_MurrayGHB_cells = []
 Murray_df_ind = []
 checked = []
-for mrow in mriver_seg.iterrows():
+for mrow in mriver_seg_ghb.iterrows():
     ind = mrow[0]
     mrow = mrow[1]
     row = int(mrow['i'])
@@ -1204,7 +1223,7 @@ for index, MurrayGHB_cell in enumerate(Final_MurrayGHB_cells):
     row = MurrayGHB_cell[1]
     col = MurrayGHB_cell[2]
         
-    MurrayGHBstage = mriver_seg['stage'].loc[Murray_df_ind2[index]] + SS_model.parameters.param['mghb_stage']['PARVAL1']
+    MurrayGHBstage = mriver_seg_ghb['stage'].loc[Murray_df_ind2[index]] + SS_model.parameters.param['mghb_stage']['PARVAL1']
     #if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
     #    continue
     dx = SS_model.gridHeight
