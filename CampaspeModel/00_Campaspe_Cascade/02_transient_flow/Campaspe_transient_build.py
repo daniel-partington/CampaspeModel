@@ -8,7 +8,12 @@ import numpy as np
 
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverStations, readHydrogeologicalProperties
+
+from CampaspeModel.CustomScripts import Campaspe_data
+from CampaspeModel.build_common import Campaspe_mesh
+from CampaspeModel.build_utils.multifrequency_resampling import resample_to_model_data_index 
+from CampaspeModel.build_utils.multifrequency_resampling import resample_obs_time_series_to_model_data_index
+from CampaspeModel.build_common.rainfall_recharge import prepare_transient_rainfall_data_for_model 
 
 """
 
@@ -21,244 +26,49 @@ Interface = GDALInterface()
 Interface.projected_coordinate_system = Proj_CS 
 Interface.pcs_EPSG = "EPSG:28355"
 
+root_dir = r"C:\Workspace\part0075\MDB modelling\testbox"
 tr_model = GWModelBuilder(name="02_transient_flow", 
-                          data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\",
-                          model_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\00_Campaspe_Cascade\02_transient_flow\\",
-                          out_data_folder=r"C:\Workspace\part0075\MDB modelling\testbox\data_build\\",
+                          data_folder=os.path.join(root_dir,r"input_data\\"),
+                          model_data_folder=os.path.join(root_dir,r"00_Campaspe_Cascade\02_transient_flow\\"),
+                          out_data_folder=os.path.join(root_dir,r"data_build\\"),
                           GISInterface=Interface,
                           model_type='Modflow',
                           mesh_type='structured')
-
-# Cleanup
-#tr_model.flush()
 
 # Define the units for the project for consistency and to allow converions on input data
 # tr_model.length = 'm'
 # tr_model.time = 'd'
 
-# Set the model boundary using a polygon shapefile:
-print "************************************************************************"
-print " Setting model boundary "
+Campaspe_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data"
+hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
 
-tr_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp", 
-                                                      shapefile_path=tr_model.data_folder)
+custom_data = \
+    Campaspe_data.process_custom_scripts_and_spatial_data(tr_model, 
+                                                          Campaspe_data_folder,
+                                                          verbose=True)
+HGU_props = custom_data['HGU_props']
+rain_gauges = custom_data['rain_gauges']
+long_term_historic_weather = custom_data['long_term_historic_weather'] 
+recharge_zones = custom_data['recharge_zones']
+surface_raster_high_res = custom_data['surface_raster_high_res'] 
+river_gauges = custom_data['river_gauges']
+Campaspe_river_poly_file = custom_data['Campaspe_river_poly_file']
+Murray_river_poly_file = custom_data['Murray_river_poly_file']
+river_flow_data = custom_data['river_flow_data']
+river_stage_data = custom_data['river_stage_data']
+river_ec_data = custom_data['river_ec_data']
+Campaspe = custom_data['Campaspe']
+Campaspe_relevant = custom_data['Campaspe_relevant']
+bores_shpfile = custom_data['bores_shpfile']
+final_bores = custom_data['final_bores'] 
+pumping_data = custom_data['pumping_data']
+C14_points = custom_data['C14_points']
+df_C14 = custom_data['df_C14']
+pumps_points = custom_data['pumps_points']
+FieldData = custom_data['FieldData']
+bore_data_info = custom_data['bore_data_info']
+bore_data_levels = custom_data['bore_data_levels']
 
-# Set data boundary for model data
-print "************************************************************************"
-print " Setting spatial data boundary "
-tr_model.set_data_boundary_from_polygon_shapefile(tr_model.boundary_poly_file, 
-                                                  buffer_dist=20000, 
-                                                  shapefile_path=tr_model.out_data_folder)
-
-# Setup recharge:
-# ... read in climate data using Custom_Scripts
-weather_stations = ['Kyneton', 'Eppalock',  'Elmore', 'Rochester', 'Echuca']
-print "************************************************************************"
-print " Executing custom script: processWeatherStations "
-
-rain_info_file = "rain_processed_transient"
-if os.path.exists(tr_model.out_data_folder + rain_info_file + '.h5'):
-    long_term_historic_weather = tr_model.load_dataframe(tr_model.out_data_folder + rain_info_file + '.h5')
-else:
-    long_term_historic_weather = processWeatherStations.processWeatherStations(weather_stations, 
-                                                                                path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\", 
-                                                                                frequency='M')
-    tr_model.save_dataframe(tr_model.out_data_folder + rain_info_file, long_term_historic_weather)
-
-rain_gauges = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\Rain_gauges.shp")
-#points_dict = tr_model.getXYpairs(rain_gauges, feature_id='Name')
-
-# $%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%$%
-# INCLUDE NSW bores in this next part too for better head representation at the border, i.e. Murray River
-
-# Read in bore data:
-print "************************************************************************"
-print " Executing custom script: getBoreData "
-
-bore_levels_file = "bore_levels"
-bore_salinity_file = "bore_salinity"
-bore_info_file = "bore_info"
-if os.path.exists(tr_model.out_data_folder + bore_levels_file + ".h5") & \
-   os.path.exists(tr_model.out_data_folder + bore_info_file + ".h5") & \
-   os.path.exists(tr_model.out_data_folder + bore_salinity_file + ".h5"):
-    bore_data_levels = tr_model.load_dataframe(tr_model.out_data_folder + bore_levels_file + ".h5")
-    bore_data_info = tr_model.load_dataframe(tr_model.out_data_folder + bore_info_file + ".h5")
-    bore_data_salinity = tr_model.load_dataframe(tr_model.out_data_folder + bore_salinity_file + ".h5")
-else:
-    bore_data_levels, bore_data_info, bore_data_salinity = getBoreData.getBoreData(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC")
-    tr_model.save_dataframe(tr_model.out_data_folder + bore_levels_file, bore_data_levels)
-    tr_model.save_dataframe(tr_model.out_data_folder + bore_info_file, bore_data_info)
-    tr_model.save_dataframe(tr_model.out_data_folder + bore_salinity_file, bore_data_salinity)
-# end if
-
-# getBoreDepth ... assuming that midpoint of screen interval is representative location and assign to layer accordingly
-bore_data_info['depth'] = (bore_data_info['TopElev'] + bore_data_info['BottomElev'])/2.0
-
-bore_data_info["HydroCode"] = bore_data_info.index
-
-# For steady state model, only use bore details containing average level, not 
-#observation_bores = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
-
-print "************************************************************************"
-print " Read in and filtering bore spatial data "
-
-bores_shpfile = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
-
-bores_filtered_from_shpfile = tr_model.points_shapefile_obj2dataframe(bores_shpfile, feature_id="HydroCode")
-
-# Get the intersection of bores_filtered_from_shpfile with bores_data_info
-
-final_bores = pd.merge(bore_data_info, bores_filtered_from_shpfile, how='inner', on="HydroCode")
-
-# Only consider bores whereby the measured values are above the bottom of screen
-final_bores = final_bores[final_bores['mean level'] > final_bores['BottomElev']]
-
-print 'Final number of bores within the data boundary that have level data and screen info: ', final_bores.shape[0]
-
-#final_bores.plot(kind='scatter', x="Easting", y="Northing", c="mean level", cmap="Spectral") # , edgecolor='None'
-
-
-# Load in the pumping wells data
-filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
-path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"    
-out_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"
-out_file = "pumping wells.shp"
-
-print "************************************************************************"
-print " Executing custom script: get_GW_licence_info "
-
-pumping_data = get_GW_licence_info.get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
-pumps_points = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\pumping wells.shp")
-
-
-
-print "************************************************************************"
-print " Executing custom script: readHydrogeologicalProperties "
-
-file_location = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
-HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
-
-print "************************************************************************"
-print "Get the C14 data"
-
-C14_points = tr_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14.shp")    
-
-#C14_wells_info_file = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_bore_depth.csv"
-#df_C14_info = pd.read_csv(C14_wells_info_file)    
-#df_C14_info = df_C14_info.dropna()
-#df_C14_info = df_C14_info.set_index('Bore_id')    
-
-C14data = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_locs.xlsx"
-df_C14 = pd.read_excel(C14data)
-df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
-df_C14.dropna(inplace=True)
-
-C14_half_life = 5730
-C14_lambda = np.log(2)/ 5730.
-C13_carbonate_signature = -2 # Could be from 0 to -2
-C13_recharge_signature = -18.5 # Cartright 2010, -15 to -25
-
-df_C14['a14C_corrected'] = df_C14['a14C(pMC)'] / ( 
-                           (df_C14['d13C'] - C13_carbonate_signature) / 
-                           (C13_recharge_signature - C13_carbonate_signature))
-df_C14['a14C_corrected'][df_C14['a14C_corrected'] > 100.] = 100.
-
-print "************************************************************************"
-print " Executing custom script: processRiverStations "
-
-river_flow_file = "river_flow_processed"
-river_stage_file = "river_stage_processed"
-river_ec_file = "river_ec_processed"
-river_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated"
-river_flow_file = os.path.join(tr_model.out_data_folder, river_flow_file)
-river_stage_file = os.path.join(tr_model.out_data_folder, river_stage_file)
-river_ec_file = os.path.join(tr_model.out_data_folder, river_ec_file)
-
-site_details_file = "Site Details.csv"
-site_details = pd.read_csv(os.path.join(river_data_folder, site_details_file))
-# As all of the stream data for the whole of the Camaspe catchment is in the folder
-# to be processed, we can prefilter sites to examine by specifying sites.
-Campaspe_relevant = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER") | \
-                        site_details['Site Name'].str.contains("MURRAY RIVER") | \
-                        site_details['Site Name'].str.contains("AXE CREEK") | \
-                        site_details['Site Name'].str.contains("MOUNT PLEASANT")]
-
-Campaspe = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER")]
-Campaspe = Campaspe[Campaspe['Northing'] >= \
-                    Campaspe.loc[6]['Northing']]
-
-from geopandas import GeoDataFrame
-from shapely.geometry import Point
-
-geometry = [Point(xy) for xy in zip(Campaspe.Easting, Campaspe.Northing)]
-Campaspe_geo = pd.DataFrame.copy(Campaspe)
-Campaspe_geo.drop(['Northing', 'Easting'], axis=1)
-crs = {'init': Interface.pcs_EPSG}
-Geo_df = GeoDataFrame(Campaspe_geo, crs=crs, geometry=geometry)
-site_shapefile = os.path.join(river_data_folder, 'processed_river_sites_stage.shp') 
-Geo_df.to_file(site_shapefile)
-sites=Campaspe_relevant['Site Id'].tolist()
-
-Campaspe_gauge_zero = Campaspe[(Campaspe['Gauge Zero (Ahd)'] > 0.0) | \
-                               (Campaspe['Cease to flow level'] > 10.0) | \
-                               (Campaspe['Min value'] > 10.0)]
-
-# Check if this data has been processed and if not process it
-if os.path.exists(river_flow_file + '.pkl'):
-    river_flow_data = tr_model.load_obj(river_flow_file + '.pkl')
-else:
-    river_flow_data = processRiverStations.getFlow(path=river_data_folder, sites=sites)
-    tr_model.save_obj(river_flow_data, river_flow_file)
-
-# Check if this data has been processed and if not process it
-if os.path.exists(river_stage_file + '.pkl'):
-    river_stage_data = tr_model.load_obj(river_stage_file + '.pkl')
-else:
-    river_stage_data = processRiverStations.getStage(path=river_data_folder, sites=sites)
-    tr_model.save_obj(river_stage_data, river_stage_file)
-
-# Check if this data has been processed and if not process it
-if os.path.exists(river_ec_file + '.pkl'):
-    river_ec_data = tr_model.load_obj(river_ec_file + '.pkl')
-else:
-    river_ec_data = processRiverStations.getEC(path=river_data_folder, sites=sites)
-    tr_model.save_obj(river_ec_data, river_ec_file)
-
-river_gauges = tr_model.read_points_data(site_shapefile)
-
-
-print "************************************************************************"
-print "Load in the Campaspe river field sampling data"
-
-field_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\Radon_interpreter"
-field_data_file = "data_Campaspe.csv"
-FieldData = pd.read_csv(os.path.join(field_data_folder, field_data_file), skiprows=[1], index_col='Date', parse_dates=True, dayfirst=True, usecols=range(0,15))
-
-
-print "************************************************************************"
-print "Load in the river shapefiles"
-Campaspe_river_poly_file = r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways\Campaspe_Riv.shp"
-Campaspe_river_poly = tr_model.read_poly("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways") 
-Murray_river_poly_file = r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways\River_Murray.shp" 
-Murray_river_poly = tr_model.read_poly("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways") 
-
-# This is disgusting, but works for now ... needs cleaning up through first testing
-# if raster is in the right projection and if not returning the name of the new
-# reprojected file
-
-surface_raster_high_res = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID\sur_1t"
-
-recharge_zones = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Linking_recharge\Zones_24.tif"
-print "************************************************************************"
-print "Load in the shapefiles defining groundwater boundaries"
-
-WGWbound_poly = tr_model.read_poly("western_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
-EGWbound_poly = tr_model.read_poly("eastern_head.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\\") 
-
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
 #******************************************************************************
 #******************************************************************************
 #******************************************************************************
@@ -270,11 +80,6 @@ print '## Model specific building '
 print '########################################################################'
 print '########################################################################'
 
-Campaspe_river_SFR = True
-Murray_river_RIV = True
-Murray_river_GHB = True
-
-
 print "************************************************************************"
 print " Defining temporal aspects of the model"
 
@@ -283,7 +88,6 @@ start_irrigation = datetime.date(1881, 01, 01)
 start_pumping = datetime.date(1966, 01, 01)
 start_time_interest = datetime.date(2015, 01, 01)
 
-#end = datetime.date(2015, 12, 31)
 end = datetime.date(2017, 05, 31)
 
 end_post_clearance = datetime.date(1880, 12, 31)
@@ -294,14 +98,9 @@ before_pumping = datetime.date(1965, 12, 31)
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 frequencies = ['40A', '84A', '20A', 'M']
 
-#date_index_post_clearance = pd.date_range(start=start, end=end_post_clearance, freq='40A') #10A
-#date_index_post_irrigation = pd.date_range(start=start_irrigation, end=before_pumping, freq='84A') #4A
-#date_index_post_pumping = pd.date_range(start=start_pumping, end=start_time_interest - datetime.timedelta(days=1), freq='20A') 
-#date_index_time_of_interest = pd.date_range(start=start_time_interest, end=end, freq='M')
-
-date_index_post_clearance = pd.date_range(start=start, end=start_irrigation, freq=frequencies[0]) #10A
-date_index_post_irrigation = pd.date_range(start=start_irrigation, end=start_pumping, freq=frequencies[1]) #4A
-date_index_post_pumping = pd.date_range(start=start_pumping, end=start_time_interest, freq=frequencies[2]) 
+date_index_post_clearance = pd.date_range(start=start, end=start_irrigation, freq=frequencies[0])
+date_index_post_irrigation = pd.date_range(start=start_irrigation, end=start_pumping, freq=frequencies[1])
+date_index_post_pumping = pd.date_range(start=start_pumping, end=start_time_interest, freq=frequencies[2])
 date_index_time_of_interest = pd.date_range(start=start_time_interest, end=end, freq=frequencies[3])
 
 date_group = [start, start_irrigation, start_pumping, \
@@ -314,448 +113,38 @@ date_index = date_index.append(date_index_time_of_interest)
 tr_model.model_time.set_temporal_components(steady_state=False, start_time=start, end_time=end, date_index=date_index)
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-#@@@ RESAMPLING TEMPORALLY WITH MULTIPLE FREQUENCIES @@@@@@@@@@@@@@@@@@@@@@@@@@
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-def _fill_in_time_series_nan(df, fill='mean', stat='50%'):
-    if fill == 'mean':
-        df = df.fillna(df.mean())
-    elif fill == 'stats':
-        df = df.fillna(df.describe().loc[stat])
-    elif fill == 'zero':
-        df = df.fillna(0.)
-    elif fill == 'none':
-        pass
-    #end if
-    return df
-
-def resample_to_model_data_index(df, date_index, frequencies, date_group, \
-                                 fill='mean', stat='50%', df_freq=None, 
-                                 index_report=True, label='left', debug=False):
-
-    pd_dt = pd.to_datetime
-
-    if len(frequencies) != len(date_group) - 1:
-        print("Frequencies list must have one less item than the date_group list")
-        return
-
-    if df_freq != None:
-        df = df.resample(df_freq).mean()
-    # end if
-    df = df.loc[start:end]
-
-    #However if the time period for the model is longer we need to reindex the dataseries
-    if df_freq == None:
-        df_freq = pd.infer_freq(df.index)
-
-    # Create temporary date_index 
-    date_index_temp = pd.date_range(start=date_index[0], end=date_index[-1], \
-                                    freq=df_freq)
-    df = df.reindex(date_index_temp)
-    # Then we have to fill in the missing values with mean or some other descriptor
-    df = _fill_in_time_series_nan(df, fill=fill, stat=stat)
-    # Create empty list for placing the resampled parts of the dataframe
-    df_resamples = []
-
-    len_frequencies = len(frequencies)
-
-    for index, frequency in enumerate(frequencies):
-        #print(frequency)
-        p_start, p_end = date_group[index], date_group[index + 1]
-        #resample = df[df.index.isin(pd.date_range(p_start, p_end))] \
-        
-        if index < len_frequencies - 1:
-            resample = df[(df.index >= pd_dt(p_start)) & (df.index < pd_dt(p_end))] \
-                          .resample(frequency, label=label).mean()
-        else:
-            resample = df[(df.index >= pd_dt(p_start))] \
-                          .resample(frequency, label=label).mean()
-            
-        if debug: print resample.index
-        if index < len_frequencies - 1:
-            if label == 'left':
-                df_resamples += [resample.iloc[1:]]
-            elif label == 'right':
-                df_resamples += [resample.iloc[:-1]]
-            # end if
-        else:
-            df_resamples += [resample.iloc[1:]]
-        # end if
-    # end for
-    df_concat = pd.concat(df_resamples)
-    if index_report:
-        # TODO: Report if any of the df_concat index are not in date_index
-        if np.all(np.in1d(df_concat.index, date_index[:-1])): #np.array_equal(df_concat.index, date_index):
-            print("Successful match of date indices for model and resampled df")
-        else:
-            print("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index))
-            import sys        
-            sys.exit("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index))        
-        # end if
-    # end if
-    
-    # Remove the dead rows from the dataframe if there was no filling
-    if fill == 'none':
-        df_concat = df_concat.dropna()
-    # end if
-    
-    return df_concat
-
-def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
-                                                 frequencies, date_group, \
-                                                 fill='mean', stat='50%',
-                                                 df_freq='M'):
-    '''
-    Function to resample obs time series to the model time periods
-    '''    
-    obs_names = df_obs['name'].unique()
-
-    count = 0
-    obs_by_name_temp = []
-    for obs_name in obs_names:
-        df_obs_name = df_obs[df_obs['name'] == obs_name]
-        df_obs_name.index = df_obs_name['datetime'] 
-        df_obs_name = resample_to_model_data_index(df_obs_name, date_index, 
-                                              frequencies, date_group, 
-                                              fill='none', df_freq=df_freq,
-                                              index_report=False)
-        # Restore the datetime column
-        df_obs_name['datetime'] = df_obs_name.index
-        # Restore the name column
-        df_obs_name['name'] = obs_name                    
-        df_obs_name.index = range(count, count + df_obs_name.shape[0])
-        count += df_obs_name.shape[0] + 1
-        obs_by_name_temp += [df_obs_name]
-        
-    df_obs = pd.concat(obs_by_name_temp)
-
-    # TEST: Report if any of the df_obs datetime are not in date_index
-    test_index = df_obs['datetime']
-    if np.all(np.in1d(test_index, date_index[:-1])): #np.array_equal(df_concat.index, date_index):
-        print("Successful match of date indices for model and resampled df")
-    else:
-        print("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index))
-        import sys        
-        sys.exit("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index))        
-    # end if
-    
-    return df_obs
-    
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-print "************************************************************************"
-print " Defining structured mesh"
-resolution = 5000
-tr_model.define_structured_mesh(resolution, resolution)
-
-# Read in hydrostratigraphic raster info for layer elevations:
-hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
-
-# Build basement file ... only need to do this once as it is time consuming so commented out for future runs
-# tr_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
-
-hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
-                   "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
-                   "lta_2b", "bse_1t", "bse_2b.tif"]
-
-# This loads in the raster files and transforms them into the correct coordinate
-# sytstem.
-tr_model.read_rasters(hu_raster_files, path=hu_raster_path)
-
-
-#hu_raster_files_reproj = [x + "_reproj.bil" for x in hu_raster_files]
-hu_raster_files_reproj = [x + "_reproj.tif" for x in hu_raster_files]
-
-# Map HGU's to grid
-print "************************************************************************"
-print " Mapping rasters to grid "
-
-hu_gridded_rasters = tr_model.map_rasters_to_grid(hu_raster_files, 
-                                                  hu_raster_path)
-
-# Build 3D grid
-model_grid_raster_files = [x + "_model_grid.tif" for x in hu_raster_files]
-
-# First two arguments of next function are arbitrary and not used ... need to rework module
-print "************************************************************************"
-print " Building 3D mesh "
-tr_model.build_3D_mesh_from_rasters(model_grid_raster_files, 
-                                    tr_model.out_data_folder_grid, 1.0, 1000.0)
-# Cleanup any isolated cells:
-tr_model.reclassIsolatedCells()
+HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(tr_model,
+                                                  hu_raster_path,
+                                                  HGU_props,
+                                                  resolution=5000,
+                                                  create_basement=True)
 
 print "************************************************************************"
-print " Assign properties to mesh based on pilot points and zonal information"
+print " Interpolating rainfall data to grid and time steps"
 
-# create list of HGU's from hu_raster_files
-HGU = list(set([x.split('_')[0] for x in hu_raster_files]))
+interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
+    prepare_transient_rainfall_data_for_model(tr_model,
+                                              long_term_historic_weather,
+                                              recharge_zones,
+                                              long_term_historic_weather,
+                                              date_index,
+                                              frequencies,
+                                              date_group,
+                                              start,
+                                              end,
+                                              rain_gauges)    
 
-# NOTE *** utam is mapping to Shepparton Sands but it represents the 
-# Loxton-Parilla Sand ... the HGU database needs updating to include this.
-HGU_map = {'bse':'Bedrock', 'utb':'Newer Volcanics Basalts', 
-           'utaf':'Calivil', 'lta':'Renmark', 
-           'qa':'Coonambidgal Sands', 'utqa':'Shepparton Sands',
-           'utam':'Shepparton Sands'}
-
-HGU_zone = {'bse':6, 'utb':1, 
-           'utaf':4, 'lta':5, 
-           'qa':0, 'utqa':2,
-           'utam':3}
-           
-zone_HGU = {HGU_zone[x]:x for x in HGU_zone.keys()}
-           
-pilot_points = True
-           
-if pilot_points:       
-    # Set up pilot points:
-    pilot_point_groups = ['hk', 'ss', 'sy']
-    pp_group_dict = {}
-    for pilot_points_group in pilot_point_groups:
-        tr_model.create_pilot_points(pilot_points_group)           
-        pp_group_dict[pilot_points_group] = tr_model.pilot_points[pilot_points_group]
-        # create alias for brevity ...
-        pp_grp = pp_group_dict[pilot_points_group]
-        
-        # Create some references to data inside the model builder object
-        mesh_array = tr_model.model_mesh3D
-        cell_centers = tr_model.model_mesh_centroids
-        model_boundary = tr_model.model_boundary
-        zones = len(np.unique(tr_model.model_mesh3D[1])) - 1
-        
-        # Create dict of zones and properties
-        zone_prop_dict={zone: HGU_props['Kh mean'][HGU_map[HGU[zone]]] for zone in range(zones)}
-        # Define some parameters for pilot point distribution
-        if resolution == 1000:
-            skip=[0, 0, 6, 0, 6, 6, 6] 
-            skip_active=[49, 20, 0, 34, 0, 0, 0]
-        elif resolution == 500:
-            skip=[0, 0, 12, 0, 12, 12, 12] 
-            skip_active=[100, 40, 0, 70, 0, 0, 0]
-        else:
-            skip=[0,  0, 3, 0, 2, 3, 3] 
-            skip_active=[3, 20, 0, 4, 0, 0, 0]
-        
-        # Generate the pilot points 
-        pp_grp.generate_points_from_mesh(mesh_array, cell_centers, 
-            skip=skip, 
-            skip_active=skip_active,
-            zone_prop_dict=zone_prop_dict)
-        
-        # Create some necessary files fro pilot points utilities
-        pp_grp.write_settings_fig()
-        pp_grp.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
-        pp_grp.write_struct_file(mesh_array, nugget=0.0, 
-                                 transform='log', numvariogram=1, variogram=0.15, 
-                                 vartype=2, bearing=0.0, a=20000.0, anisotropy=1.0)
-        
-        # These search_radius values have been tested on the 1000m grid, would be good
-        # to add in other resolution lists as they are developed
-        if resolution == 1000:
-            search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
-        else:
-            search_radius = [30000, 20000, 40000, 20000, 40000, 50000, 20000]
-            
-        prefixes=['{}_{}'.format(pilot_points_group, zone_HGU[x]) for x in range(zones)]
-        pp_grp.setup_pilot_points_by_zones(mesh_array, zones, search_radius, prefixes=prefixes)    
     
-        pp_grp.generate_cov_mat_by_zones(zones)    
-    
-        pp_grp.run_pyfac2real_by_zones(zones)
-    
-    tr_model.save_pilot_points()
-    hk = pp_group_dict['hk']     
-    ss = pp_group_dict['ss']
-    sy = pp_group_dict['sy']
-    
-for unit in HGU:
-    if pilot_points:
-        tr_model.parameters.create_model_parameter_set('kh_' + unit, 
-                                                       value=HGU_props['Kh mean'][HGU_map[unit]], 
-                                                       num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
-        tr_model.parameters.parameter_options_set('kh_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                              PARGP='cond_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        tr_model.parameters.create_model_parameter_set('sy_' + unit, 
-                                                       value=HGU_props['Sy mean'][HGU_map[unit]],
-                                                       num_parameters=ss.num_ppoints_by_zone[HGU_zone[unit]])
-        tr_model.parameters.parameter_options_set('sy_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=1.0E-3, 
-                                              PARUBND=0.8, 
-                                              PARGP='sy_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        tr_model.parameters.create_model_parameter_set('ss_' + unit, 
-                                                       value=HGU_props['SS mean'][HGU_map[unit]],
-                                                       num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
-        tr_model.parameters.parameter_options_set('ss_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                              PARGP='ss_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-
-
-    else:
-        tr_model.parameters.create_model_parameter('kh_' + unit, 
-                                                   value=HGU_props['Kh mean'][HGU_map[unit]])
-        tr_model.parameters.parameter_options('kh_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                              PARGP='cond_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        tr_model.parameters.create_model_parameter('sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
-        tr_model.parameters.parameter_options('sy_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=1.0E-3, 
-                                              PARUBND=0.8, 
-                                              PARGP='sy_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        tr_model.parameters.create_model_parameter('ss_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
-        tr_model.parameters.parameter_options('ss_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                              PARGP='ss_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-
-        
-    tr_model.parameters.create_model_parameter('kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
-    tr_model.parameters.parameter_options('kv_' + unit, 
-                                          PARTRANS='fixed', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
-                                          PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10., 
-                                          PARGP='cond_' + unit, 
-                                          SCALE=1, 
-                                          OFFSET=0)
-
-# This needs to be automatically generated from with the map_raster2mesh routine ...
-zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
-
-Kh = tr_model.model_mesh3D[1].astype(float)
-Kv = tr_model.model_mesh3D[1].astype(float)
-Sy = tr_model.model_mesh3D[1].astype(float)
-SS = tr_model.model_mesh3D[1].astype(float)
-for key in zone_map.keys():
-    if not pilot_points:
-        Kh[Kh == key] = tr_model.parameters.param['kh_' + zone_map[key]]['PARVAL1']
-        Sy[Sy == key] = tr_model.parameters.param['sy_' + zone_map[key]]['PARVAL1']
-        SS[SS == key] = tr_model.parameters.param['ss_' + zone_map[key]]['PARVAL1']
-    Kv[Kv == key] = tr_model.parameters.param['kv_' + zone_map[key]]['PARVAL1']
-
-if pilot_points:
-    Kh = hk.val_array
-    # We are assuming an anisotropy parameter here where kh is 10 times kv ...
-    Kv = hk.val_array * 0.1
-    Sy = sy.val_array
-    SS = ss.val_array
-
-tr_model.properties.assign_model_properties('Kh', Kh)
-tr_model.properties.assign_model_properties('Kv', Kv)
-tr_model.properties.assign_model_properties('Sy', Sy)
-tr_model.properties.assign_model_properties('SS', SS)
-
-print "************************************************************************"
-print " Interpolating rainfall data to grid "
-
-resampled_weather = resample_to_model_data_index(long_term_historic_weather, \
-                                                 date_index, frequencies, \
-                                                 date_group)
-
-resampled_rain = resampled_weather[[x for x in resampled_weather.columns if '_ET' not in x]]
-resampled_et = resampled_weather[[x for x in resampled_weather.columns if '_ET' in x]]
-resampled_et.columns = [x.replace('_ET','') for x in resampled_et.columns]
-
-def weather2model_grid(df):
-    weather_dict = {}
-    for step, month in enumerate(df.iterrows()):
-        weather_dict[step] = tr_model.interpolate_points2mesh(rain_gauges, month[1], feature_id='Name')
-        # Adjust rainfall to m from mm 
-        weather_dict[step] = weather_dict[step]/1000.0
-    return weather_dict
-
-interp_rain = weather2model_grid(resampled_rain)
-interp_et = weather2model_grid(resampled_et)
-
-tr_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
-tr_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
-
-tr_model.boundaries.create_model_boundary_condition('ET', 'pet', bc_static=True)
-tr_model.boundaries.assign_boundary_array('ET', interp_et)
-
-# Need to make copies of all rainfall arrays
-interp_rain2 = {}
-for key in interp_rain.keys():
-    interp_rain2[key] = np.copy(interp_rain[key])
-interp_rain = interp_rain2
-
-recharge_zone_array = tr_model.map_raster_to_regular_grid_return_array(recharge_zones)
-
-rch_zone_dict = {i:x for i, x in enumerate(np.unique(recharge_zone_array))}
-rch_zones = len(rch_zone_dict.keys())
-
-# Adjust rainfall to recharge using rainfall reduction
-tr_model.parameters.create_model_parameter_set('ssrch', 
-                                               value=0.01,
-                                               num_parameters=rch_zones)
-tr_model.parameters.parameter_options_set('ssrch', 
-                                      PARTRANS='fixed', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=1.0E-3, 
-                                      PARUBND=0.5, 
-                                      PARGP='ssrch', 
-                                      SCALE=1, 
-                                      OFFSET=0)
-
-tr_model.parameters.create_model_parameter_set('rchred',
-                                               value=0.05,
-                                               num_parameters=rch_zones)
-tr_model.parameters.parameter_options_set('rchred', 
-                                      PARTRANS='log', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=1E-3, 
-                                      PARUBND=0.9, 
-                                      PARGP='rchred', 
-                                      SCALE=1, 
-                                      OFFSET=0)
-
-for key in interp_rain.keys():
-    for i in range(rch_zones - 1):
-        interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
-            interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-            tr_model.parameters.param['rchred{}'.format(i)]['PARVAL1']
-
-    interp_rain[key][recharge_zone_array==rch_zone_dict[0]] = interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
-    interp_rain[key][tr_model.model_mesh3D[1][0] == -1] = 0.
-
-rch = interp_rain
-
 print "************************************************************************"
 print " Creating recharge boundary "
 
 tr_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=False)
 tr_model.boundaries.associate_zonal_array_and_dict('Rain_reduced', recharge_zone_array, rch_zone_dict)
-tr_model.boundaries.assign_boundary_array('Rain_reduced', rch)
+tr_model.boundaries.assign_boundary_array('Rain_reduced', interp_rain)
 
 print "************************************************************************"
 print " Mapping bores to grid "
@@ -805,7 +194,8 @@ bores_obs_time_series = bores_obs_time_series.rename(columns= \
 
 bores_obs_time_series['datetime'] = pd.to_datetime(bores_obs_time_series['datetime'])
 
-# Kill all values where head observation is 0.0
+# Kill all values where head observation is 0.0 indicating bad data that was missed
+# by quality control codes in pre-processing function getBoreData
 bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['value'] > 5.]
 # Remove values that are false records, i.e. bores with a reading at 30/12/1899
 bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime'] \
@@ -814,7 +204,8 @@ bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime'] 
 bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime'] \
                                               > datetime.datetime(2010,12,30)]
 
-# Create outlier identifier                                              
+# Create outlier identifier, i.e mutltiplier for standard deviations from the mean
+# Using 4 here which is a rather large bound                                              
 bores_obs_outliers_multiplier = 4.0
 
 bores_obs_group = bores_obs_time_series.groupby('name')
@@ -837,7 +228,9 @@ bores_obs_time_series = resample_obs_time_series_to_model_data_index(
                             bores_obs_time_series, 
                             date_index, 
                             frequencies, 
-                            date_group, 
+                            date_group,
+                            start,
+                            end,
                             fill='none')
                                
 # For the weigts of observations we need to specify them as 1/sigma, where sigma is the standard deviation of measurement error
@@ -1084,7 +477,7 @@ for pump_cell in tr_model.points_mapped['pumping wells_clipped.shp']:
 
         resampled_pumping_data_ts = \
             resample_to_model_data_index(pumping_data_ts, date_index, 
-                                         frequencies, date_group, 
+                                         frequencies, date_group, start, end,
                                          index_report=False, fill='zero')
         
         # Now fill in the well dictionary with the values of pumping at relevant stress periods
@@ -1515,7 +908,9 @@ Eppalock_inflow = river_flow_data[406207]
 Eppalock_inflow_resampled = resample_to_model_data_index(Eppalock_inflow, 
                                                          date_index, 
                                                          frequencies, 
-                                                         date_group, 
+                                                         date_group,
+                                                         start,
+                                                         end,
                                                          df_freq='D',
                                                          fill='stats',
                                                          stat='25%')
@@ -1609,7 +1004,9 @@ stage_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   stage_time_series, 
                                   date_index, 
                                   frequencies, 
-                                  date_group, 
+                                  date_group,
+                                  start, 
+                                  end,
                                   fill='none')
     
 tr_model.observations.set_as_observations('stage', 
@@ -1645,7 +1042,9 @@ discharge_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   discharge_time_series, 
                                   date_index, 
                                   frequencies, 
-                                  date_group, 
+                                  date_group,
+                                  start,
+                                  end,
                                   fill='none')
 
 tr_model.observations.set_as_observations('gflow', 
@@ -1726,7 +1125,9 @@ ec_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   ec_time_series, 
                                   date_index, 
                                   frequencies, 
-                                  date_group, 
+                                  date_group,
+                                  start,
+                                  end,
                                   fill='none')
 
 tr_model.observations.set_as_observations('gstrec', 
@@ -1910,7 +1311,9 @@ Eppalock_EC_ts = river_ec_data[406219]
 Eppalock_EC_ts_resampled = resample_to_model_data_index(Eppalock_EC_ts, 
                                                         date_index, 
                                                         frequencies, 
-                                                        date_group)
+                                                        date_group,
+                                                        start,
+                                                        end)
 
 tr_model.boundaries.create_model_boundary_condition('Eppalock_EC', 
                                                     'river_ec', 
@@ -1922,7 +1325,7 @@ tr_model.boundaries.assign_boundary_array('Eppalock_EC',
 print "************************************************************************"
 print " Mapping Murray River to grid"
 
-tr_model.map_polyline_to_grid(Murray_river_poly)
+#tr_model.map_polyline_to_grid(Murray_river_poly)
 
 # Parameter to modify the stage, thus accounting for errors in values specified for stage
 tr_model.parameters.create_model_parameter('rmstage', value=0.01)

@@ -1,5 +1,3 @@
-import os
-
 from osgeo import osr
 import pandas as pd
 import numpy as np
@@ -8,9 +6,9 @@ import numpy as np
 
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
-from CampaspeModel.CustomScripts import processWeatherStations 
-from CampaspeModel.CustomScripts import processRiverStations
-from CampaspeModel.CustomScripts import readHydrogeologicalProperties
+
+from CampaspeModel.CustomScripts import Campaspe_data
+from CampaspeModel.build_common import Campaspe_mesh
 
 # Define basic model parameters:
 Proj_CS = osr.SpatialReference()
@@ -31,125 +29,26 @@ SS_model = GWModelBuilder(name="01_steady_state",
 # Cleanup
 #SS_model.flush()
 
-# Set the model boundary using a polygon shapefile:
-print "************************************************************************"
-print " Setting model boundary "
+Campaspe_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data"
+hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
 
-SS_model.set_model_boundary_from_polygon_shapefile("GW_model_area.shp", 
-                                                   shapefile_path=SS_model.data_folder)
+custom_data = \
+    Campaspe_data.process_custom_scripts_and_spatial_data(SS_model, 
+                                                          Campaspe_data_folder,
+                                                          verbose=True)
+HGU_props = custom_data['HGU_props']
+rain_gauges = custom_data['rain_gauges']
+long_term_historic_rainfall = custom_data['long_term_historic_rainfall'] 
+recharge_zones = custom_data['recharge_zones']
+surface_raster_high_res = custom_data['surface_raster_high_res'] 
+river_gauges = custom_data['river_gauges']
+Campaspe_river_poly_file = custom_data['Campaspe_river_poly_file']
+Murray_river_poly_file = custom_data['Murray_river_poly_file']
+river_flow_data = custom_data['river_flow_data']
+river_stage_data = custom_data['river_stage_data']
+Campaspe = custom_data['Campaspe']
+Campaspe_relevant = custom_data['Campaspe_relevant']
 
-# Set data boundary for model data
-print "************************************************************************"
-print " Setting spatial data boundary "
-SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file, 
-                                                  shapefile_path=SS_model.out_data_folder,
-                                                  buffer_dist=20000)
-
-# Setup recharge:
-# ... read in climate data using Custom_Scripts
-weather_stations = ['Kyneton', 'Eppalock', 'Elmore', 'Rochester', 'Echuca']
-print "************************************************************************"
-print " Executing custom script: processWeatherStations "
-rain_gauges = SS_model.read_points_data(r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\Rain_gauges.shp")
-
-rain_info_file = "rain_processed"
-# Check if this data has been processed and if not process it
-if os.path.exists(SS_model.out_data_folder + rain_info_file + '.h5'):
-    long_term_historic_rainfall = SS_model.load_dataframe(SS_model.out_data_folder + rain_info_file + '.h5')
-else:
-    long_term_historic_rainfall = processWeatherStations.processWeatherStations(weather_stations, path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\")
-    SS_model.save_dataframe(SS_model.out_data_folder + rain_info_file, long_term_historic_rainfall)
-
-print "************************************************************************"
-print " Executing custom script: readHydrogeologicalProperties "
-
-file_location = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
-HGU_props = readHydrogeologicalProperties.getHGUproperties(file_location)
-
-print "************************************************************************"
-print " Executing custom script: processRiverStations "
-
-
-river_flow_file = "river_flow_processed"
-river_stage_file = "river_stage_processed"
-river_ec_file = "river_ec_processed"
-river_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated"
-river_flow_file = os.path.join(SS_model.out_data_folder, river_flow_file)
-river_stage_file = os.path.join(SS_model.out_data_folder, river_stage_file)
-river_ec_file = os.path.join(SS_model.out_data_folder, river_ec_file)
-
-site_details_file = "Site Details.csv"
-site_details = pd.read_csv(os.path.join(river_data_folder, site_details_file))
-# As all of the stream data for the whole of the Camaspe catchment is in the folder
-# to be processed, we can prefilter sites to examine by specifying sites.
-Campaspe_relevant = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER") | \
-                        site_details['Site Name'].str.contains("MURRAY RIVER") | \
-                        site_details['Site Name'].str.contains("AXE CREEK") | \
-                        site_details['Site Name'].str.contains("MOUNT PLEASANT")]
-
-Campaspe = site_details[site_details['Site Name'].str.contains("CAMPASPE RIVER")]
-Campaspe = Campaspe[Campaspe['Northing'] >= \
-                    Campaspe.loc[6]['Northing']]
-
-from geopandas import GeoDataFrame
-from shapely.geometry import Point
-
-geometry = [Point(xy) for xy in zip(Campaspe.Easting, Campaspe.Northing)]
-Campaspe_geo = pd.DataFrame.copy(Campaspe)
-Campaspe_geo.drop(['Northing', 'Easting'], axis=1)
-crs = {'init': Interface.pcs_EPSG}
-Geo_df = GeoDataFrame(Campaspe_geo, crs=crs, geometry=geometry)
-site_shapefile = os.path.join(river_data_folder, 'processed_river_sites_stage.shp') 
-Geo_df.to_file(site_shapefile)
-sites=Campaspe_relevant['Site Id'].tolist()
-
-Campaspe_gauge_zero = Campaspe[(Campaspe['Gauge Zero (Ahd)'] > 0.0) | \
-                               (Campaspe['Cease to flow level'] > 10.0) | \
-                               (Campaspe['Min value'] > 10.0)]
-
-# Check if this data has been processed and if not process it
-if os.path.exists(river_flow_file + '.pkl'):
-    river_flow_data = SS_model.load_obj(river_flow_file + '.pkl')
-else:
-    river_flow_data = processRiverStations.getFlow(path=river_data_folder, sites=sites)
-    SS_model.save_obj(river_flow_data, river_flow_file)
-
-# Check if this data has been processed and if not process it
-if os.path.exists(river_stage_file + '.pkl'):
-    river_stage_data = SS_model.load_obj(river_stage_file + '.pkl')
-else:
-    river_stage_data = processRiverStations.getStage(path=river_data_folder, sites=sites)
-    SS_model.save_obj(river_stage_data, river_stage_file)
-
-# Check if this data has been processed and if not process it
-if os.path.exists(river_ec_file + '.pkl'):
-    river_ec_data = SS_model.load_obj(river_ec_file + '.pkl')
-else:
-    river_ec_data = processRiverStations.getEC(path=river_data_folder, sites=sites)
-    SS_model.save_obj(river_ec_data, river_ec_file)
-
-river_gauges = SS_model.read_points_data(site_shapefile)
-
-print "************************************************************************"
-print "Load in the river shapefiles"
-Campaspe_river_poly_file = r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways\Campaspe_Riv.shp"
-Campaspe_river_poly = SS_model.read_poly("Campaspe_Riv.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways") 
-Murray_river_poly_file = r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways\River_Murray.shp" 
-Murray_river_poly = SS_model.read_poly("River_Murray.shp", path=r"C:\Workspace\part0075\MDB modelling\testbox\input_data\Waterways") 
-
-
-# This is disgusting, but works for now ... needs cleaning up through first testing
-# if raster is in the right projection and if not returning the name of the new
-# reprojected file
-#surface_raster_high_res = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Surface_DEM_Geoscience_Australia\Camp_1sHE_2026754\Camp_1sHE.tif"
-surface_raster_high_res = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID\sur_1t"
-
-recharge_zones = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Linking_recharge\Zones_24.tif"
-
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
-#******************************************************************************
 #******************************************************************************
 #******************************************************************************
 #******************************************************************************
@@ -161,247 +60,11 @@ print '## Mesh specific model building '
 print '########################################################################'
 print '########################################################################'
 
-# Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
-print "************************************************************************"
-print " Defining structured mesh"
-resolution = 5000
-SS_model.define_structured_mesh(resolution, resolution)
-
-# Read in hydrostratigraphic raster info for layer elevations:
-hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
-
-# Build basement file ... only need to do this once as it is time consuming so commented out for future runs
-SS_model.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
-
-hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
-                   "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
-                   "lta_2b", "bse_1t", "bse_2b.tif"]
-
-# This loads in the raster files and transforms them into the correct coordinate
-# sytstem.
-SS_model.read_rasters(hu_raster_files, path=hu_raster_path)
-
-
-#hu_raster_files_reproj = [x + "_reproj.bil" for x in hu_raster_files]
-hu_raster_files_reproj = [x + "_reproj.tif" for x in hu_raster_files]
-
-# Map HGU's to grid
-print "************************************************************************"
-print " Mapping rasters to grid "
-
-hu_gridded_rasters = SS_model.map_rasters_to_grid(hu_raster_files, 
-                                                  hu_raster_path)
-
-# Build 3D grid
-model_grid_raster_files = [x + "_model_grid.tif" for x in hu_raster_files]
-
-# First two arguments of next function are arbitrary and not used ... need to rework module
-print "************************************************************************"
-print " Building 3D mesh "
-SS_model.build_3D_mesh_from_rasters(model_grid_raster_files, 
-                                    SS_model.out_data_folder_grid, 1.0, 1000.0)
-# Cleanup any isolated cells:
-SS_model.reclassIsolatedCells()
-
-print "************************************************************************"
-print " Assign properties to mesh based on pilot points and zonal information"
-
-# create list of HGU's from hu_raster_files
-HGU = list(set([x.split('_')[0] for x in hu_raster_files]))
-
-# NOTE *** utam is mapping to Shepparton Sands but it represents the 
-# Loxton-Parilla Sand ... the HGU database needs updating to include this.
-HGU_map = {'bse':'Bedrock', 
-           'utb':'Newer Volcanics Basalts', 
-           'utaf':'Calivil', 
-           'lta':'Renmark', 
-           'qa':'Coonambidgal Sands', 
-           'utqa':'Shepparton Sands',
-           'utam':'Shepparton Sands'}
-
-HGU_zone = {'qa'  :0, 
-            'utb' :1,
-            'utqa':2,
-            'utam':3,             
-            'utaf':4, 
-            'lta' :5, 
-            'bse' :6}
-           
-zone_HGU = {HGU_zone[x]:x for x in HGU_zone.keys()}
-           
-pilot_points = True
-           
-if pilot_points:       
-    # Set up pilot points:
-    pilot_point_groups = ['hk', 'ss', 'sy']
-    pp_group_dict = {}
-    for pilot_points_group in pilot_point_groups:
-        SS_model.create_pilot_points(pilot_points_group)           
-        pp_group_dict[pilot_points_group] = SS_model.pilot_points[pilot_points_group]
-        # create alias for brevity ...
-        pp_grp = pp_group_dict[pilot_points_group]
-        
-        # Create some references to data inside the model builder object
-        mesh_array = SS_model.model_mesh3D
-        cell_centers = SS_model.model_mesh_centroids
-        model_boundary = SS_model.model_boundary
-        zones = len(np.unique(SS_model.model_mesh3D[1])) - 1
-        
-        # Create dict of zones and properties
-        zone_prop_dict={zone: HGU_props['Kh mean'][HGU_map[HGU[zone]]] for zone in range(zones)}
-        # Define some parameters for pilot point distribution
-        if resolution == 1000:
-            skip=[0, 0, 6, 0, 6, 6, 6] 
-            skip_active=[49, 20, 0, 34, 0, 0, 0]
-        elif resolution == 500:
-            skip=[0, 0, 12, 0, 12, 12, 12] 
-            skip_active=[100, 40, 0, 70, 0, 0, 0]
-        elif resolution == 20000:
-            skip=[0, 0, 0, 0, 0, 0, 0] 
-            skip_active=[0, 0, 0, 0, 0, 0, 0]
-        else:
-            skip=[0,  0, 3, 0, 2, 3, 3] 
-            skip_active=[3, 20, 0, 4, 0, 0, 0]
-        
-        # Generate the pilot points 
-        pp_grp.generate_points_from_mesh(mesh_array, cell_centers, 
-            skip=skip, 
-            skip_active=skip_active,
-            zone_prop_dict=zone_prop_dict)
-        
-        # Create some necessary files from pilot points utilities
-        pp_grp.write_settings_fig()
-        pp_grp.write_grid_spec(mesh_array, model_boundary, delc=resolution, delr=resolution)
-        pp_grp.write_struct_file(mesh_array, nugget=0.0, 
-                                 transform='log', numvariogram=1, variogram=0.15, 
-                                 vartype=2, bearing=0.0, a=20000.0, anisotropy=1.0)
-        
-        # These search_radius values have been tested on the 1000m grid, would be good
-        # to add in other resolution lists as they are developed
-        if resolution == 1000:
-            search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
-        else:
-            search_radius = [30000, 20000, 40000, 20000, 40000, 50000, 20000]
-            
-        prefixes=['{}_{}'.format(pilot_points_group, zone_HGU[x]) for x in range(zones)]
-        pp_grp.setup_pilot_points_by_zones(mesh_array, zones, search_radius, prefixes=prefixes)    
-    
-        pp_grp.generate_cov_mat_by_zones(zones)    
-    
-        #print("Running pyfac2real")
-        import time
-        time.sleep(3)
-        pp_grp.run_pyfac2real_by_zones(zones)
-    
-    SS_model.save_pilot_points()
-    hk = pp_group_dict['hk']     
-    ss = pp_group_dict['ss']
-    sy = pp_group_dict['sy']
-    
-for unit in HGU:
-    if pilot_points:
-        SS_model.parameters.create_model_parameter_set('kh_' + unit, 
-                                                       value=HGU_props['Kh mean'][HGU_map[unit]], 
-                                                       num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
-        SS_model.parameters.parameter_options_set('kh_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                              PARGP='cond_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        SS_model.parameters.create_model_parameter_set('sy_' + unit, 
-                                                       value=HGU_props['Sy mean'][HGU_map[unit]],
-                                                       num_parameters=ss.num_ppoints_by_zone[HGU_zone[unit]])
-        SS_model.parameters.parameter_options_set('sy_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=1.0E-3, 
-                                              PARUBND=0.8, 
-                                              PARGP='sy_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        SS_model.parameters.create_model_parameter_set('ss_' + unit, 
-                                                       value=HGU_props['SS mean'][HGU_map[unit]],
-                                                       num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
-        SS_model.parameters.parameter_options_set('ss_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                              PARGP='ss_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-
-
-    else:
-        SS_model.parameters.create_model_parameter('kh_' + unit, 
-                                                   value=HGU_props['Kh mean'][HGU_map[unit]])
-        SS_model.parameters.parameter_options('kh_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                              PARGP='cond_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        SS_model.parameters.create_model_parameter('sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
-        SS_model.parameters.parameter_options('sy_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=1.0E-3, 
-                                              PARUBND=0.8, 
-                                              PARGP='sy_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-        SS_model.parameters.create_model_parameter('ss_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
-        SS_model.parameters.parameter_options('ss_' + unit, 
-                                              PARTRANS='log', 
-                                              PARCHGLIM='factor', 
-                                              PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
-                                              PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                              PARGP='ss_' + unit, 
-                                              SCALE=1, 
-                                              OFFSET=0)
-
-        
-    SS_model.parameters.create_model_parameter('kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
-    SS_model.parameters.parameter_options('kv_' + unit, 
-                                          PARTRANS='fixed', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
-                                          PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10., 
-                                          PARGP='cond_' + unit, 
-                                          SCALE=1, 
-                                          OFFSET=0)
-
-# This needs to be automatically generated from with the map_raster2mesh routine ...
-zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
-
-Kh = SS_model.model_mesh3D[1].astype(float)
-Kv = SS_model.model_mesh3D[1].astype(float)
-Sy = SS_model.model_mesh3D[1].astype(float)
-SS = SS_model.model_mesh3D[1].astype(float)
-for key in zone_map.keys():
-    if not pilot_points:
-        Kh[Kh == key] = SS_model.parameters.param['kh_' + zone_map[key]]['PARVAL1']
-        Sy[Sy == key] = SS_model.parameters.param['sy_' + zone_map[key]]['PARVAL1']
-        SS[SS == key] = SS_model.parameters.param['ss_' + zone_map[key]]['PARVAL1']
-    Kv[Kv == key] = SS_model.parameters.param['kv_' + zone_map[key]]['PARVAL1']
-
-if pilot_points:
-    Kh = hk.val_array
-    Kh[SS_model.model_mesh3D[1] == -1] = 0.0
-    # We are assuming an anisotropy parameter here where kh is 10 times kv ...
-    Kv = hk.val_array * 0.1
-    Sy = sy.val_array
-    SS = ss.val_array
-
-SS_model.properties.assign_model_properties('Kh', Kh)
-SS_model.properties.assign_model_properties('Kv', Kv)
-SS_model.properties.assign_model_properties('Sy', Sy)
-SS_model.properties.assign_model_properties('SS', SS)
+HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(SS_model,
+                                                  hu_raster_path,
+                                                  HGU_props,
+                                                  resolution=5000,
+                                                  create_basement=True)
 
 print "************************************************************************"
 print " Interpolating rainfall data to grid "
