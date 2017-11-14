@@ -13,7 +13,8 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
-def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
+def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True,
+        plots=False):
     """Model Runner."""
 
     MM = GWModelManager()
@@ -364,17 +365,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True):
                     break
                 
     if converge:
-        modflow_model.waterBalance(1)
-        modflow_model.viewGHB()
-        modflow_model.viewHeads()
-        modflow_model.viewHeads2()
-        #modflow_model.viewHeadsByZone()
-        #modflow_model.viewHeadLayer(figsize=(20,10))
-  
+        if plots:
+            modflow_model.waterBalance(1)
+            modflow_model.viewGHB()
+            modflow_model.viewHeads()
+            modflow_model.viewHeads2()
+            #modflow_model.viewHeadsByZone()
+            #modflow_model.viewHeadLayer(figsize=(20,10))
+
 
 if __name__ == "__main__":
 
-    verbose = True
+    verbose = False
                     
     args = sys.argv
     if len(args) > 1:
