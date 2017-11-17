@@ -19,7 +19,8 @@ def prepare_transient_rainfall_data_for_model(ModelBuilderObject,
                                     date_group,
                                     start,
                                     end,
-                                    rain_gauges):
+                                    rain_gauges,
+                                    pilot_points_YX=False):
     MBO = ModelBuilderObject
     resampled_weather = resample_to_model_data_index(long_term_historic_weather, \
                                                      date_index, frequencies, \
@@ -61,11 +62,18 @@ def prepare_transient_rainfall_data_for_model(ModelBuilderObject,
                                           SCALE=1, 
                                           OFFSET=0)
     
+    
     MBO.parameters.create_model_parameter_set('rchred',
                                               value=0.05,
                                               num_parameters=rch_zones)
+    if pilot_points_YX:
+        PARTRANS = 'fixed'
+    else:
+        PARTRANS = 'log'
+    # end if
+    
     MBO.parameters.parameter_options_set('rchred', 
-                                          PARTRANS='log', 
+                                          PARTRANS=PARTRANS, 
                                           PARCHGLIM='factor', 
                                           PARLBND=1E-3, 
                                           PARUBND=0.9, 
@@ -79,7 +87,8 @@ def prepare_transient_rainfall_data_for_model(ModelBuilderObject,
                 interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
                 MBO.parameters.param['rchred{}'.format(i)]['PARVAL1']
     
-        interp_rain[key][recharge_zone_array==rch_zone_dict[0]] = interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
+        interp_rain[key][recharge_zone_array==rch_zone_dict[0]] = \
+            interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
         interp_rain[key][MBO.model_mesh3D[1][0] == -1] = 0.
     
     return interp_rain, interp_et, recharge_zone_array, rch_zone_dict

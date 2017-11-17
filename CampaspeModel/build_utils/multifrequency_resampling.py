@@ -112,6 +112,9 @@ def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
                                               fill='none', df_freq=df_freq,
                                               index_report=False)
         # Restore the datetime column
+        if df_obs_name.empty: 
+            continue
+        
         df_obs_name.loc[:, 'datetime'] = df_obs_name.index
         # Restore the name column
         df_obs_name.loc[:,'name'] = obs_name                    

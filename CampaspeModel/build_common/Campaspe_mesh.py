@@ -5,6 +5,7 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                   HGU_props,
                                   resolution=5000,
                                   create_basement=True,
+                                  pilot_points_YX=False,
                                   verbose=True):    
     
     MBO = ModelBuilderObject
@@ -143,7 +144,7 @@ def build_mesh_and_set_properties(ModelBuilderObject,
         sy = pp_group_dict['sy']
         
     for unit in HGU:
-        if pilot_points:
+        if pilot_points and not pilot_points_YX:
             MBO.parameters.create_model_parameter_set('kh_' + unit, 
                                                            value=HGU_props['Kh mean'][HGU_map[unit]], 
                                                            num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
@@ -171,6 +172,40 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                            num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
             MBO.parameters.parameter_options_set('ss_' + unit, 
                                                   PARTRANS='log', 
+                                                  PARCHGLIM='factor', 
+                                                  PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
+                                                  PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
+                                                  PARGP='ss_' + unit, 
+                                                  SCALE=1, 
+                                                  OFFSET=0)
+        elif pilot_points_YX:
+            MBO.parameters.create_model_parameter_set('kh_' + unit, 
+                                                           value=HGU_props['Kh mean'][HGU_map[unit]], 
+                                                           num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
+            MBO.parameters.parameter_options_set('kh_' + unit, 
+                                                  PARTRANS='log', 
+                                                  PARCHGLIM='factor', 
+                                                  PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
+                                                  PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
+                                                  PARGP='cond_' + unit, 
+                                                  SCALE=1, 
+                                                  OFFSET=0)
+            MBO.parameters.create_model_parameter_set('sy_' + unit, 
+                                                           value=HGU_props['Sy mean'][HGU_map[unit]],
+                                                           num_parameters=ss.num_ppoints_by_zone[HGU_zone[unit]])
+            MBO.parameters.parameter_options_set('sy_' + unit, 
+                                                  PARTRANS='fixed', 
+                                                  PARCHGLIM='factor', 
+                                                  PARLBND=1.0E-3, 
+                                                  PARUBND=0.8, 
+                                                  PARGP='sy_' + unit, 
+                                                  SCALE=1, 
+                                                  OFFSET=0)
+            MBO.parameters.create_model_parameter_set('ss_' + unit, 
+                                                           value=HGU_props['SS mean'][HGU_map[unit]],
+                                                           num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
+            MBO.parameters.parameter_options_set('ss_' + unit, 
+                                                  PARTRANS='fixed', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
                                                   PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 

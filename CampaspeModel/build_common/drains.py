@@ -5,7 +5,8 @@ import pandas as pd
 def prepare_drain_data_for_model(ModelBuilderObject,
                                  Camp_riv_cells,
                                  start_irrigation,
-                                 date_index):
+                                 date_index,
+                                 pilot_points_YX=False):
     MBO = ModelBuilderObject
     drain_poly = MBO.read_poly("Drain_Clip.shp", path=os.path.join(MBO.data_folder, r"SW\\")) 
     MBO.map_polyline_to_grid(drain_poly)
@@ -56,6 +57,9 @@ def prepare_drain_data_for_model(ModelBuilderObject,
     
     drain_start = findInterval(start_irrigation, date_index)
     drain = {}
-    drain[drain_start + 1] = simple_drain
+    if not pilot_points_YX:
+        drain[drain_start + 1] = simple_drain
+    elif pilot_points_YX:
+        drain[0] = simple_drain
 
     return drain

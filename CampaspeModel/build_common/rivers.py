@@ -162,8 +162,8 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     
     river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
     
-    river_seg = river_df_tools.merge_collocated_stream_reaches(river_seg, max_length=3000.)
-    river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=500.)
+    river_seg = river_df_tools.merge_collocated_stream_reaches(river_seg, max_length=500.)
+    river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=200.)
     
     MBO.river_mapping['Campaspe'] = river_seg
     
@@ -363,7 +363,7 @@ def create_segment_data_transient(ModelBuilderObject,
                                                              end,
                                                              df_freq='D',
                                                              fill='stats',
-                                                             stat='25%')
+                                                             stat='25%')                                                             
     flow = [0] * len(nseg)
     runoff = [0] * len(nseg)
     etsw = [0] * len(nseg)
@@ -423,60 +423,113 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
                                     Campaspe_relevant,
                                     river_stage_data,
                                     river_seg,
+                                    pilot_points_YX=False,
                                     plot=False):
     
     MBO = ModelBuilderObject
     # Parameter to modify the stage, thus accounting for errors in values specified for stage
-    MBO.parameters.create_model_parameter('rmstage', value=0.01)
-    MBO.parameters.parameter_options('rmstage', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.001, 
-                                          PARUBND=0.1, 
-                                          PARGP='murr_riv', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Parameter to all shifting the location of the bed which is only estimated based on assumed depth below zero gauge
-    MBO.parameters.create_model_parameter('rmbed', value=0.01)
-    MBO.parameters.parameter_options('rmbed', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.001, 
-                                          PARUBND=0.1, 
-                                          PARGP='murr_riv', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Parameter for River Murray bed thickness
-    MBO.parameters.create_model_parameter('rmbedthk', value=0.01)
-    MBO.parameters.parameter_options('rmbedthk', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.001, 
-                                          PARUBND=0.5, 
-                                          PARGP='murr_riv', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Parameter for the vertical hydraulic conductivity of the River Murray
-    MBO.parameters.create_model_parameter('kv_rm', value=5E-3)
-    MBO.parameters.parameter_options('kv_rm', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=1E-8, 
-                                          PARUBND=20, 
-                                          PARGP='murr_riv', 
-                                          SCALE=1, 
-                                          OFFSET=0)
-    # Parameter for the width of the River Murray
-    MBO.parameters.create_model_parameter('rmwdth', value=30)
-    MBO.parameters.parameter_options('rmwdth', 
-                                          PARTRANS='fixed', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=20, 
-                                          PARUBND=50, 
-                                          PARGP='murr_riv', 
-                                          SCALE=1, 
-                                          OFFSET=0)
     
+    if not pilot_points_YX:
+        MBO.parameters.create_model_parameter('rmstage', value=0.01)
+        MBO.parameters.parameter_options('rmstage', 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=0.001, 
+                                              PARUBND=0.1, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter to all shifting the location of the bed which is only estimated based on assumed depth below zero gauge
+        MBO.parameters.create_model_parameter('rmbed', value=0.01)
+        MBO.parameters.parameter_options('rmbed', 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=0.001, 
+                                              PARUBND=0.1, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter for River Murray bed thickness
+        MBO.parameters.create_model_parameter('rmbedthk', value=0.01)
+        MBO.parameters.parameter_options('rmbedthk', 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=0.001, 
+                                              PARUBND=0.5, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter for the vertical hydraulic conductivity of the River Murray
+        MBO.parameters.create_model_parameter('kv_rm', value=5E-3)
+        MBO.parameters.parameter_options('kv_rm', 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=1E-8, 
+                                              PARUBND=20, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter for the width of the River Murray
+        MBO.parameters.create_model_parameter('rmwdth', value=30)
+        MBO.parameters.parameter_options('rmwdth', 
+                                              PARTRANS='fixed', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=20, 
+                                              PARUBND=50, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+    elif pilot_points_YX:
+        MBO.parameters.create_model_parameter('rmstage', value=0.01)
+        MBO.parameters.parameter_options('rmstage', 
+                                              PARTRANS='fixed', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=0.001, 
+                                              PARUBND=0.1, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter to all shifting the location of the bed which is only estimated based on assumed depth below zero gauge
+        MBO.parameters.create_model_parameter('rmbed', value=0.01)
+        MBO.parameters.parameter_options('rmbed', 
+                                              PARTRANS='fixed', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=0.001, 
+                                              PARUBND=0.1, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter for River Murray bed thickness
+        MBO.parameters.create_model_parameter('rmbedthk', value=0.01)
+        MBO.parameters.parameter_options('rmbedthk', 
+                                              PARTRANS='fixed', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=0.001, 
+                                              PARUBND=0.5, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter for the vertical hydraulic conductivity of the River Murray
+        MBO.parameters.create_model_parameter('kv_rm', value=5E-3)
+        MBO.parameters.parameter_options('kv_rm', 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=1E-8, 
+                                              PARUBND=20, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        # Parameter for the width of the River Murray
+        MBO.parameters.create_model_parameter('rmwdth', value=30)
+        MBO.parameters.parameter_options('rmwdth', 
+                                              PARTRANS='fixed', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=20, 
+                                              PARUBND=50, 
+                                              PARGP='murr_riv', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+        
     print " ** Creating river dataframe"
     MBO.create_river_dataframe('Murray', Murray_river_poly_file, surface_raster_high_res, verbose=True)
     
