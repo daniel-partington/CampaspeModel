@@ -5,6 +5,31 @@ first_entry = lambda x: x[0]
 last_entry = lambda x: x[-1]
 flatten = lambda l: [item for sublist in l for item in sublist]
 
+def merging_reaches(river_seg2, river_seg_temp, rchlen_sum, merge_group, rchlen_weights):
+
+    def weighted(col):
+        return (col * rchlen_weights).sum()
+    
+    river_seg2.loc[merge_group[0], 'strtop'] = weighted(river_seg_temp['strtop']) 
+    river_seg2.loc[merge_group[0], 'rchlen'] = rchlen_sum 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points', first_entry(river_seg_temp['amalg_riv_points'].tolist()))
+    river_seg2.loc[merge_group[0], 'Cumulative Length'] = last_entry(river_seg_temp['Cumulative Length'].tolist())     
+    river_seg2.loc[merge_group[0], 'strtop_raw'] = weighted(river_seg_temp['strtop_raw']) 
+    river_seg2.loc[merge_group[0], 'slope'] = weighted(river_seg_temp['slope']) 
+    river_seg2.loc[merge_group[0], 'k'] = first_entry(river_seg_temp['k'].tolist()) 
+    river_seg2.loc[merge_group[0], 'i'] = first_entry(river_seg_temp['i'].tolist()) 
+    river_seg2.loc[merge_group[0], 'j'] = first_entry(river_seg_temp['j'].tolist()) 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_collection', flatten(river_seg_temp['amalg_riv_points_collection'])) 
+    river_seg2.loc[merge_group[0], 'strhc1'] = weighted(river_seg_temp['strhc1']) 
+    river_seg2.loc[merge_group[0], 'strthick'] = weighted(river_seg_temp['strthick']) 
+    river_seg2.set_value(merge_group[0], 'amalg_riv_points_tuple', first_entry(river_seg_temp['amalg_riv_points_tuple'].tolist()))
+    
+    river_seg2.drop(merge_group[1:], inplace=True)
+
+    return river_seg2
+    
+    
+    
 def merge_collocated_stream_reaches(river_segment, max_length=3000.):
     """
     Sort out collocated stream reaches to avoid short circuiting:

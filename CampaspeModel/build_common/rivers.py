@@ -12,9 +12,9 @@ def find_layer(elev, col_vals):
                 return index
             else:
                 return index - 1
-        #end if
+            # end if
+        # end if
     # end for
-    
 
 def prepare_river_data_for_Campaspe(ModelBuilderObject, 
                                     surface_raster_high_res,
@@ -477,59 +477,107 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
                                           SCALE=1, 
                                           OFFSET=0)
     
-    MBO.create_river_dataframe('Murray', Murray_river_poly_file, surface_raster_high_res)
+    print " ** Creating river dataframe"
+    MBO.create_river_dataframe('Murray', Murray_river_poly_file, surface_raster_high_res, verbose=True)
     
     mriver_seg = MBO.river_mapping['Murray']
+
     mriver_seg.loc[:, 'strthick'] = MBO.parameters.param['rmbedthk']['PARVAL1']
     
     # Set up bed elevations based on the gauge zero levels:
     Murray = Campaspe_relevant[Campaspe_relevant['Site Name'].str.contains("MURRAY RIVER")]
     gauge_points = [x for x in zip(Murray.Easting, Murray.Northing)]
     mriver_gauge_seg = MBO.get_closest_riv_segments('Murray', gauge_points)
-    #mriver_seg.loc[:, 'bed_from_gauge'] = np.nan
-    mriver_seg.loc[:, 'bed_from_gauge'] = mriver_seg['strtop']
-    mriver_seg.loc[:, 'stage_from_gauge'] = np.nan
     
+    mriver_seg.loc[:, 'bed_from_gauge'] = np.nan
+    #mriver_seg.loc[:, 'bed_from_gauge'] = mriver_seg['strtop']
+    mriver_seg.loc[:, 'stage_from_gauge'] = np.nan
+    mriver_seg.loc[:, 'strtop_offset'] = np.nan
+
     Murray.loc[:, 'new_gauge'] = Murray[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
     Murray.loc[:, 'seg_loc'] = mriver_gauge_seg         
-    Murray_gauge_zero = Murray[Murray['new_gauge'] > 10.]
-    mriver_seg.loc[:, 'iseg'] = [x + 1 for x in range(mriver_seg.shape[0])]
+    mriver_seg.loc[:, 'iseg'] = [mriver_seg.shape[0] - x for x in range(mriver_seg.shape[0])]
     #Murray_gauge_zero['Cumulative Length'] = mriver_seg.loc[Murray_gauge_zero['seg_loc'].tolist(), 'Cumulative Length'].tolist()
     
     Murray = pd.merge(Murray, river_stage_data[1], on='Site Name', how='inner', suffixes=('','_r'))
     Murray = Murray[[x for x in Murray.columns if '_r' not in x]]
-    def values_from_gauge(column):
+    Murray_gauge_zero = Murray[Murray['new_gauge'] > 10.]
+  
+    def values_from_gauge(column, to, interp=True):
         mriver_seg.loc[mriver_seg['iseg'].isin( \
             Murray_gauge_zero['seg_loc'].tolist()), column] = sorted( \
-            Murray_gauge_zero['new_gauge'].tolist(), reverse=True)
-        mriver_seg[column] = mriver_seg.set_index( \
-            mriver_seg['Cumulative Length'])[column].interpolate( \
-            method='values', limit_direction='both').tolist()
-        mriver_seg[column].fillna(method='bfill', inplace=True)
+            Murray_gauge_zero[to].tolist(), reverse=True)
+        
+        #strtop_stage_from_gauge_diff = mriver_seg[mriver_seg['stage_from_gauge']]
+        if interp:
+            mriver_seg[column] = mriver_seg.set_index( \
+                mriver_seg['Cumulative Length'])[column].interpolate( \
+                method='values', limit_direction='both').tolist()
+            mriver_seg[column].fillna(method='bfill', inplace=True)
     
-    #values_to_edit = ['bed_from_gauge', 'stage_from_gauge']
-    values_to_edit = ['stage_from_gauge']
-    for value in values_to_edit:
-        values_from_gauge(value)
+    values_from_gauge('stage_from_gauge', 'Mean stage (m)', interp=False)
     
+    # Setup the Murray river bed level from the zero gauge data
+    values_from_gauge('bed_from_gauge', 'new_gauge', interp=False)        
+
+    # Find the offset between the strtop from elevation data to help inform bed levels 
+    # where gauge data isn't present
+    inds = mriver_seg['bed_from_gauge'].notnull()
+    inds2 = mriver_seg['bed_from_gauge'].isnull()
+    mriver_seg.loc[inds, 'strtop_offset'] = mriver_seg[inds]['bed_from_gauge'] - \
+                      mriver_seg[inds]['strtop']
+
+    # Interpolate between gauges for the offset and then fill the ends of the
+    # df with the closest value
+    mriver_seg['strtop_offset'] = mriver_seg.set_index( \
+        mriver_seg['Cumulative Length'])['strtop_offset'].interpolate( \
+        method='values').where(mriver_seg.bfill().notnull()).tolist()
+    mriver_seg.loc[:, 'strtop_offset'] = mriver_seg['strtop_offset'].bfill()
+    mriver_seg.loc[:, 'strtop_offset'] = mriver_seg['strtop_offset'].ffill()
+                    
+    mriver_seg.loc[inds2, 'bed_from_gauge'] = mriver_seg.loc[inds2, 'strtop'] + \
+                                              mriver_seg.loc[inds2, 'strtop_offset']
+
+    # DO the same but for the river stage
+    mriver_seg.loc[inds, 'stage_offset'] = \
+        mriver_seg[inds]['stage_from_gauge'] - \
+        mriver_seg[inds]['bed_from_gauge']
+
+    # Interpolate between gauges for the offset and then fill the ends of the
+    # df with the closest value
+    mriver_seg['stage_offset'] = mriver_seg.set_index( \
+        mriver_seg['Cumulative Length'])['stage_offset'].interpolate( \
+        method='values').where(mriver_seg.bfill().notnull()).tolist()
+    mriver_seg.loc[:, 'stage_offset'] = mriver_seg['stage_offset'].bfill()
+    mriver_seg.loc[:, 'stage_offset'] = mriver_seg['stage_offset'].ffill()
+                    
+    mriver_seg.loc[inds2, 'stage_from_gauge'] = \
+        mriver_seg.loc[inds2, 'bed_from_gauge'] + \
+        mriver_seg.loc[inds2, 'stage_offset']
+
+                                 
     new_k = []
     active = []
     surface_layers = {}
     bottom_layer = []
+    
     for row in mriver_seg.iterrows():
         j_mesh = int(row[1]['i'])
         i_mesh = int(row[1]['j'])
         strtop = row[1]['bed_from_gauge']
         k = find_layer(strtop, MBO.model_mesh3D[0][:, j_mesh, i_mesh])
         new_k += [k]
-        bottom_layer += [MBO.model_mesh3D[0][k+1, j_mesh, i_mesh]] 
+        bottom_layer += [MBO.model_mesh3D[0][k + 1, j_mesh, i_mesh]] 
         active += [MBO.model_mesh3D[1][k, j_mesh, i_mesh]]
         for layer in range(7):
             try:
                 surface_layers[layer] += [MBO.model_mesh3D[0][layer, j_mesh, i_mesh]]
             except:
                 surface_layers[layer] = [MBO.model_mesh3D[0][layer, j_mesh, i_mesh]]
-    
+            # end try
+        # end for
+    # end for
+        
     for layer in range(7):
         mriver_seg["surf{}".format(layer)] = surface_layers[layer]
     
@@ -563,24 +611,29 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
         #riv_df_testing['cell_used'] = cell_used
         return cell_used
     
-    cells_overlapping = is_in_other_river(mriver_seg, river_seg)
-    mriver_seg.loc[:, 'cell_used'] = cells_overlapping
-    mriver_seg_ghb = mriver_seg.copy()
     
-    #mriver_seg[mriver_seg['cell_used'] == 0] = np.nan
-    #mriver_seg.dropna(inplace=True)
+    mriver_seg.loc[:, 'amalg_riv_points_tuple'] = mriver_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
+    mriver_seg = mriver_seg.iloc[::-1]
+    mriver_seg.index = range(mriver_seg.shape[0])
     
+    print " ** Merging collocated stream reaches"
+    mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=2000.)
+    print " ** Merging short stream reaches"
+    mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=300.)
+
+    print " ** Recheking for collocated Campaspe and Murray cells"
     #mriver_seg['cell_loc_tuple'] = [(x[1]['k'], x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
     #mriver_seg['cell_loc_tuple'] = [(x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
     #mriver_seg = mriver_seg.groupby(by='cell_loc_tuple').mean()
     #mriver_seg.index = range(mriver_seg.shape[0])
     
-    mriver_seg.loc[:, 'amalg_riv_points_tuple'] = mriver_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
-    mriver_seg3 = mriver_seg.iloc[::-1]
-    mriver_seg3.index = range(mriver_seg3.shape[0])
+    cells_overlapping = is_in_other_river(mriver_seg, river_seg)
+    mriver_seg.loc[:, 'cell_used'] = cells_overlapping
+    mriver_seg_ghb = mriver_seg.copy()
+
+    mriver_seg[mriver_seg['cell_used'] == 0] = np.nan
+    mriver_seg.dropna(inplace=True)
     
-    mriver_seg3 = river_df_tools.merge_collocated_stream_reaches(mriver_seg3, max_length=3000.)
-    mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg3, min_length=500.)
     
     MBO.river_mapping['Murray'] = mriver_seg
     
