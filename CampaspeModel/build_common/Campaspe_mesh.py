@@ -11,7 +11,7 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
     print "************************************************************************"
     print " Defining structured mesh"
-    resolution = 5000
+    resolution = resolution
     MBO.define_structured_mesh(resolution, resolution)
     
     # Read in hydrostratigraphic raster info for layer elevations:
@@ -37,7 +37,8 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     
     # Build 3D grid
     model_grid_raster_files = [x + "_model_grid.tif" for x in hu_raster_files]
-    
+    MBO.map_rasters_to_grid(hu_raster_files, hu_raster_path)
+
     # First two arguments of next function are arbitrary and not used ... need to rework module
     print "************************************************************************"
     print " Building 3D mesh based on HGU rasters"

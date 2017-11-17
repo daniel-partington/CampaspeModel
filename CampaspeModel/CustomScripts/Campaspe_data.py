@@ -253,15 +253,14 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     # This is disgusting, but works for now ... needs cleaning up through first testing
     # if raster is in the right projection and if not returning the name of the new
     # reprojected file
-    #surface_raster_high_res = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Surface_DEM_Geoscience_Australia\Camp_1sHE_2026754\Camp_1sHE.tif"
+    custom_data['surface_raster_high_res_GSA'] = os.path.join(Campaspe_data_folder, r"Surface_DEM_Geoscience_Australia\Camp_1sHE_2026754\Camp_1sHE_reproj.tif")
     custom_data['surface_raster_high_res'] = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID\sur_1t"
     
     if verbose:
         print "************************************************************************"
         print "Load in the recharge zones as determined by Yueqing Xie"
     
-    custom_data['recharge_zones'] = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Linking_recharge\Zones_24.tif"
-    
+    custom_data['recharge_zones'] = os.path.join(Campaspe_data_folder, r"Linking_recharge\Zones_24.tif")
     
     if verbose:
         print "************************************************************************"

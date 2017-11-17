@@ -57,3 +57,5 @@ def prepare_drain_data_for_model(ModelBuilderObject,
     drain_start = findInterval(start_irrigation, date_index)
     drain = {}
     drain[drain_start + 1] = simple_drain
+
+    return drain
