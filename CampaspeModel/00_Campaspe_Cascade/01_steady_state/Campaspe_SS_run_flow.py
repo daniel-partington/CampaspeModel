@@ -68,18 +68,18 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True,
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
     Kh[Kh > 10000.] = 25.
-
+    print("Erroneous pilot cells: {}".format(len(Kh[Kh > 10000.])))
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
     Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
                              m, 'sy_val_array')
-    Sy[Sy == 1] = 0.25
+    Sy[Sy > 0.5] = 0.25
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
     SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
                              m, 'ss_val_array')
-    SS[SS == 1] = 1E-5
+    SS[SS > 0.01] = 1E-5
     m.save_array(os.path.join(data_folder, 'SS'), SS)
 
 
@@ -398,6 +398,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
+        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose, plots=True)
     else:
         run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose)

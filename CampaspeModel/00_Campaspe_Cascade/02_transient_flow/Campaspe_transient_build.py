@@ -56,6 +56,7 @@ rain_gauges = custom_data['rain_gauges']
 long_term_historic_weather = custom_data['long_term_historic_weather'] 
 recharge_zones = custom_data['recharge_zones']
 surface_raster_high_res = custom_data['surface_raster_high_res'] 
+surface_raster_high_res_GSA = custom_data['surface_raster_high_res_GSA'] 
 river_gauges = custom_data['river_gauges']
 Campaspe_river_poly_file = custom_data['Campaspe_river_poly_file']
 Murray_river_poly_file = custom_data['Murray_river_poly_file']
@@ -125,7 +126,7 @@ tr_model.model_time.set_temporal_components(steady_state=False, start_time=start
 HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(tr_model,
                                                   hu_raster_path,
                                                   HGU_props,
-                                                  resolution=5000,
+                                                  resolution=1000,
                                                   create_basement=True)
 
 print "************************************************************************"
@@ -698,6 +699,7 @@ for i in range(len(colors)):
     r, g, b = colors[i]    
     colors[i] = (r / 255., g / 255., b / 255.)    
     
+flatten = lambda l: [item for sublist in l for item in sublist]
 fig = plt.figure(figsize=(2.5,5))
 for index, reach in enumerate(river_segs_reach[1:]):
     reach_river = river_seg[river_seg['iseg'].isin(reach)]
@@ -738,11 +740,12 @@ print "************************************************************************"
 print " Mapping Murray River to grid"
 
 riv, mriver_seg_ghb = \
-    rivers.prepare_river_data_for_Murray(tr_model, surface_raster_high_res,
-                                         Murray_river_poly_file,
+    rivers.prepare_river_data_for_Murray(tr_model, surface_raster_high_res_GSA,
+                                         r"C:\Workspace\part0075\MDB modelling\test_model.shp", #Murray_river_poly_file,
                                          Campaspe_relevant,
                                          river_stage_data,
-                                         river_seg)
+                                         river_seg,
+                                         plot=True) 
    
 print "************************************************************************"
 print " Creating Murray River boundary"

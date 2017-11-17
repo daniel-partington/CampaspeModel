@@ -29,8 +29,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    if param_file:
-        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    #if param_file:
+    #    MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
 
     if verbose:
         print "************************************************************************"
@@ -76,7 +76,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     ghb_conc_dict      = {'C14':0.,       'EC':EC_init_simple}
     riv_conc_dict      = {'C14':100.,     'EC':EC_init_simple}
     precip_conc_dict   = {'C14':100.,     'EC':0.0}
-    str_conc_init_dict = {'C14':100.,     'EC':0.0}
+    str_conc_init_dict = {'C14':100.,     'EC':500.0}
 
     for specimen in species:
         if verbose:
@@ -88,7 +88,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                                ftlfilename='mt3d_link.ftl',
                                ftlfree = True,
                                modflowmodel=modflow_model.mf, 
-                               model_ws=path, #modflow_model.data_folder, 
+                               model_ws=os.path.join(data_folder, "model_" + m.name), 
                                exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
         
         if verbose:
@@ -103,7 +103,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                            cinact=-9.9E1, thkmin=-1.0E-6, 
                            ifmtcn=5, ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
                            timprs=None, savucn=1, nprobs=0,  laycon=1,
-                           chkmas=1, nprmas=1, dt0=10000.0, ttsmax=100000.0,
+                           chkmas=1, nprmas=1, dt0=500.0, ttsmax=100000.0,
                            sconc=sconc_dict[specimen], 
                            species_names=[specimen])
     
@@ -255,29 +255,32 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                 elif specimen == 'C14':
                     sf_stress_period_data[per].append((0, 0, 100.))
                 # end if
-                for seg in range(nsfinit):
+                for seg in range(1,nsfinit):
                     # For precipitation
                     sf_stress_period_data[per].append((seg, 1, precip_conc_dict[specimen]))
                     # For evaporation
                     # ... forged aboud it ... can't even handle! But it would be:
-                    # sf_stress_period_data[per].append((seg, 5, 0.0))
-                
+                    #sf_stress_period_data[per].append((seg, 5, 0.0))
+            
+            #print sf_stress_period_data
+            #return
+                    
             gage_output = None
             dispsf = m.parameters.param['sfdisp']['PARVAL1']        
             
             flopy.mt3d.Mt3dSft(mt, 
                                nsfinit=nsfinit, # Number of simulated stream reaches in SFR 
-                               mxsfbc=nsfinit*3, # Maximum number of stream boundary conditions
+                               mxsfbc=nsfinit * 3, # Maximum number of stream boundary conditions
                                icbcsf=81, # Integer directing to write reach-by-reach conc info to unit specified by integer 
                                ioutobs=82, # Unit number for output for concs at specified gage locations
                                ietsfr=1, #Specifies that mass is not removed with ET
-                               wimp=0.5, # Stream solver time weighting factor (between 0.0 and 1.0)
+                               wimp=1.0, # Stream solver time weighting factor (between 0.0 and 1.0)
                                wups=1.0, # Space weighting factor employed in the stream network solver (between 0 and 1)
                                isfsolv=1, # This is the default and only supported value at this stage
                                cclosesf=1.0E-6, # This is the closure criterion for the SFT solver 
                                mxitersf=10, # Maximum number of iterations for the SFT solver
                                crntsf=1.0,  # Courant constraint specific to SFT
-                               iprtxmd=0, # flag to print SFT solution info to standard output file (0 = print nothing)
+                               iprtxmd=1, # flag to print SFT solution info to standard output file (0 = print nothing)
                                coldsf=str_conc_init_dict[specimen], # Initial concentration in the stream network (can also be specified as an array for each reach)
                                #coldsf2=np.array([EC_init_simple] * nsfinit), # Initial concentration in the stream network (can also be specified as an array for each reach)
                                #coldsf= 0.0, #np.array([EC_init_simple] * nsfinit), # Initial concentration in the stream network (can also be specified as an array for each reach)
@@ -308,13 +311,12 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         
         mt.write_input()
         
-        success, buff = mt.run_model(silent=True)
+        success, buff = mt.run_model(silent=False)
         
         post = flopyInterface.MT3DPostProcess(modflow_model, 
                                               mt_name=mt.name)
         
         post.writeObservations(specimen)
-
     # end for
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
@@ -397,6 +399,12 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
               
     #post.compareAllObs()
     #post.viewConcsByZone()
+    import pandas as pd
+    for specimen in species:
+        sfr_transport = pd.read_csv(os.path.join(data_folder, "model_" + m.name,"02_transient_flow_transport_{}".format(specimen)), delim_whitespace=True, skiprows=1)
+        for sfrnode in [1]:
+            ax = sfr_transport[sfr_transport['SFR-NODE'] == sfrnode].plot(x='TIME', y=['SFR-CONCENTRATION'])
+            ax.set_title(specimen)
     
 #    #
 #    concobj = bf.UcnFile(modflow_model.data_folder + 'MT3D001.UCN')

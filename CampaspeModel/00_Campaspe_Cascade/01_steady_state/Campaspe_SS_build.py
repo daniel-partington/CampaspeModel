@@ -1,4 +1,5 @@
 from osgeo import osr
+import os
 import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
@@ -43,6 +44,7 @@ rain_gauges = custom_data['rain_gauges']
 long_term_historic_rainfall = custom_data['long_term_historic_rainfall'] 
 recharge_zones = custom_data['recharge_zones']
 surface_raster_high_res = custom_data['surface_raster_high_res'] 
+surface_raster_high_res_GSA = custom_data['surface_raster_high_res_GSA'] 
 river_gauges = custom_data['river_gauges']
 Campaspe_river_poly_file = custom_data['Campaspe_river_poly_file']
 Murray_river_poly_file = custom_data['Murray_river_poly_file']
@@ -65,8 +67,11 @@ print '########################################################################'
 HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(SS_model,
                                                   hu_raster_path,
                                                   HGU_props,
-                                                  resolution=5000,
+                                                  resolution=1000,
                                                   create_basement=True)
+
+SS_model.map_rasters_to_grid(os.path.basename(surface_raster_high_res), os.path.dirname(surface_raster_high_res))
+surface_raster_high_res = os.path.join(SS_model.out_data_folder, os.path.basename(surface_raster_high_res) + '_clipped.tif')
 
 print "************************************************************************"
 print " Interpolating rainfall data to grid "
@@ -74,7 +79,6 @@ print " Interpolating rainfall data to grid "
 interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall, feature_id='Name', method='linear')
 # Adjust rainfall to m from mm and from year to day
 interp_rain = interp_rain / 1000.0 / 365.0
-# Adjust rainfall to recharge using 10% magic number
 
 SS_model.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Rainfall', interp_rain)
@@ -155,11 +159,12 @@ print "************************************************************************"
 print " Mapping Murray River to grid"
 
 riv, mriver_seg_ghb = \
-    rivers.prepare_river_data_for_Murray(SS_model, surface_raster_high_res,
-                                         Murray_river_poly_file,
+    rivers.prepare_river_data_for_Murray(SS_model, surface_raster_high_res_GSA,
+                                         r"C:\Workspace\part0075\MDB modelling\test_model.shp", #Murray_river_poly_file,
                                          Campaspe_relevant,
                                          river_stage_data,
-                                         river_seg) 
+                                         river_seg,
+                                         plot=True) 
 
 print "************************************************************************"
 print " Creating Murray River boundary"
@@ -169,7 +174,6 @@ SS_model.boundaries.assign_boundary_array('Murray River', riv)
 
 print "************************************************************************"
 print " Setting up Murray River GHB boundary"
-
   
 ghb = groundwater_boundary.prepare_ghb_boundary_from_Murray_data(SS_model,
                                                                  mriver_seg_ghb)   
