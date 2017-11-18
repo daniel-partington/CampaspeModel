@@ -26,8 +26,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    #if param_file:
-    #    MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=False)
+    if param_file:
+        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=False)
 
     if verbose:
         print "************************************************************************"
@@ -68,7 +68,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                        ncomp=1, mcomp=1, cinact=-9.9E1, thkmin=-1.0E-6, ifmtcn=5, 
                        ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
                        timprs=None, savucn=1, nprobs=0,  laycon=1,
-                       chkmas=1, nprmas=1, dt0=10000.0, ttsmax=100000.0)
+                       chkmas=1, nprmas=1, dt0=100000.0, ttsmax=100000.0)
 
     #Add the ADV package to the model
     flopy.mt3d.Mt3dAdv(mt, mixelm=0, percel=1, 
@@ -149,7 +149,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         seg_len = np.unique(stream_flow_bc[0]['iseg'], return_counts=True)
         obs_sf = np.cumsum(seg_len[1])
         obs_sf = obs_sf.tolist()
-        sf_stress_period_data = {0: [0, 0, 50]}
+        sf_stress_period_data = {0: [0, 0, 100.]}
         gage_output = None
         
         flopy.mt3d.Mt3dSft(mt, 
@@ -158,14 +158,14 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                            icbcsf=81, # Integer directing to write reach-by-reach conc info to unit specified by integer 
                            ioutobs=82, # Unit number for output for concs at specified gage locations
                            ietsfr=0, #Specifies that mass is not removed with ET
-                           wimp=0.5, # Stream solver time weighting factor (between 0.0 and 1.0)
+                           wimp=1.0, # Stream solver time weighting factor (between 0.0 and 1.0)
                            wups=1.0, # Space weighting factor employed in the stream network solver (between 0 and 1)
                            isfsolv=1, # This is the default and only supported value at this stage
                            cclosesf=1.0E-6, # This is the closure criterion for the SFT solver 
                            mxitersf=10, # Maximum number of iterations for the SFT solver
                            crntsf=1.0,  # Courant constraint specific to SFT
                            iprtxmd=0, # flag to print SFT solution info to standard output file (0 = print nothing)
-                           coldsf=3.7, # Initial concentration in the stream network (can also be specified as an array for each reach)
+                           coldsf=100.0, # Initial concentration in the stream network (can also be specified as an array for each reach)
                            dispsf=100.0, # Dispersivity in each stream reach
                            nobssf=len(obs_sf), #, 
                            obs_sf=obs_sf, 
@@ -178,6 +178,13 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     mt.write_input()
     
     success, buff = mt.run_model(silent=True)
+
+#    import pandas as pd
+#    sfr_transport = pd.read_csv(os.path.join(data_folder, "model_" + m.name,"01_steady_state_transport"), delim_whitespace=True, skiprows=1)
+#    for sfrnode in [1, 20, 120]:
+#        ax = sfr_transport[sfr_transport['SFR-NODE'] == sfrnode].plot(x='TIME', y=['SFR-CONCENTRATION'])
+#        ax.set_title("C14")
+
     
 if __name__ == "__main__":
     

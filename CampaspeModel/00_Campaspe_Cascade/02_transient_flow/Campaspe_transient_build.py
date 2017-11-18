@@ -469,7 +469,6 @@ tr_model.observations.set_as_observations('gflow',
                                           weights=1.0, 
                                           real=True)    
 
-    
 
 # Field data for stage and discharge
 field_discharge_time_series = FieldData[['Name', 'Flows_Field']]
@@ -679,13 +678,60 @@ for reach in reach_no:
                                          river_segs_reach[reach],
                                          obs_names_reach[i], 
                                          obs_types_reach[i])
-    
-#swgw_exch_obs_spatial = 3 # whole of river, long reach, cell reach
-#
-#for swgw_exch_obs_freq in swgw_exch_obs_freqs:
-#    for swgw_exch_obs_space in swgw_exch_obs_spatial:
-#        create_obs_for_sw_gw_interaction
 
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+#$$ Potential obs data $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+#def create_obs_for_sim_obs(entries, name, start, end, freq, riv_segs, \
+#                                     obs_name, obs_type):
+#    '''
+#    Function to create the necessary observations for sw-gw exchange for the 
+#    different spatial and temporal periods
+#    '''
+#    name_list = ['{}{}'.format(name, x) for x in range(0, entries)]
+#    # end if
+#    time_series = pd.DataFrame({'name': name_list, 
+#                                'value': [0.0] * entries, 
+#                                'datetime': pd.date_range(start=start, end=end, freq=freq)[1:]})
+#    # Create zero weighted observations for model predictions of interest
+#    tr_model.observations.set_as_observations(obs_name, 
+#                                              time_series, 
+#                                              riv_segs, 
+#                                              domain='stream', 
+#                                              obs_type=obs_type, 
+#                                              units='m^3/d', 
+#                                              weights=0.0, 
+#                                              real=False)
+#        
+#        
+#sim_river_obs = ['ec_sim', 'rn_sim', 'st_sim', 'fl_sim']
+#
+#for reach in reach_no:
+#    names_reach = [x + str(reach) for x in names]
+#    obs_names_reach = [x + str(reach) for x in obs_names_g2g_reach]
+#    obs_types_reach = [x + "r" for x in obs_types]
+#    create_obs_for_sim_obs(12, 
+#                           names_reach[i], 
+#                           fy_start, 
+#                           fy_end, 
+#                           swgw_exch_obs_freqs[i], 
+#                           river_segs_reach[reach],
+#                           obs_names_reach[i], 
+#                           obs_types_reach[i])
+#      
+#        
+## Create obs for potential head observations        
+#sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
+#for sim_head_hgu in sim_heads_obs_hgu:        
+
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+    
 # These are the "Tableau 20" colors as RGB.    
 import matplotlib.pyplot as plt
 colors = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
@@ -819,7 +865,7 @@ tr_model.parameters.parameter_options('disp',
                                       OFFSET=0)
 
 # Parameters for the SFT model
-tr_model.parameters.create_model_parameter('sfdisp', value=100)
+tr_model.parameters.create_model_parameter('sfdisp', value=100.)
 tr_model.parameters.parameter_options('sfdisp', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 

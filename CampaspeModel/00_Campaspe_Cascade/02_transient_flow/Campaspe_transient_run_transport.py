@@ -4,6 +4,7 @@ import os
 import sys
 
 import numpy as np
+import pandas as pd 
 import flopy
 import flopy.utils.binaryfile as bf
 
@@ -29,8 +30,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
 
-    #if param_file:
-    #    MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    if param_file:
+        MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
 
     if verbose:
         print "************************************************************************"
@@ -48,16 +49,19 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         print "************************************************************************"
         print " Set initial conc from ss solution "
 
-    species = ['EC', 'C14']
+    species = ['EC', 'C14'] 
 
     path=os.path.join(data_folder, "model_01_steady_state")
     concobj = bf.UcnFile(os.path.join(path, 'MT3D001.UCN'))
     times = concobj.get_times()        
     C14_init = concobj.get_data(totim=times[-1])
+    sfrconc = pd.read_csv(os.path.join(path, "01_steady_state_transport"), delim_whitespace=True, skiprows=1)
+    final_time = sfrconc['TIME'].unique().max()
+    C14_init_sfr = sfrconc[sfrconc['TIME'] == final_time]['SFR-CONCENTRATION'].tolist()
+    
     EC_init = np.ones_like(C14_init)
     EC_init_simple = 2000.
     EC_init = EC_init * EC_init_simple
-
 
     ibound = modflow_model.model_data.model_mesh3D[1]        
     ibound[ibound == -1] = 0
@@ -71,12 +75,13 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         prsity[ibound == zone] = m.parameters.param['por_{}'\
                                   .format(zone_map[zone])]['PARVAL1']
     # Dicts to take care of type of transport sim ... multi not working at the moment
-    sconc_dict         = {'C14':C14_init, 'EC':500.}
-    rech_conc_dict     = {'C14':100.,     'EC':EC_init_simple}
-    ghb_conc_dict      = {'C14':0.,       'EC':EC_init_simple}
-    riv_conc_dict      = {'C14':100.,     'EC':EC_init_simple}
-    precip_conc_dict   = {'C14':100.,     'EC':0.0}
-    str_conc_init_dict = {'C14':100.,     'EC':500.0}
+    sconc_dict         = {'C14':C14_init,     'EC':500.}
+    rech_conc_dict     = {'C14':100.,         'EC':EC_init_simple}
+    ghb_conc_dict      = {'C14':0.,           'EC':EC_init_simple}
+    riv_conc_dict      = {'C14':100.,         'EC':EC_init_simple}
+    precip_conc_dict   = {'C14':100.,         'EC':0.0}
+    str_conc_init_dict = {'C14':C14_init_sfr, 'EC':500.0}
+    dt0_dict           = {'C14':500.,         'EC':500.0}
 
     for specimen in species:
         if verbose:
@@ -89,7 +94,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                                ftlfree = True,
                                modflowmodel=modflow_model.mf, 
                                model_ws=os.path.join(data_folder, "model_" + m.name), 
-                               exe_name=mt_exe_folder) #'MT3D-USGS_64.exe')
+                               exe_name=mt_exe_folder)
         
         if verbose:
             print "************************************************************************"
@@ -103,7 +108,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                            cinact=-9.9E1, thkmin=-1.0E-6, 
                            ifmtcn=5, ifmtnp=0, ifmtrf=0, ifmtdp=0, nprs=0, 
                            timprs=None, savucn=1, nprobs=0,  laycon=1,
-                           chkmas=1, nprmas=1, dt0=500.0, ttsmax=100000.0,
+                           chkmas=1, nprmas=1, dt0=dt0_dict[specimen], ttsmax=100000.0,
                            sconc=sconc_dict[specimen], 
                            species_names=[specimen])
     
@@ -127,7 +132,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
             if verbose:
                 print("Add the RCT package to the model")
             flopy.mt3d.Mt3dRct(mt, isothm=1, ireact=1, igetsc=0, 
-                               rc1=np.log(2)/(5730.0*365.0))
+                               rc1=np.log(2.) / (5730.0 * 365.0))
     
         if verbose:
             print("Add the GCG package to the model")
@@ -311,12 +316,14 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         
         mt.write_input()
         
-        success, buff = mt.run_model(silent=False)
+        success, buff = mt.run_model(silent=True)
         
         post = flopyInterface.MT3DPostProcess(modflow_model, 
                                               mt_name=mt.name)
         
         post.writeObservations(specimen)
+        #post.viewConcsByZone(nper='final')
+
     # end for
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
@@ -397,14 +404,12 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
               
-    #post.compareAllObs()
-    #post.viewConcsByZone()
-    import pandas as pd
-    for specimen in species:
-        sfr_transport = pd.read_csv(os.path.join(data_folder, "model_" + m.name,"02_transient_flow_transport_{}".format(specimen)), delim_whitespace=True, skiprows=1)
-        for sfrnode in [1]:
-            ax = sfr_transport[sfr_transport['SFR-NODE'] == sfrnode].plot(x='TIME', y=['SFR-CONCENTRATION'])
-            ax.set_title(specimen)
+#    post.compareAllObs()
+#    for specimen in species:
+#        sfr_transport = pd.read_csv(os.path.join(data_folder, "model_" + m.name,"02_transient_flow_transport_{}".format(specimen)), delim_whitespace=True, skiprows=1)
+#        for sfrnode in [1]:
+#            ax = sfr_transport[sfr_transport['SFR-NODE'] == sfrnode].plot(x='TIME', y=['SFR-CONCENTRATION'])
+#            ax.set_title(specimen)
     
 #    #
 #    concobj = bf.UcnFile(modflow_model.data_folder + 'MT3D001.UCN')

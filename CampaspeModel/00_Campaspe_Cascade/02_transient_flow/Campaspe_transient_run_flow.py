@@ -20,8 +20,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
-    #if param_file != "":
-    #    m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+    if param_file != "":
+        m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
         print "************************************************************************"
@@ -301,8 +301,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     modflow_model.executable = mf_exe_folder
 
-    modflow_model.headtol = 1E-3
-    modflow_model.fluxtol = 10.
+    modflow_model.headtol = 1E-5
+    modflow_model.fluxtol = 1.
 
     modflow_model.buildMODFLOW(transport=True, write=True, verbose=False, check=False)
 
