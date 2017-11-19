@@ -128,6 +128,14 @@ initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 500.)
 #for i in range(len(hu_raster_files_reproj)/2):
 #    initial_heads_SS[i] = SS_model.model_mesh3D[1][0] #(interp_heads[hu_raster_files[2]]) # 2*i
 
+# Using an old solution to start the party
+#import flopy.utils.binaryfile as bf
+#data_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST1000\master\model_01_steady_state"
+#filename = os.path.join(data_folder, '01_steady_state.hds')
+#headobj = bf.HeadFile(filename)
+#times = headobj.get_times()
+#initial_heads_SS = headobj.get_data(totim=times[-1])
+
 SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)
 
 print "************************************************************************"

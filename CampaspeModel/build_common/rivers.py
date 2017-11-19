@@ -163,7 +163,7 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
     
     river_seg = river_df_tools.merge_collocated_stream_reaches(river_seg, max_length=500.)
-    river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=200.)
+    river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=289.6) #200.)
     
     MBO.river_mapping['Campaspe'] = river_seg
     

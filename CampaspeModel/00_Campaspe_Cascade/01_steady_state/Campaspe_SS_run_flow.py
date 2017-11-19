@@ -67,18 +67,20 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True,
                              m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
+    print("Erroneous K pilot cells: {}".format(len(Kh[Kh > 10000.])))
     Kh[Kh > 10000.] = 25.
-    print("Erroneous pilot cells: {}".format(len(Kh[Kh > 10000.])))
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
     Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
                              m, 'sy_val_array')
+    print("Erroneous Sy pilot cells: {}".format(len(Sy[Sy > 0.5])))
     Sy[Sy > 0.5] = 0.25
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
     SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
                              m, 'ss_val_array')
+    print("Erroneous Ss pilot cells: {}".format(len(SS[SS > 0.01])))
     SS[SS > 0.01] = 1E-5
     m.save_array(os.path.join(data_folder, 'SS'), SS)
 
@@ -276,7 +278,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True,
     
         modflow_model.buildMODFLOW(transport=True, verbose=verbose, check=True)
 
-        converge = modflow_model.runMODFLOW(silent=True)
+        converge = modflow_model.runMODFLOW(silent=~verbose)
 
        # return
     
@@ -376,7 +378,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True,
 
 if __name__ == "__main__":
 
-    verbose = False
+    verbose = True
                     
     args = sys.argv
     if len(args) > 1:
