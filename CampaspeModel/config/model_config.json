@@ -95,7 +95,16 @@
     "part0075": {
       "grid_resolution": "1000m",
       "data_folder": "/home/part0075/MDBmodelling/testbox/PEST1000/master",
-      "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+      "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+      "param_file": "",
+      "working_dir": "",
+      "mf_exe_folder": "mfnwt",
+      "mt_exe_folder": "mt3dusgs"
+    },
+    "danpartington": {
+      "grid_resolution": "1000m",
+      "data_folder": "/home/users/danpartington/MDBmodelling/testbox/PEST1000/master",
+      "model_folder": "/home/users/danpartington/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
       "param_file": "",
       "working_dir": "",
       "mf_exe_folder": "mfnwt",
@@ -122,6 +131,15 @@
       "working_dir": "",
       "mf_exe_folder": "mfnwt",
       "mt_exe_folder": "mt3dusgs"
+    },
+    "danpartington": {
+      "grid_resolution": "1000m",
+      "data_folder": "/home/users/danpartington/MDBmodelling/testbox/PEST1000/master",
+      "model_folder": "/home/users/danpartington/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+      "param_file": "",
+      "working_dir": "",
+      "mf_exe_folder": "mfnwt",
+      "mt_exe_folder": "mt3dusgs"
     }
   }
   },
@@ -140,6 +158,15 @@
       "grid_resolution": "1000m",
       "data_folder": "/home/part0075/MDBmodelling/testbox/PEST1000/master",
       "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+      "param_file": "",
+      "working_dir": "",
+      "mf_exe_folder": "mfnwt",
+      "mt_exe_folder": "mt3dusgs"
+    },
+    "danpartington": {
+      "grid_resolution": "1000m",
+      "data_folder": "/home/users/danpartington/MDBmodelling/testbox/PEST1000/recharge",
+      "model_folder": "/home/users/danpartington/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
       "param_file": "",
       "working_dir": "",
       "mf_exe_folder": "mfnwt",
