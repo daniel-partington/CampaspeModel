@@ -315,66 +315,66 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
         modflow_model.writeObservations()
 
-    modflow_model.waterBalanceTS()
-
-    #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    #^^^ MODEL PREDICTIONS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    # a = annual
-    # s = seasonal
-    # m = monthly
-    #
-    import datetime
-    temporal = ['a', 's', 'm']
-    freqs = ['A', 'Q', 'M']
-    swgw_obs_groups = ['nrf_{}'.format(x) for x in temporal]
-    reach_swgw_obs_groups_base = ['rrf_{}'.format(x) for x in temporal]
-    reaches = range(9) # This needs to come automatically out of build!!
-    reach_freqs = freqs * len(reaches)
-    reach_swgw_obs_groups = []
-    for reach in reaches:
-        reach_swgw_obs_groups += [x + str(reach) for x in reach_swgw_obs_groups_base]
-
-    all_swgw_obs_groups = swgw_obs_groups + reach_swgw_obs_groups
-    all_freqs = freqs + reach_freqs
-    sfr_df = modflow_model.importSfrOut()
-  
-    for index, obs_group in enumerate(all_swgw_obs_groups):
-        swgw_obs = m.observations.obs_group[obs_group]
-        swgw_obs_ts = swgw_obs['time_series']
-        obs = m.observations.obs_group
-        # Some locations from observations object are defined as a dataframe 
-        # and others as list, so need two ways to handle ...
-        try:
-            sfr_location = obs[obs_group]['locations']['seg_loc']
-        except:
-            sfr_location = obs[obs_group]['locations']
-        # end try            
-        with open(os.path.join(modflow_model.data_folder, 
-                               'observations_{}.txt'.format(obs_group))
-                               , 'w') as f:
-
-            sfr = sfr_df.copy()
-            col_of_interest = 'Qaquifer'
-            #dt = observation['datetime']
-            dateindex = m.model_time.t['dateindex'][1:]
-            sfr = sfr[sfr['segment'].isin(sfr_location)][[col_of_interest, 'time']]
-            sfr = sfr.groupby('time').sum()
-            sfr.index = dateindex
-            dt = swgw_obs_ts['datetime'].tolist()[-1]
-            month = dt.strftime('%b').upper()
-            freq = all_freqs[index]
-            if freq in ['A', 'Q']:
-                freq = "{}-{}".format(freq, month)
-            # end if
-        
-            sfr = sfr.loc[sfr.index > datetime.datetime(2014,1,1)]
-            sfr = sfr.resample(freq).mean()
-            for observation in swgw_obs_ts.iterrows():
-                sim_obs = sfr.loc[observation[1]['datetime']]
-                f.write('%f\n' % sim_obs)                
+        #modflow_model.waterBalanceTS()
     
-    #modflow_model.compareAllObs()
+        #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        #^^^ MODEL PREDICTIONS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        # a = annual
+        # s = seasonal
+        # m = monthly
+        #
+        import datetime
+        temporal = ['a', 's', 'm']
+        freqs = ['A', 'Q', 'M']
+        swgw_obs_groups = ['nrf_{}'.format(x) for x in temporal]
+        reach_swgw_obs_groups_base = ['rrf_{}'.format(x) for x in temporal]
+        reaches = range(11) # This needs to come automatically out of build!!
+        reach_freqs = freqs * len(reaches)
+        reach_swgw_obs_groups = []
+        for reach in reaches:
+            reach_swgw_obs_groups += [x + str(reach) for x in reach_swgw_obs_groups_base]
+    
+        all_swgw_obs_groups = swgw_obs_groups + reach_swgw_obs_groups
+        all_freqs = freqs + reach_freqs
+        sfr_df = modflow_model.importSfrOut()
+      
+        for index, obs_group in enumerate(all_swgw_obs_groups):
+            swgw_obs = m.observations.obs_group[obs_group]
+            swgw_obs_ts = swgw_obs['time_series']
+            obs = m.observations.obs_group
+            # Some locations from observations object are defined as a dataframe 
+            # and others as list, so need two ways to handle ...
+            try:
+                sfr_location = obs[obs_group]['locations']['seg_loc']
+            except:
+                sfr_location = obs[obs_group]['locations']
+            # end try            
+            with open(os.path.join(modflow_model.data_folder, 
+                                   'observations_{}.txt'.format(obs_group))
+                                   , 'w') as f:
+    
+                sfr = sfr_df.copy()
+                col_of_interest = 'Qaquifer'
+                #dt = observation['datetime']
+                dateindex = m.model_time.t['dateindex'][1:]
+                sfr = sfr[sfr['segment'].isin(sfr_location)][[col_of_interest, 'time']]
+                sfr = sfr.groupby('time').sum()
+                sfr.index = dateindex
+                dt = swgw_obs_ts['datetime'].tolist()[-1]
+                month = dt.strftime('%b').upper()
+                freq = all_freqs[index]
+                if freq in ['A', 'Q']:
+                    freq = "{}-{}".format(freq, month)
+                # end if
+            
+                sfr = sfr.loc[sfr.index > datetime.datetime(2014,1,1)]
+                sfr = sfr.resample(freq).mean()
+                for observation in swgw_obs_ts.iterrows():
+                    sim_obs = sfr.loc[observation[1]['datetime']]
+                    f.write('%f\n' % sim_obs)                
+        
+        #modflow_model.compareAllObs()
 
     return modflow_model
 
