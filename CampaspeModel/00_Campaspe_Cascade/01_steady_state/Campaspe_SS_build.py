@@ -203,7 +203,7 @@ for unit in HGU:
                                           PARCHGLIM='factor', 
                                           PARLBND=0.05, 
                                           PARUBND=0.4, 
-                                          PARGP='transport', 
+                                          PARGP='transp', 
                                           SCALE=1, 
                                           OFFSET=0)
 
@@ -213,7 +213,7 @@ SS_model.parameters.parameter_options('disp',
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-4, 
                                       PARUBND=100., 
-                                      PARGP='transport', 
+                                      PARGP='transp', 
                                       SCALE=1, 
                                       OFFSET=0)
 

@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import datetime
 import numpy as np
 import flopy.utils.binaryfile as bf
 
@@ -11,13 +12,12 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 
-def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
+def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
     
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
     name = MM.GW_build.keys()[0]
     m = MM.GW_build[name]
-    
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
     if param_file != "":
@@ -324,7 +324,6 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
         # s = seasonal
         # m = monthly
         #
-        import datetime
         temporal = ['a', 's', 'm']
         freqs = ['A', 'Q', 'M']
         swgw_obs_groups = ['nrf_{}'.format(x) for x in temporal]
@@ -368,13 +367,13 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
                     freq = "{}-{}".format(freq, month)
                 # end if
             
-                sfr = sfr.loc[sfr.index > datetime.datetime(2014,1,1)]
+                sfr = sfr.loc[sfr.index > "2014-1-1"]
                 sfr = sfr.resample(freq).mean()
                 for observation in swgw_obs_ts.iterrows():
                     sim_obs = sfr.loc[observation[1]['datetime']]
                     f.write('%f\n' % sim_obs)                
         
-        #modflow_model.compareAllObs()
+        modflow_model.compareAllObs()
 
     return modflow_model
 

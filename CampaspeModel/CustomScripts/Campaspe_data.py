@@ -261,6 +261,10 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
         print "Load in the recharge zones as determined by Yueqing Xie"
     
     custom_data['recharge_zones'] = os.path.join(Campaspe_data_folder, r"Linking_recharge\Zones_24.tif")
+    custom_data['recharge_zone_info'] = pd.read_csv(
+        os.path.join(Campaspe_data_folder, r"Curve_fitting_norm.dat"),
+        delim_whitespace=True)
+    
     
     if verbose:
         print "************************************************************************"

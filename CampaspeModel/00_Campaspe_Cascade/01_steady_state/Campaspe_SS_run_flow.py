@@ -13,7 +13,7 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
-def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True,
+def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
         plots=False):
     """Model Runner."""
 
@@ -379,6 +379,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=True,
 if __name__ == "__main__":
 
     verbose = True
+    plots = False
                     
     args = sys.argv
     if len(args) > 1:
@@ -400,6 +401,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
+        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose, plots=plots)
     else:
         run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose)

@@ -145,113 +145,113 @@ def build_mesh_and_set_properties(ModelBuilderObject,
         
     for unit in HGU:
         if pilot_points and not pilot_points_YX:
-            MBO.parameters.create_model_parameter_set('kh_' + unit, 
+            MBO.parameters.create_model_parameter_set('kh' + unit, 
                                                            value=HGU_props['Kh mean'][HGU_map[unit]], 
                                                            num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('kh_' + unit, 
+            MBO.parameters.parameter_options_set('kh' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
                                                   PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                                  PARGP='cond_' + unit, 
+                                                  PARGP='k' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('sy_' + unit, 
+            MBO.parameters.create_model_parameter_set('sy' + unit, 
                                                            value=HGU_props['Sy mean'][HGU_map[unit]],
                                                            num_parameters=ss.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('sy_' + unit, 
+            MBO.parameters.parameter_options_set('sy' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=1.0E-3, 
                                                   PARUBND=0.8, 
-                                                  PARGP='sy_' + unit, 
+                                                  PARGP='sy' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('ss_' + unit, 
+            MBO.parameters.create_model_parameter_set('ss' + unit, 
                                                            value=HGU_props['SS mean'][HGU_map[unit]],
                                                            num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('ss_' + unit, 
+            MBO.parameters.parameter_options_set('ss' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
                                                   PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                                  PARGP='ss_' + unit, 
+                                                  PARGP='ss' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
         elif pilot_points_YX:
-            MBO.parameters.create_model_parameter_set('kh_' + unit, 
+            MBO.parameters.create_model_parameter_set('kh' + unit, 
                                                            value=HGU_props['Kh mean'][HGU_map[unit]], 
                                                            num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('kh_' + unit, 
+            MBO.parameters.parameter_options_set('kh' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
                                                   PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                                  PARGP='cond_' + unit, 
+                                                  PARGP='k' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('sy_' + unit, 
+            MBO.parameters.create_model_parameter_set('sy' + unit, 
                                                            value=HGU_props['Sy mean'][HGU_map[unit]],
                                                            num_parameters=ss.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('sy_' + unit, 
+            MBO.parameters.parameter_options_set('sy' + unit, 
                                                   PARTRANS='fixed', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=1.0E-3, 
                                                   PARUBND=0.8, 
-                                                  PARGP='sy_' + unit, 
+                                                  PARGP='sy' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('ss_' + unit, 
+            MBO.parameters.create_model_parameter_set('ss' + unit, 
                                                            value=HGU_props['SS mean'][HGU_map[unit]],
                                                            num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('ss_' + unit, 
+            MBO.parameters.parameter_options_set('ss' + unit, 
                                                   PARTRANS='fixed', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
                                                   PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                                  PARGP='ss_' + unit, 
+                                                  PARGP='ss' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
     
     
         else:
-            MBO.parameters.create_model_parameter('kh_' + unit, 
+            MBO.parameters.create_model_parameter('kh' + unit, 
                                                        value=HGU_props['Kh mean'][HGU_map[unit]])
-            MBO.parameters.parameter_options('kh_' + unit, 
+            MBO.parameters.parameter_options('kh' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
                                                   PARUBND=HGU_props['Kh mean'][HGU_map[unit]] * 10., 
-                                                  PARGP='cond_' + unit, 
+                                                  PARGP='k' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter('sy_' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
-            MBO.parameters.parameter_options('sy_' + unit, 
+            MBO.parameters.create_model_parameter('sy' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
+            MBO.parameters.parameter_options('sy' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=1.0E-3, 
                                                   PARUBND=0.8, 
-                                                  PARGP='sy_' + unit, 
+                                                  PARGP='sy' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter('ss_' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
-            MBO.parameters.parameter_options('ss_' + unit, 
+            MBO.parameters.create_model_parameter('ss' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
+            MBO.parameters.parameter_options('ss' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
                                                   PARUBND=HGU_props['SS mean'][HGU_map[unit]] * 10., 
-                                                  PARGP='ss_' + unit, 
+                                                  PARGP='ss' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
     
             
-        MBO.parameters.create_model_parameter('kv_' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
-        MBO.parameters.parameter_options('kv_' + unit, 
+        MBO.parameters.create_model_parameter('kv' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
+        MBO.parameters.parameter_options('kv' + unit, 
                                               PARTRANS='fixed', 
                                               PARCHGLIM='factor', 
                                               PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
                                               PARUBND=HGU_props['Kz mean'][HGU_map[unit]] * 10., 
-                                              PARGP='cond_' + unit, 
+                                              PARGP='k' + unit, 
                                               SCALE=1, 
                                               OFFSET=0)
     
@@ -264,10 +264,10 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     SS = MBO.model_mesh3D[1].astype(float)
     for key in zone_map.keys():
         if not pilot_points:
-            Kh[Kh == key] = MBO.parameters.param['kh_' + zone_map[key]]['PARVAL1']
-            Sy[Sy == key] = MBO.parameters.param['sy_' + zone_map[key]]['PARVAL1']
-            SS[SS == key] = MBO.parameters.param['ss_' + zone_map[key]]['PARVAL1']
-        Kv[Kv == key] = MBO.parameters.param['kv_' + zone_map[key]]['PARVAL1']
+            Kh[Kh == key] = MBO.parameters.param['kh' + zone_map[key]]['PARVAL1']
+            Sy[Sy == key] = MBO.parameters.param['sy' + zone_map[key]]['PARVAL1']
+            SS[SS == key] = MBO.parameters.param['ss' + zone_map[key]]['PARVAL1']
+        Kv[Kv == key] = MBO.parameters.param['kv' + zone_map[key]]['PARVAL1']
     
     if pilot_points:
         Kh = hk.val_array

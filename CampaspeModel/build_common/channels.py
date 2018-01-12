@@ -11,22 +11,22 @@ def prepare_channel_data_for_model(ModelBuilderObject,
     
     MBO.map_polyline_to_grid(channel_poly)
     
-    MBO.parameters.create_model_parameter('chan_drop', value=0.01)
-    MBO.parameters.parameter_options('chan_drop', 
+    MBO.parameters.create_model_parameter('chndrp', value=0.01)
+    MBO.parameters.parameter_options('chndrp', 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=0.001, 
                                           PARUBND=0.1, 
-                                          PARGP='channel', 
+                                          PARGP='channl', 
                                           SCALE=1, 
                                           OFFSET=0)
-    MBO.parameters.create_model_parameter('kv_chan', value=5E-3)
-    MBO.parameters.parameter_options('kv_chan', 
+    MBO.parameters.create_model_parameter('kv_ch', value=5E-3)
+    MBO.parameters.parameter_options('kv_ch', 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=1E-8, 
                                           PARUBND=20, 
-                                          PARGP='channel', 
+                                          PARGP='channl', 
                                           SCALE=1, 
                                           OFFSET=0)
     
@@ -41,8 +41,8 @@ def prepare_channel_data_for_model(ModelBuilderObject,
         if (row, col) in Camp_riv_cells:
             continue
         channel_stage = MBO.model_mesh3D[0][0][row][col]
-        channel_bed = MBO.model_mesh3D[0][0][row][col] - MBO.parameters.param['chan_drop']['PARVAL1']
-        channel_cond = channel_cell[1] * channel_width_avg * MBO.parameters.param['kv_chan']['PARVAL1'] / channel_bed_thickness
+        channel_bed = MBO.model_mesh3D[0][0][row][col] - MBO.parameters.param['chndrp']['PARVAL1']
+        channel_cond = channel_cell[1] * channel_width_avg * MBO.parameters.param['kv_ch']['PARVAL1'] / channel_bed_thickness
         simple_channel += [[0, row, col, channel_stage, channel_cond, channel_bed]]
     
     channel_start = findInterval(start_irrigation, date_index)

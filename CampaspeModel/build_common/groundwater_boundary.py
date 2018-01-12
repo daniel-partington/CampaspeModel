@@ -1,8 +1,8 @@
 def prepare_ghb_boundary_from_Murray_data(ModelBuilderObject,
                                           mriver_seg_ghb):
     MBO = ModelBuilderObject
-    MBO.parameters.create_model_parameter('mghb_stage', value=0.01)
-    MBO.parameters.parameter_options('mghb_stage', 
+    MBO.parameters.create_model_parameter('mghbst', value=0.01)
+    MBO.parameters.parameter_options('mghbst', 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=-20.0, 
@@ -38,7 +38,7 @@ def prepare_ghb_boundary_from_Murray_data(ModelBuilderObject,
             checked += [lay, row, col]
             if MBO.model_mesh3D[1][0][row][col] == -1:
                 continue
-            MurrayGHBstage = mrow['stage'] + MBO.parameters.param['mghb_stage']['PARVAL1']
+            MurrayGHBstage = mrow['stage'] + MBO.parameters.param['mghbst']['PARVAL1']
             #if MurrayGHBstage < SS_model.model_mesh3D[0][lay][row][col]:
             #    continue
             if lay <= mrow['k']:
@@ -108,7 +108,7 @@ def prepare_ghb_boundary_from_Murray_data(ModelBuilderObject,
         row = MurrayGHB_cell[1]
         col = MurrayGHB_cell[2]
             
-        MurrayGHBstage = mriver_seg_ghb['stage'].loc[Murray_df_ind2[index]] + MBO.parameters.param['mghb_stage']['PARVAL1']
+        MurrayGHBstage = mriver_seg_ghb['stage'].loc[Murray_df_ind2[index]] + MBO.parameters.param['mghbst']['PARVAL1']
         #if MurrayGHBstage < SS_model.model_mesh3D[0][0][row][col]:
         #    continue
         dx = MBO.gridHeight

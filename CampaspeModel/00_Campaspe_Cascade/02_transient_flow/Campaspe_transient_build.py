@@ -850,7 +850,7 @@ for unit in HGU:
                                           PARCHGLIM='factor', 
                                           PARLBND=0.05, 
                                           PARUBND=0.4, 
-                                          PARGP='transport', 
+                                          PARGP='transp', 
                                           SCALE=1, 
                                           OFFSET=0)
 
@@ -860,7 +860,7 @@ tr_model.parameters.parameter_options('disp',
                                       PARCHGLIM='factor', 
                                       PARLBND=1E-5, 
                                       PARUBND=100., 
-                                      PARGP='transport', 
+                                      PARGP='transp', 
                                       SCALE=1, 
                                       OFFSET=0)
 
@@ -878,8 +878,8 @@ tr_model.parameters.parameter_options('sfdisp',
 # Parameters for the Radon model
 
 # Hyporheic zone porosity
-tr_model.parameters.create_model_parameter('hz_poro', value=0.3)
-tr_model.parameters.parameter_options('hz_poro', 
+tr_model.parameters.create_model_parameter('hzporo', value=0.3)
+tr_model.parameters.parameter_options('hzporo', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=0.1, 
@@ -889,8 +889,8 @@ tr_model.parameters.parameter_options('hz_poro',
                                       OFFSET=0)
 
 # Hyporheic zone production of radon
-tr_model.parameters.create_model_parameter('hz_prod', value=3000.)
-tr_model.parameters.parameter_options('hz_prod', 
+tr_model.parameters.create_model_parameter('hzprod', value=3000.)
+tr_model.parameters.parameter_options('hzprod', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=1000., 
@@ -922,8 +922,8 @@ tr_model.parameters.parameter_options('gtv',
                                       OFFSET=0)
 
 # Groundwater concentration of Radon
-tr_model.parameters.create_model_parameter('gw_conc', value=30000.)
-tr_model.parameters.parameter_options('gw_conc', 
+tr_model.parameters.create_model_parameter('gwconc', value=30000.)
+tr_model.parameters.parameter_options('gwconc', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
                                       PARLBND=10000, 
@@ -933,9 +933,9 @@ tr_model.parameters.parameter_options('gw_conc',
                                       OFFSET=0)
 
 # Hyporheic zone depth         
-tr_model.parameters.create_model_parameter_set('hz_dpth', value=0.01, \
+tr_model.parameters.create_model_parameter_set('hzdpth', value=0.01, \
                                                num_parameters=num_reaches)
-tr_model.parameters.parameter_options_set('hz_dpth', 
+tr_model.parameters.parameter_options_set('hzdpth', 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=0., 
