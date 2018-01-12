@@ -535,7 +535,7 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
     
     mriver_seg = MBO.river_mapping['Murray']
 
-    mriver_seg.loc[:, 'strthick'] = MBO.parameters.param['rmbedthk']['PARVAL1']
+    mriver_seg.loc[:, 'strthick'] = MBO.parameters.param['rmbdtk']['PARVAL1']
     
     # Set up bed elevations based on the gauge zero levels:
     Murray = Campaspe_relevant[Campaspe_relevant['Site Name'].str.contains("MURRAY RIVER")]
