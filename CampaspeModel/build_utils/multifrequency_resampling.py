@@ -21,7 +21,8 @@ def _fill_in_time_series_nan(df, fill='mean', stat='50%'):
 def resample_to_model_data_index(df, date_index, frequencies, date_group, \
                                  start, end, \
                                  fill='mean', stat='50%', df_freq=None, 
-                                 index_report=True, label='left', debug=False):
+                                 index_report=True, label='left', debug=False,
+                                 retain_na=False):
 
     pd_dt = pd.to_datetime
 
@@ -74,7 +75,7 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
     # end for
     df_concat = pd.concat(df_resamples)
     if index_report:
-        # TODO: Report if any of the df_concat index are not in date_index
+        # TODO: Report if any of the df_concat indices are not in date_index
         if np.all(np.in1d(df_concat.index, date_index[:-1])): #np.array_equal(df_concat.index, date_index):
             print("Successful match of date indices for model and resampled df")
         else:
@@ -85,7 +86,7 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
     # end if
     
     # Remove the dead rows from the dataframe if there was no filling
-    if fill == 'none':
+    if fill == 'none' and not retain_na:
         df_concat = df_concat.dropna()
     # end if
     
