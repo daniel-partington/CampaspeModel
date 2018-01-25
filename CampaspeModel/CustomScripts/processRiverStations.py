@@ -219,4 +219,6 @@ def getEC(path=None, start_date=None, end_date=None, summary=False, sites=None):
 
 
 if __name__ == "__main__":
-    run = getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated")
+    run = getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
+    run2 = getFlow(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
+    run3 = getEC(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")

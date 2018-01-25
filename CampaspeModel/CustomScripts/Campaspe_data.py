@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverStations, readHydrogeologicalProperties
+from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverStations, readHydrogeologicalProperties, processRiverDiversions
 
 # Define the units for the project for consistency and to allow converions on input data
 # ModelBuilderObject.length = 'm'
@@ -147,8 +147,8 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     df_C14.drop_duplicates(subset=["Bore_id"], inplace=True)
     df_C14.dropna(inplace=True)
     
-    C14_half_life = 5730
-    C14_lambda = np.log(2) / 5730.
+    C14_half_life = 5730.
+    C14_lambda = np.log(2) / C14_half_life
     C13_carbonate_signature = -2 # Could be from 0 to -2
     C13_recharge_signature = -18.5 # Cartright 2010, -15 to -25
     
@@ -174,7 +174,7 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     river_flow_file = "river_flow_processed"
     river_stage_file = "river_stage_processed"
     river_ec_file = "river_ec_processed"
-    river_data_folder = os.path.join(Campaspe_data_folder, r"SW\All_streamflow_Campaspe_catchment\Updated")
+    river_data_folder = os.path.join(Campaspe_data_folder, r"SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
     river_flow_file = os.path.join(MBO.out_data_folder, river_flow_file)
     river_stage_file = os.path.join(MBO.out_data_folder, river_stage_file)
     river_ec_file = os.path.join(MBO.out_data_folder, river_ec_file)
@@ -233,6 +233,20 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     
     custom_data['river_gauges'] = MBO.read_points_data(site_shapefile)
 
+    river_diversions_file = "river_diversions_processed"
+    river_diversions_file = os.path.join(MBO.out_data_folder, river_diversions_file)
+
+    diversions_data_file = os.path.join(Campaspe_data_folder, 
+            r"SW\Campaspe_System_Data.xlsx")
+    if os.path.exists(river_diversions_file + '.pkl'):
+        custom_data['river_diversions_data'] = MBO.load_obj(river_diversions_file + '.pkl')
+    else:
+        custom_data['river_diversions_data'] = \
+            processRiverDiversions.getDiversions(diversions_data_file)
+        MBO.save_obj(custom_data['river_diversions_data'], river_diversions_file)
+
+
+    
     if verbose:
         print "************************************************************************"
         print "Load in the Campaspe river field sampling data"

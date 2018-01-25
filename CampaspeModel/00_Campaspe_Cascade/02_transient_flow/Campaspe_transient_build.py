@@ -63,6 +63,7 @@ Murray_river_poly_file = custom_data['Murray_river_poly_file']
 river_flow_data = custom_data['river_flow_data']
 river_stage_data = custom_data['river_stage_data']
 river_ec_data = custom_data['river_ec_data']
+river_diversion_data = custom_data['river_diversions_data']
 Campaspe = custom_data['Campaspe']
 Campaspe_relevant = custom_data['Campaspe_relevant']
 bores_shpfile = custom_data['bores_shpfile']
@@ -360,10 +361,16 @@ river_seg, reach_df, reach_data, known_points = \
                                     Campaspe,
                                     num_reaches=num_reaches)
 
+Campaspe_info = Campaspe
+Campaspe_info.index = Campaspe_info['Site Id']
+Campaspe_info = Campaspe_info[['Easting', 'Northing', 'Site Name', 'seg_loc']]
+
 segment_data, seg_dict = \
     rivers.create_segment_data_transient(tr_model,
                                       river_seg,
                                       river_flow_data,
+                                      Campaspe_info,
+                                      river_diversion_data,
                                       FieldData,
                                       interp_et,
                                       interp_rain,
@@ -387,9 +394,6 @@ print "************************************************************************"
 print " Creating Campaspe river observations for stage and discharge at "
 print " locations downstream of Lake Eppalock"
 
-Campaspe_info = Campaspe
-Campaspe_info.index = Campaspe_info['Site Id']
-Campaspe_info = Campaspe_info[['Easting', 'Northing', 'Site Name', 'seg_loc']]
 
 Campaspe_flow_sites_list = Campaspe['Site Id'].tolist()
  
@@ -515,9 +519,10 @@ print "************************************************************************"
 print " Creating Campaspe river observations for EC at "
 print " locations downstream of Lake Eppalock"
 ec_time_series = pd.DataFrame()
+EC_input_site = 406207
 for key in river_ec_data.keys():
     # Ignore 406219 Lake Eppalock    
-    if key == 406219:
+    if key == EC_input_site:
         continue
     elif key not in Campaspe_flow_sites_list:
         continue
@@ -683,48 +688,48 @@ for reach in reach_no:
 #$$ Potential obs data $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-#def create_obs_for_sim_obs(entries, name, start, end, freq, riv_segs, \
-#                                     obs_name, obs_type):
-#    '''
-#    Function to create the necessary observations for sw-gw exchange for the 
-#    different spatial and temporal periods
-#    '''
-#    name_list = ['{}{}'.format(name, x) for x in range(0, entries)]
-#    # end if
-#    time_series = pd.DataFrame({'name': name_list, 
-#                                'value': [0.0] * entries, 
-#                                'datetime': pd.date_range(start=start, end=end, freq=freq)[1:]})
-#    # Create zero weighted observations for model predictions of interest
-#    tr_model.observations.set_as_observations(obs_name, 
-#                                              time_series, 
-#                                              riv_segs, 
-#                                              domain='stream', 
-#                                              obs_type=obs_type, 
-#                                              units='m^3/d', 
-#                                              weights=0.0, 
-#                                              real=False)
-#        
-#        
-#sim_river_obs = ['ec_sim', 'rn_sim', 'st_sim', 'fl_sim']
+def create_obs_for_sim_obs(entries, name, start, end, freq, riv_segs, \
+                                     obs_name, obs_type):
+    '''
+    Function to create the necessary observations for sw-gw exchange for the 
+    different spatial and temporal periods
+    '''
+    name_list = ['{}{}'.format(name, x) for x in range(0, entries)]
+    # end if
+    time_series = pd.DataFrame({'name': name_list, 
+                                'value': [0.0] * entries, 
+                                'datetime': pd.date_range(start=start, end=end, freq=freq)[1:]})
+    # Create zero weighted observations for model predictions of interest
+    tr_model.observations.set_as_observations(obs_name, 
+                                              time_series, 
+                                              riv_segs, 
+                                              domain='stream', 
+                                              obs_type=obs_type, 
+                                              units='m^3/d', 
+                                              weights=0.0, 
+                                              real=False)
+        
+        
+sim_river_obs = ['ec_sim', 'rn_sim', 'st_sim', 'fl_sim']
 #
-#for reach in reach_no:
-#    names_reach = [x + str(reach) for x in names]
-#    obs_names_reach = [x + str(reach) for x in obs_names_g2g_reach]
-#    obs_types_reach = [x + "r" for x in obs_types]
-#    create_obs_for_sim_obs(12, 
-#                           names_reach[i], 
-#                           fy_start, 
-#                           fy_end, 
-#                           swgw_exch_obs_freqs[i], 
-#                           river_segs_reach[reach],
-#                           obs_names_reach[i], 
-#                           obs_types_reach[i])
-#      
-#        
-## Create obs for potential head observations        
-#sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
-#for sim_head_hgu in sim_heads_obs_hgu:        
+for reach in reach_no:
+    names_reach = [x + str(reach) for x in names]
+    obs_names_reach = [x + str(reach) for x in obs_names_g2g_reach]
+    obs_types_reach = [x + "r" for x in obs_types]
+    create_obs_for_sim_obs(12, 
+                           names_reach[i], 
+                           fy_start, 
+                           fy_end, 
+                           swgw_exch_obs_freqs[i], 
+                           river_segs_reach[reach],
+                           obs_names_reach[i], 
+                           obs_types_reach[i])
 
+    # Create obs for potential head observations        
+sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
+for sim_head_hgu in sim_heads_obs_hgu:
+    pass
+    
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -732,31 +737,31 @@ for reach in reach_no:
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
     
-# These are the "Tableau 20" colors as RGB.    
-import matplotlib.pyplot as plt
-colors = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
-             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
-             (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
-             (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
-             (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]    
-  
-# Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
-for i in range(len(colors)):    
-    r, g, b = colors[i]    
-    colors[i] = (r / 255., g / 255., b / 255.)    
-    
-flatten = lambda l: [item for sublist in l for item in sublist]
-fig = plt.figure(figsize=(2.5,5))
-for index, reach in enumerate(river_segs_reach[1:]):
-    reach_river = river_seg[river_seg['iseg'].isin(reach)]
-    points = [x for x in reach_river['amalg_riv_points_collection']]
-    points = flatten(points)
-    x_points = [x[0] for x in points]
-    y_points = [y[1] for y in points]    
-    plt.plot(x_points, y_points, color=colors[index], label=str(index + 1))
-plt.legend()
-plt.tight_layout()
-plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master_Colossus3\river_reaches.png")
+## These are the "Tableau 20" colors as RGB.    
+#import matplotlib.pyplot as plt
+#colors = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
+#             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
+#             (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
+#             (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
+#             (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]    
+#  
+## Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
+#for i in range(len(colors)):    
+#    r, g, b = colors[i]    
+#    colors[i] = (r / 255., g / 255., b / 255.)    
+#    
+#flatten = lambda l: [item for sublist in l for item in sublist]
+#fig = plt.figure(figsize=(2.5,5))
+#for index, reach in enumerate(river_segs_reach[1:]):
+#    reach_river = river_seg[river_seg['iseg'].isin(reach)]
+#    points = [x for x in reach_river['amalg_riv_points_collection']]
+#    points = flatten(points)
+#    x_points = [x[0] for x in points]
+#    y_points = [y[1] for y in points]    
+#    plt.plot(x_points, y_points, color=colors[index], label=str(index + 1))
+#plt.legend()
+#plt.tight_layout()
+#plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master_Colossus3\river_reaches.png")
 
 print "************************************************************************"
 print " Creating Campaspe river boundary"
@@ -767,7 +772,9 @@ tr_model.boundaries.create_model_boundary_condition('Campaspe River',
 tr_model.boundaries.assign_boundary_array('Campaspe River', 
                                           [reach_data, seg_dict])
 
-Eppalock_EC_ts = river_ec_data[406219]
+Eppalock_EC_ts = river_ec_data[EC_input_site] #river_ec_data[406219]
+Eppalock_EC_ts = Eppalock_EC_ts.dropna()
+Eppalock_EC_ts = Eppalock_EC_ts.resample('M').mean()
 Eppalock_EC_ts_resampled = resample_to_model_data_index(Eppalock_EC_ts, 
                                                         date_index, 
                                                         frequencies, 
@@ -790,9 +797,8 @@ riv, mriver_seg_ghb = \
                                          r"C:\Workspace\part0075\MDB modelling\test_model.shp", #Murray_river_poly_file,
                                          Campaspe_relevant,
                                          river_stage_data,
-                                         river_seg,
-                                         plot=True) 
-   
+                                         river_seg) 
+
 print "************************************************************************"
 print " Creating Murray River boundary"
 

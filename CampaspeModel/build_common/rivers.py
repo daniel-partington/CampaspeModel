@@ -324,6 +324,8 @@ def create_segment_data(ModelBuilderObject, river_seg, river_flow_data):
 def create_segment_data_transient(ModelBuilderObject,
                                   river_seg,
                                   river_flow_data,
+                                  Campaspe_info,
+                                  river_diversion_data,
                                   FieldData,
                                   interp_et,
                                   interp_rain,
@@ -364,6 +366,80 @@ def create_segment_data_transient(ModelBuilderObject,
                                                              df_freq='D',
                                                              fill='stats',
                                                              stat='25%')                                                             
+
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@ Diversions from the Campaspe @@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+    # There are three types of diversion, input to the Campaspe for which there
+    # is data.
+    #
+    # 1. Private diversions which can be broken into three reaches:
+    #       a. Eppalock to Campaspe Weir (406207 to 406203)
+    #       b. Campaspe Weir to Waranga Western Channel (406203 to 406202)
+    #       c. Waranga Western Channel to Murray River (406202 to end)
+    #
+    # 2. Diversion to channel 1 and 2 just upstream of the Campaspe Weir @ 406218
+    #
+    # 3. Pumping into and out of the Waranga Western Channel @ 406202
+    #
+    
+    rdd = river_diversion_data
+    rdd_resampled = {}
+    rdd_resampled['CID Diversions'] = resample_to_model_data_index(rdd['CID Diversions'].sum(axis=1),
+                                                      date_index, 
+                                                      frequencies, 
+                                                      date_group,
+                                                      start,
+                                                      end,
+                                                      df_freq='M',
+                                                      fill='zero')
+
+    rdd_resampled['Campaspe River Use'] = resample_to_model_data_index(rdd['Campaspe River Use'],
+                                                      date_index, 
+                                                      frequencies, 
+                                                      date_group,
+                                                      start,
+                                                      end,
+                                                      df_freq='M',
+                                                      fill='none',
+                                                      retain_na=True)
+
+    rdd_resampled['Campaspe River Use'].ffill(inplace=True)
+    rdd_resampled['Campaspe River Use'].fillna(0., inplace=True)
+    
+    rdd_resampled['WWC'] = resample_to_model_data_index(rdd['WWC'],
+                                                      date_index, 
+                                                      frequencies, 
+                                                      date_group,
+                                                      start,
+                                                      end,
+                                                      df_freq='M',
+                                                      fill='none',
+                                                      retain_na=True)
+
+    rdd_resampled['WWC'].ffill(inplace=True)
+    rdd_resampled['WWC'].fillna(0., inplace=True)
+
+    
+    #!!!! 
+    
+    # Create reaches based on locations of gauging stations:
+    div_gauge_locations = np.sort(Campaspe_info[Campaspe_info.index.isin([406207, 406203, 406202])]['seg_loc'].unique())
+    div_reach_no = range(len(div_gauge_locations))
+    river_seg['div_reach'] = np.nan    
+    river_seg.loc[river_seg['iseg'].isin(div_gauge_locations), 'div_reach'] = div_reach_no         
+    river_seg['div_reach'].fillna(method='ffill', inplace=True)
+    river_seg['div_reach'].fillna(method='bfill', inplace=True)
+    river_seg['div_reach'].astype(int, inplace=True)
+    # Remove diversions from 406207 and upstream if it didn't map to first segment
+    river_seg.loc[river_seg['iseg'].isin(range(1, div_gauge_locations[0] + 1)), 'div_reach'] = -99
+    river_segs_reach = [river_seg['iseg'][river_seg['div_reach'] == x].tolist() for x in div_reach_no]
+    river_segs_reach_len = [float(len(river_segs_reach[ind])) for ind, x in enumerate(river_segs_reach)]
+                        
+    CID_gauge_loc = np.sort(Campaspe_info[Campaspe_info.index == 406218]['seg_loc'])[0]
+    WWC_gauge_loc = np.sort(Campaspe_info[Campaspe_info.index == 406202]['seg_loc'])[0]
+                        
     flow = [0] * len(nseg)
     runoff = [0] * len(nseg)
     etsw = [0] * len(nseg)
@@ -400,6 +476,23 @@ def create_segment_data_transient(ModelBuilderObject,
     for per, date in enumerate(date_index[:-1]):
     
         flow[0] = Eppalock_inflow_resampled.loc[date]['Mean']
+
+        # Private diversions:
+        cols = ['Eppalock to C/Weir', 'Campaspe Weir to WWC', 'WWC to Murray']
+        for ind, div_reach in enumerate(river_segs_reach):
+            flow_temp = - rdd_resampled['Campaspe River Use'][cols[ind]].loc[date] / river_segs_reach_len[ind]
+            for div_seg in div_reach:
+                flow[div_seg - 1] = flow_temp
+
+        # CID diversions:
+        flow[CID_gauge_loc] = flow[CID_gauge_loc] - rdd_resampled['CID Diversions'].loc[date]
+        # WWC pumping:            
+        flow[WWC_gauge_loc] = flow[WWC_gauge_loc] \
+                             + rdd_resampled['WWC']['WWC TO CAMPASPE (RO317)'].loc[date] \
+                             + rdd_resampled['WWC']['WWC TO CAMPASPE (RO317).1'].loc[date] \
+                             - rdd_resampled['WWC']['CAMPASPE PUMP TO WWC -REG'].loc[date] \
+                             - rdd_resampled['WWC']['CAMPASPE PUMP TO WWC -UNREG'].loc[date] \
+
         etsw = [interp_et[per][x[1]['i'], x[1]['j']] for x in river_seg.iterrows()] 
         pptsw = [interp_rain[per][x[1]['i'], x[1]['j']] for x in river_seg.iterrows()] 
             
@@ -530,7 +623,7 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
                                               SCALE=1, 
                                               OFFSET=0)
         
-    print " ** Creating river dataframe"
+    print(" ** Creating river dataframe")
     MBO.create_river_dataframe('Murray', Murray_river_poly_file, surface_raster_high_res, verbose=True)
     
     mriver_seg = MBO.river_mapping['Murray']
@@ -669,12 +762,12 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
     mriver_seg = mriver_seg.iloc[::-1]
     mriver_seg.index = range(mriver_seg.shape[0])
     
-    print " ** Merging collocated stream reaches"
+    print(" ** Merging collocated stream reaches")
     mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=2000.)
-    print " ** Merging short stream reaches"
+    print(" ** Merging short stream reaches")
     mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=300.)
 
-    print " ** Recheking for collocated Campaspe and Murray cells"
+    print(" ** Rechecking for collocated Campaspe and Murray cells")
     #mriver_seg['cell_loc_tuple'] = [(x[1]['k'], x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
     #mriver_seg['cell_loc_tuple'] = [(x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
     #mriver_seg = mriver_seg.groupby(by='cell_loc_tuple').mean()
