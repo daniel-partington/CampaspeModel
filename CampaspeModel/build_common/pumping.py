@@ -126,10 +126,18 @@ def prepare_pumping_data_for_model(ModelBuilderObject,
             # Let's only consider times in our date range though
             #date_index = pd.date_range(start=tr_model.model_time.t['start_time'], end=tr_model.model_time.t['end_time'], freq=tr_model.model_time.t['time_step'])
             date_index2 = pd.date_range(start=start_pumping, end=end, freq='M')
-            pumping_data_ts = pumping_data_ts.reindex(date_index2)    
-            pumping_data_ts = pumping_data_ts.ix[start_pumping:end]
-            pumping_data_ts = pumping_data_ts.fillna(0.0)
-    
+            if pumping_data_ts.iloc[-1][pump] > 0.:
+                pumping_data_ts = pumping_data_ts.fillna(0.0)
+                pumping_data_ts = pumping_data_ts.reindex(date_index2)    
+                pumping_data_ts = pumping_data_ts.ix[start_pumping:end]
+                pumping_data_ts = pumping_data_ts.ffill()
+                pumping_data_ts = pumping_data_ts.fillna(0.0)
+            else:
+                pumping_data_ts = pumping_data_ts.fillna(0.0)
+                pumping_data_ts = pumping_data_ts.reindex(date_index2)    
+                pumping_data_ts = pumping_data_ts.ix[start_pumping:end]
+                pumping_data_ts = pumping_data_ts.fillna(0.0)
+
             resampled_pumping_data_ts = \
                 resample_to_model_data_index(pumping_data_ts, date_index, 
                                              frequencies, date_group, start, end,
