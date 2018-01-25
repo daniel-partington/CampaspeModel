@@ -46,7 +46,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                 else: 
                     points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
         return points_values_dict    
-
+        
     def update_pilot_points(zone_map, Zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
         points_values_dict = create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m)
         p = m.pilot_points[par_name]
@@ -58,7 +58,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
         #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
         return p.val_array
 
-    Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh_', 'hk_pilot_points',
+    Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh', 'hk_pilot_points',
                              m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
@@ -67,12 +67,12 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
-    Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
+    Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy', 'sy_pilot_points',
                              m, 'sy_val_array')
     Sy[Sy > 0.5] = 0.25
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
-    SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
+    SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss', 'ss_pilot_points',
                              m, 'ss_val_array')
     SS[SS > 0.01] = 1E-5
     m.save_array(os.path.join(data_folder, 'SS'), SS)
@@ -230,8 +230,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
         if m.model_mesh3D[1][0][row][col] == -1:
             continue
         #print m.model_mesh3D
-        drain_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['drain_drop']['PARVAL1']
-        drain_cond = drain_cell[1] * drain_width_avg * m.parameters.param['kv_drain']['PARVAL1'] / drain_bed_thickness
+        drain_bed = m.model_mesh3D[0][0][row][col] - m.parameters.param['drndrp']['PARVAL1']
+        drain_cond = drain_cell[1] * drain_width_avg * m.parameters.param['kv_drn']['PARVAL1'] / drain_bed_thickness
         simple_drain += [[0, row, col, drain_bed, drain_cond]]
     
     drain = {}
@@ -373,7 +373,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                     sim_obs = sfr.loc[observation[1]['datetime']]
                     f.write('%f\n' % sim_obs)                
         
-        modflow_model.compareAllObs()
+        #modflow_model.compareAllObs()
 
     return modflow_model
 

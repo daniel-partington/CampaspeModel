@@ -63,7 +63,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
         #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
         return p.val_array
 
-    Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh_', 'hk_pilot_points',
+    Kh = update_pilot_points(zone_map, Zone, Kh, 'hk', 'kh', 'hk_pilot_points',
                              m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
@@ -72,13 +72,13 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
-    Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy_', 'sy_pilot_points',
+    Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy', 'sy_pilot_points',
                              m, 'sy_val_array')
     print("Erroneous Sy pilot cells: {}".format(len(Sy[Sy > 0.5])))
     Sy[Sy > 0.5] = 0.25
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
-    SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss_', 'ss_pilot_points',
+    SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss', 'ss_pilot_points',
                              m, 'ss_val_array')
     print("Erroneous Ss pilot cells: {}".format(len(SS[SS > 0.01])))
     SS[SS > 0.01] = 1E-5
@@ -374,11 +374,12 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
             modflow_model.viewHeads2()
             #modflow_model.viewHeadsByZone()
             #modflow_model.viewHeadLayer(figsize=(20,10))
-
+    
+    return modflow_model
 
 if __name__ == "__main__":
 
-    verbose = True
+    verbose = False
     plots = False
                     
     args = sys.argv

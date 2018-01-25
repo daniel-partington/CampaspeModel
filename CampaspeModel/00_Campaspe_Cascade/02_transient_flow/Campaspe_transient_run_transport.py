@@ -339,7 +339,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     sfr_df.loc[:, 'Cumulative Length'] = cum_len * (sfr_df['time'].max() + 1)
     
     # Hyporheic zone depth         
-    hz_depth_vals = [m.parameters.param['hz_dpth{}'.format(x)]['PARVAL1'] for \
+    hz_depth_vals = [m.parameters.param['hzdpth{}'.format(x)]['PARVAL1'] for \
                                         x in range(num_reaches)] 
     R_depth_HZ = np.interp(sfr_info['Cumulative Length'].tolist(), 
                            known_points, 
@@ -348,10 +348,10 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     df_size = sfr_info.shape[0]
     t_steps = sfr_df['time'].max() + 1
     # Hyporheic zone porosity
-    sfr_df.loc[:, 'HZ_poro'] = [m.parameters.param['hz_poro']['PARVAL1']] \
+    sfr_df.loc[:, 'HZ_poro'] = [m.parameters.param['hzporo']['PARVAL1']] \
                                * df_size * t_steps
     # Hyporheic zone production of radon
-    sfr_df.loc[:, 'HZ_Prod_Rate'] = [m.parameters.param['hz_prod']['PARVAL1']] \
+    sfr_df.loc[:, 'HZ_Prod_Rate'] = [m.parameters.param['hzprod']['PARVAL1']] \
                                     * df_size * t_steps
     # Hyporheic zone residence time
     sfr_df.loc[:, 'HZ_RTime'] = [m.parameters.param['hz_rt']['PARVAL1']] \
@@ -362,7 +362,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     sfr_df.loc[:, 'GTV'] = [m.parameters.param['gtv']['PARVAL1']] \
                            * df_size * t_steps
     # Groundwater radon concentration
-    sfr_df.loc[:, 'GW_Rn_conc'] = [m.parameters.param['gw_conc']['PARVAL1']] \
+    sfr_df.loc[:, 'GW_Rn_conc'] = [m.parameters.param['gwconc']['PARVAL1']] \
                                   * df_size * t_steps
     # Groundwater EC
     sfr_df.loc[:, 'GW_EC'] = [10.] * df_size * t_steps # ARBITRARY!!!!
@@ -410,7 +410,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 #        for sfrnode in [1]:
 #            ax = sfr_transport[sfr_transport['SFR-NODE'] == sfrnode].plot(x='TIME', y=['SFR-CONCENTRATION'])
 #            ax.set_title(specimen)
-    
+#    
 #    #
 #    concobj = bf.UcnFile(modflow_model.data_folder + 'MT3D001.UCN')
 #    arry = concobj.get_alldata()[32]
