@@ -54,7 +54,7 @@ def prepare_transient_rainfall_data_for_model(ModelBuilderObject,
                                               value=0.01,
                                               num_parameters=rch_zones)
     MBO.parameters.parameter_options_set('ssrch', 
-                                          PARTRANS='fixed', 
+                                          PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=1.0E-3, 
                                           PARUBND=0.5, 

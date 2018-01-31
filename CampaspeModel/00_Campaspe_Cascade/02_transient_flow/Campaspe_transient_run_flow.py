@@ -62,21 +62,23 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                              m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
-    print("Erroneous pilot cells: {}".format(len(Kh[Kh > 10000.])))
+    print("Erroneous K pilot cells: {}".format(len(Kh[Kh > 10000.])))
     Kh[Kh > 10000.] = 25.
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
     Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy', 'sy_pilot_points',
                              m, 'sy_val_array')
+    print("Erroneous Sy pilot cells: {}".format(len(Sy[Sy > 0.5])))
     Sy[Sy > 0.5] = 0.25
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
     SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss', 'ss_pilot_points',
                              m, 'ss_val_array')
+    print("Erroneous Ss pilot cells: {}".format(len(SS[SS > 0.01])))
     SS[SS > 0.01] = 1E-5
     m.save_array(os.path.join(data_folder, 'SS'), SS)
-
+    
     m.properties.update_model_properties('Kh', Kh)
     m.properties.update_model_properties('Kv', Kv)
     m.properties.update_model_properties('Sy', Sy)
@@ -165,7 +167,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
 
     rch_zones = len(rch_zone_dict.keys())
 
-    par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
+    par_rech_vals = [m.parameters.param['rchred{}'.format(i)]['PARVAL1'] \
                      for i in xrange(rch_zones - 1)]
 
 #    par_rech_vals = [0.02 \
