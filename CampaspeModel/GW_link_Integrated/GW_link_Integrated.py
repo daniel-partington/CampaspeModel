@@ -17,9 +17,9 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
-
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
+
 
 def process_line(line):
     return [x.strip() for x in line.split(':')[1].strip().split(',')]
@@ -60,6 +60,16 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
         # Read in bores that relate to external models
         model_linking = p_j(data_folder, "model_linking.csv")
+
+        # Need to check given data folder and its parent directory
+        # Dirty hack, I know :(
+        if not os.path.exists(model_linking):
+            model_linking = p_j(data_folder, "..", "model_linking.csv")
+            if not os.path.exists(model_linking):
+                raise IOError("Could not find bore linkages information (`model_linking.csv`)")
+            # End if
+        # End if
+
         with open(model_linking, 'r') as f:
             lines = f.readlines()
 
