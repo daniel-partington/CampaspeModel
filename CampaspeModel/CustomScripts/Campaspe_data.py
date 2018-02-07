@@ -20,8 +20,8 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
         print "************************************************************************"
         print " Setting model boundary "
     
-    MBO.set_model_boundary_from_polygon_shapefile("GW_model_area.shp", 
-                                                       shapefile_path=MBO.data_folder)
+    MBO.set_model_boundary_from_polygon_shapefile("GW_model_area2.shp", 
+                                                  shapefile_path=MBO.data_folder)
     
     # Set data boundary for model data
     if verbose:
@@ -183,6 +183,15 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     site_details = pd.read_csv(os.path.join(river_data_folder, site_details_file))
     # As all of the stream data for the whole of the Camaspe catchment is in the folder
     # to be processed, we can prefilter sites to examine by specifying sites.
+    river_file = os.path.join(Campaspe_data_folder, "Field_sampling", "BedElevation_GPS.csv")
+    custom_data['Campaspe_field_elevations'] = \
+        pd.read_csv(river_file, usecols=['Northing', 
+                                         'Easting', 
+                                         'Elevation',
+                                         'Site', 
+                                         'Chainage (m)'])\
+                                         .groupby('Site').mean().sort_values('Chainage (m)')
+    
     custom_data['Campaspe_relevant'] = \
         site_details[
           site_details['Site Name'].str.contains("CAMPASPE RIVER") | \

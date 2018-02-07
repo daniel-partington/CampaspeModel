@@ -21,6 +21,7 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
                                     river_gauges,
                                     Campaspe_river_poly_file,
                                     Campaspe,
+                                    Campaspe_field_elevations,
                                     num_reaches=4,
                                     plot=False):
     
@@ -196,14 +197,17 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     river_seg['ireach'] = 1
     river_seg['iseg'] = [x + 1 for x in range(river_seg.shape[0])]
     
-                          
+    Campaspe_field_elevations = Campaspe_field_elevations[Campaspe_field_elevations.index != 'TribB']
     # Set up bed elevations based on the gauge zero levels:
     gauge_points = [x for x in zip(Campaspe.Easting, Campaspe.Northing)]
+    field_points = [x for x in zip(Campaspe_field_elevations.Easting, Campaspe_field_elevations.Northing)]
     river_gauge_seg = MBO.get_closest_riv_segments('Campaspe', gauge_points)
+    river_field_seg = MBO.get_closest_riv_segments('Campaspe', field_points)
     river_seg.loc[:, 'bed_from_gauge'] = np.nan
     
     Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
     Campaspe['seg_loc'] = river_gauge_seg         
+    Campaspe_field_elevations['seg_loc'] = river_field_seg         
     Campaspe_gauge_zero = Campaspe[Campaspe['new_gauge'] > 10.]
     
     # There are two values at the Campaspe weir, while it would be ideal to split the
@@ -216,6 +220,8 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     Campaspe_gauge_zero2 = Campaspe_gauge_zero
     
     river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
+    river_seg.loc[river_seg['iseg'].isin(Campaspe_field_elevations['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_field_elevations['Elevation'].tolist(), reverse=True)
+
     river_seg['bed_from_gauge'] = river_seg.set_index(river_seg['Cumulative Length'])['bed_from_gauge'].interpolate(method='values', limit_direction='both').tolist()
     river_seg['bed_from_gauge'] = river_seg['bed_from_gauge'].bfill() 
     
@@ -257,6 +263,8 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
              
     def slope_corrector(x):
         if  x  < 0.0001:
+            return 0.0001
+        elif x > 1E5:
             return 0.0001
         else:
             return x
