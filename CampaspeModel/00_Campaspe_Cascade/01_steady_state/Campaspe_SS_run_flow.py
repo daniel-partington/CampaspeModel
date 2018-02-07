@@ -357,6 +357,11 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
                     modflow_model.buildMODFLOW(transport=True)
                     converge = modflow_model.runMODFLOW(silent=True)
                     #break
+                    if not converge:
+                        if verbose:
+                            print("Absolute failure to find solution")
+                        #end if
+                        break
                     filename = os.path.join(modflow_model.data_folder, modflow_model.name + '.hds')
                     head = modflow_model.getFinalHeads(str(filename))
                     modflow_model.strt = head

@@ -65,6 +65,7 @@ river_stage_data = custom_data['river_stage_data']
 river_ec_data = custom_data['river_ec_data']
 river_diversion_data = custom_data['river_diversions_data']
 Campaspe = custom_data['Campaspe']
+Campaspe_field_elevations = custom_data['Campaspe_field_elevations']
 Campaspe_relevant = custom_data['Campaspe_relevant']
 bores_shpfile = custom_data['bores_shpfile']
 final_bores = custom_data['final_bores'] 
@@ -128,7 +129,7 @@ HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(tr_mod
                                                   hu_raster_path,
                                                   HGU_props,
                                                   resolution=1000,
-                                                  create_basement=True)
+                                                  create_basement=False)
 
 print "************************************************************************"
 print " Interpolating rainfall data to grid and time steps"
@@ -319,6 +320,7 @@ C14_obs_time_series = C14_obs_time_series[['Bore_id', 'a14C_corrected']]
 C14_obs_time_series['datetime'] = pd.to_datetime(datetime.date(2015,12,30))
 C14_obs_time_series.rename(columns={'Bore_id':'name', 'a14C_corrected':'value'}, inplace=True)
 C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']]
+C14_bore_points3D = C14_bore_points3D[C14_bore_points3D['z'] != 'null']
 C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
 C14_bore_points3D.rename(columns={'zone55_easting':'Easting', 'zone55_northing':'Northing'}, inplace=True)
 
@@ -359,6 +361,7 @@ river_seg, reach_df, reach_data, known_points = \
                                     river_gauges,
                                     Campaspe_river_poly_file,
                                     Campaspe,
+                                    Campaspe_field_elevations,
                                     num_reaches=num_reaches)
 
 Campaspe_info = Campaspe
@@ -608,6 +611,7 @@ print " Creating Campaspe river simulated exchange observations for data worth a
    
 fy_start = end - datetime.timedelta(days=365)
 fy_end = end 
+Years = 1
 
 def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, \
                                      obs_name, obs_type):
@@ -634,7 +638,7 @@ def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, 
                                               real=False)
 
 # Create river spatial groups: Whole of river, reach by gauge, reach by segment
-entries = [1, 4, 12]
+entries = np.array([1, 4, 12]) * Years
 names = ['a_swgw', 's_swgw', 'm_swgw']
 swgw_exch_obs_freqs = ['A-MAY', '3M', 'M']
 obs_names_whole = ['nrf_a', 'nrf_s', 'nrf_m']
@@ -666,7 +670,7 @@ river_seg['reach'].astype(int, inplace=True)
 river_segs_reach = [river_seg['iseg'][river_seg['reach'] == x].tolist() for x in reach_no]
 
 obs_names_seg = ['srf_a', 'srf_s', 'srf_m']
-river_segs_seg = [[x] for x in river_seg['iseg']]
+river_segs_seg = [x for x in river_seg['iseg']]
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 for reach in reach_no:
@@ -688,48 +692,108 @@ for reach in reach_no:
 #$$ Potential obs data $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-def create_obs_for_sim_obs(entries, name, start, end, freq, riv_segs, \
-                                     obs_name, obs_type):
+def create_obs_for_sim_obs(sim_obs, entries, names, start, end, freq, locs, \
+                                     obs_name, obs_type, units, domain):
     '''
     Function to create the necessary observations for sw-gw exchange for the 
     different spatial and temporal periods
     '''
-    name_list = ['{}{}'.format(name, x) for x in range(0, entries)]
     # end if
-    time_series = pd.DataFrame({'name': name_list, 
-                                'value': [0.0] * entries, 
-                                'datetime': pd.date_range(start=start, end=end, freq=freq)[1:]})
+
+    time_series = pd.DataFrame()
+    for name in names:
+        time_series = pd.concat((time_series, pd.DataFrame({'name': [name] * entries, 
+                                    'value': [0.0] * entries, 
+                                    'datetime': pd.date_range(start=start, end=end, freq=freq)[1:]})), axis=0)
+    time_series.reset_index(inplace=True)
     # Create zero weighted observations for model predictions of interest
     tr_model.observations.set_as_observations(obs_name, 
                                               time_series, 
-                                              riv_segs, 
-                                              domain='stream', 
+                                              locs, 
+                                              domain=domain, 
                                               obs_type=obs_type, 
-                                              units='m^3/d', 
+                                              units=units, 
                                               weights=0.0, 
                                               real=False)
-        
-        
-sim_river_obs = ['ec_sim', 'rn_sim', 'st_sim', 'fl_sim']
-#
-for reach in reach_no:
-    names_reach = [x + str(reach) for x in names]
-    obs_names_reach = [x + str(reach) for x in obs_names_g2g_reach]
-    obs_types_reach = [x + "r" for x in obs_types]
-    create_obs_for_sim_obs(12, 
-                           names_reach[i], 
-                           fy_start, 
-                           fy_end, 
-                           swgw_exch_obs_freqs[i], 
-                           river_segs_reach[reach],
-                           obs_names_reach[i], 
-                           obs_types_reach[i])
 
-    # Create obs for potential head observations        
-sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
-for sim_head_hgu in sim_heads_obs_hgu:
-    pass
+sim_river_obs = ['ec_sim', 'rn_sim', 'st_sim', 'fl_sim']
+units = ['uS/cm', 'Bq/l', 'mAHD', 'm^3/d']
+#
+for index, sim in enumerate(sim_river_obs):
+    names_seg = ["{}{}".format(sim, x) for x in river_segs_seg]
+    create_obs_for_sim_obs(len(river_segs_seg),
+                           12,
+                           names_seg,
+                           fy_start,
+                           fy_end,
+                           'M',
+                           river_segs_seg,
+                           sim,
+                           sim,
+                           units[index],
+                           'stream')
+
+def create_cell_filter(cache):
+    """
+    Generates a cell filter that removes duplicate cells based on x and y position.
+    Note that this filter assumes that the structure of the passed array is [z, x, y]
     
+    :param cache: set object, caching object that has an `add` method.
+    
+    :returns: function
+    """
+    def filt(x):
+        if (x[1], x[2]) in cache:
+            return False
+
+        cache.add((x[1], x[2]))
+        return True
+    # End filt()
+    
+    return filt
+# End create_filter()
+
+def filter_to_highest_cells(array):
+    '''
+    Removes cells that are below the 'highest' cells for each x and y position.
+    
+    :param array: ndarray, array to sort and filter in [z, x, y] format.
+    '''
+    cache = set()
+    filt = create_cell_filter(cache)
+    sorted_list = sorted(array, key=lambda x: (x[0], x[1], x[2]))
+
+    return np.asarray(filter(filt, sorted_list))
+# End filter_to_highest_cells()
+
+def porous_potential_obs(sim_type_obs_hgu, hgus, fy_start, fy_end, freq, units, domain, skip=0):
+    for index, sim_type_hgu in enumerate(sim_type_obs_hgu):
+        sim_locs = np.argwhere(tr_model.model_mesh3D[1] == hgus[index])
+        sim_locs = filter_to_highest_cells(sim_locs)
+        sim_locs = sim_locs[0::skip + 1]
+        names_seg = ["{}{}".format(sim_type_hgu, x) for x in range(len(sim_locs))]
+        sim_loc_dict = {x[0]:x[1] for x in zip(names_seg, sim_locs)}
+        create_obs_for_sim_obs(len(sim_locs),
+                               12,
+                               names_seg,
+                               fy_start,
+                               fy_end,
+                               freq,
+                               sim_loc_dict,
+                               sim_type_hgu,
+                               sim_type_hgu,
+                               units,
+                               domain)
+
+
+hgus = [1, 3, 5, 6]
+# Create obs for potential head observations        
+sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
+porous_potential_obs(sim_heads_obs_hgu, hgus, fy_start, fy_end, 'M', 'mAHD', 'porous', skip=4)
+# Create obs for potential C14 observations        
+sim_c14_obs_hgu = ['c14coo', 'c14she', 'c14ren', 'c14cal']
+porous_potential_obs(sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 'pmc', 'porous', skip=4)
+
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$

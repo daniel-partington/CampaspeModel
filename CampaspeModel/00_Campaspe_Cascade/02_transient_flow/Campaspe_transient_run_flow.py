@@ -375,6 +375,15 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                     sim_obs = sfr.loc[observation[1]['datetime']]
                     f.write('%f\n' % sim_obs)                
         
+        #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        #^^^ POTENTIAL OBS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        sim_river_obs = ['st_sim', 'fl_sim']
+        sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
+
+        sim_c14_obs_hgu = ['c14coo', 'c14she', 'c14ren', 'c14cal']
+        sim_river_obs = ['ec_sim', 'rn_sim']
+
         #modflow_model.compareAllObs()
 
     return modflow_model

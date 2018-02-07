@@ -52,6 +52,7 @@ river_flow_data = custom_data['river_flow_data']
 river_stage_data = custom_data['river_stage_data']
 Campaspe = custom_data['Campaspe']
 Campaspe_relevant = custom_data['Campaspe_relevant']
+Campaspe_field_elevations = custom_data['Campaspe_field_elevations']
 
 #******************************************************************************
 #******************************************************************************
@@ -68,7 +69,7 @@ HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(SS_mod
                                                   hu_raster_path,
                                                   HGU_props,
                                                   resolution=1000,
-                                                  create_basement=True)
+                                                  create_basement=False)
 
 SS_model.map_rasters_to_grid(os.path.basename(surface_raster_high_res), os.path.dirname(surface_raster_high_res))
 surface_raster_high_res = os.path.join(SS_model.out_data_folder, os.path.basename(surface_raster_high_res) + '_clipped.tif')
@@ -144,11 +145,12 @@ print " Mapping Campaspe river to grid"
 num_reaches = 20    
 river_seg, reach_df, reach_data, known_points = \
     rivers.prepare_river_data_for_Campaspe(SS_model, 
-                                    surface_raster_high_res,
+                                    surface_raster_high_res_GSA,
                                     river_gauges,
                                     Campaspe_river_poly_file,
                                     Campaspe,
-                                    num_reaches=num_reaches)
+                                    Campaspe_field_elevations,
+                                    num_reaches=num_reaches, plot=True)
 
 segment_data, seg_dict = \
     rivers.create_segment_data(SS_model, river_seg, river_flow_data)
