@@ -378,11 +378,90 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
         #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         #^^^ POTENTIAL OBS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        sim_river_obs = ['st_sim', 'fl_sim']
-        sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
 
-        sim_c14_obs_hgu = ['c14coo', 'c14she', 'c14ren', 'c14cal']
-        sim_river_obs = ['ec_sim', 'rn_sim']
+        def writePotentialObservations():
+            
+            # Set model output arrays to None to initialise
+            head = None
+            sfr_df = None
+            stream_options = ['st_sim', 'fl_sim']
+            head_options = ['shshal', 'shdeep']
+            # Write observation to file
+            for obs_set in modflow_model.model_data.observations.obs_group.keys():
+                obs_type = modflow_model.model_data.observations.obs_group[obs_set]['obs_type']
+                # Import the required model outputs for processing
+                if obs_type in head_options:
+                    # Check if model outputs have already been imported and if not import
+                    if head == None:
+                        headobj = modflow_model.importHeads()
+                        head = headobj.get_alldata()
+                elif obs_type in stream_options:
+                    try:
+                        sfr_df = modflow_model.sfr_df
+                    except:
+                        sfr_df = modflow_model.importSfrOut()
+                    # End except
+                else:
+                    continue
+                # End if
+        
+                obs_df = modflow_model.model_data.observations.obs_group[obs_set]['time_series']
+                obs_df = obs_df[obs_df['active'] == True]
+                sim_map_dict = modflow_model.model_data.observations.obs_group[obs_set]['mapped_observations']
+        
+                if obs_type in stream_options:
+                    sfr_location = modflow_model.model_data.observations.obs_group[obs_set]['locations']#['seg_loc']
+                    for zone in obs_df['zone'].unique():
+                        if len(obs_df['zone'].unique()) == 1:
+                            zone_txt = obs_set
+                        else:
+                            zone_txt = obs_set + zone
+                        # End if
+                        with open(os.path.join(modflow_model.data_folder, 'observations_' + zone_txt + '.txt'), 'w') as f:
+                            obs_df_zone = obs_df[obs_df['zone'] == zone]
+                            for observation in obs_df_zone.index:
+                                interval = int(obs_df_zone['interval'].loc[observation])
+                                name = obs_df_zone['name'].loc[observation]
+                                seg = int(sfr_location.loc[name])
+                                sfr = sfr_df
+                                col_of_interest = obs_type
+                                if obs_type == 'fl_sim':
+                                    col_of_interest = 'Qout'
+                                elif obs_type == 'st_sim':
+                                    col_of_interest = 'stage'
+                                # End if
+                                sim_obs = sfr[(sfr['segment'] == seg) &
+                                              (sfr['time'] == interval)][col_of_interest]
+                                f.write('%f\n' % sim_obs)
+                            # End for
+                        # End with
+                    # End for
+                # End if
+        
+                if obs_type in head_options:
+                    zone_txt = obs_set
+                    with open(os.path.join(modflow_model.data_folder, 'observations_' + zone_txt + '.txt'), 'w') as f:
+                        for observation in obs_df.index:
+                            interval = int(obs_df['interval'].loc[observation])
+                            name = obs_df['name'].loc[observation]
+                            (x_cell, y_cell) = modflow_model.model_data.mesh2centroid2Dindex[
+                                (sim_map_dict[name][1], sim_map_dict[name][2])]
+                            (lay, row, col) = [sim_map_dict[name][0],
+                                               sim_map_dict[name][1], sim_map_dict[name][2]]
+        
+                            sim_heads = [head[interval][lay][row][col]]
+        
+                            sim_head = np.mean(sim_heads)
+                            f.write('%f\n' % sim_head)
+                        # End for
+                    # End with
+                # End if
+                
+                
+            # End for
+        # End writeObservations()
+        
+        writePotentialObservations() 
 
         #modflow_model.compareAllObs()
 
@@ -416,3 +495,5 @@ if __name__ == "__main__":
         run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose)
     else:
         run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose)
+
+       

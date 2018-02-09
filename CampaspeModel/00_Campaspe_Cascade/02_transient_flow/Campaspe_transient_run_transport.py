@@ -322,6 +322,78 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                                               mt_name=mt.name)
         
         post.writeObservations(specimen)
+        def writePotentialObservations(mf_model, post, specimen):
+        
+            # Set model output arrays to None to initialise
+            conc = None
+            sft_conc = None
+            data_folder = mf_model.data_folder
+            model_data = mf_model.model_data
+            obs_group = mf_model.model_data.observations.obs_group
+        
+            # Write observation to file
+            for obs_set in model_data.observations.obs_group.keys():
+                obs_type = obs_group[obs_set]['obs_type']
+                # Import the required model outputs for processing
+                if obs_type not in ['ec_sim', 'c14shal', 'c14deep']:
+                    continue
+                else:
+                    if (obs_type == 'c14shal' or obs_type == 'c14deep') & (specimen == 'C14'):
+                        # Check if model outputs have already been imported and if not import
+                        if conc == None:
+                            concobj = post.importConcs()
+                            conc = concobj.get_alldata()  # (totim=times[0])
+                        # End if
+                    elif (obs_type == 'ec_sim') & (specimen == 'EC'):
+                        try:
+                            sft_conc['TIME']
+                        except:
+                            sft_conc = post.importSftConcs()
+                    elif obs_type == 'Radon':
+                        continue
+                    else:
+                        continue
+                    # End if
+                # End if
+        
+                obs_df = obs_group[obs_set]['time_series']
+                obs_df = obs_df[obs_df['active'] == True]
+                sim_map_dict = obs_group[obs_set]['mapped_observations']
+        
+                with open(data_folder + os.path.sep + 'observations_' + obs_set + '.txt', 'w') as f:
+                    if obs_group[obs_set]['domain'] == 'stream':
+                        sft_location = mf_model.model_data.observations.obs_group[obs_set]['locations']['seg_loc']
+        
+                        for observation in obs_df.index:
+                            interval = int(obs_df['interval'].loc[observation])
+                            name = obs_df['name'].loc[observation]
+                            seg = sft_location.loc[name]
+                            sft = sft_conc
+                            times = sft['TIME'].unique()
+                            col_of_interest = 'SFR-CONCENTRATION'
+                            sim_conc = sft[(sft['SFR-NODE'] == seg) &
+                                           (sft['TIME'] == times[interval])][col_of_interest]
+                            f.write('%f\n' % sim_conc)
+        
+                    if obs_group[obs_set]['domain'] == 'porous':
+                        for observation in obs_df.index:
+                            interval = int(obs_df['interval'].loc[observation])
+                            name = obs_df['name'].loc[observation]
+        
+                            (x_cell, y_cell) = model_data.mesh2centroid2Dindex[
+                                (sim_map_dict[name][1], sim_map_dict[name][2])]
+        
+                            (lay, row, col) = [sim_map_dict[name][0],
+                                               sim_map_dict[name][1], sim_map_dict[name][2]]
+                            sim_conc = [conc[interval][lay][row][col]]
+                            sim_conc = np.mean(sim_conc)
+                            f.write('%f\n' % sim_conc)
+                        # End for
+                    # End if
+                # End with
+            # End for
+        # End writeObservations() 
+        writePotentialObservations(modflow_model, post, specimen)
         #post.viewConcsByZone(nper='final')
 
     # end for
@@ -374,8 +446,11 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     sfr_df.loc[:, 'dx'] = sfr_info['rchlen'].tolist() * t_steps 
 
     Radon_obs = m.observations.obs_group['radon']
+    Radon_obs2 = m.observations.obs_group['rn_sim']
     Radon_obs_ts = Radon_obs['time_series']
-    intervals_of_interest = Radon_obs_ts['interval'].unique()
+    Radon_obs_ts2 = Radon_obs2['time_series']
+    intervals_of_interest = np.unique(Radon_obs_ts['interval'].unique().tolist() + \
+                                      Radon_obs_ts2['interval'].unique().tolist())
     radon_df_dict = {}
     for i in intervals_of_interest:
         df = sfr_df[sfr_df['time'] == i]
@@ -385,22 +460,26 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
                                                                     Ini_cond)
         radon_df_dict[i] = df
 
-    obs_set = 'radon'
-    obs_df = m.observations.obs_group[obs_set]['time_series']
-    obs_df = obs_df[obs_df['active'] == True]
-    sfr_location = m.observations.obs_group[obs_set]['locations']['seg_loc']
-    with open(os.path.join(modflow_model.data_folder, 'observations_radon.txt')
-              , 'w') as f:
-        for observation in obs_df.index:
-            interval = int(obs_df['interval'].loc[observation])
-            name = obs_df['name'].loc[observation]
-            seg = sfr_location.loc[name]
-            col_of_interest = 'Rn'
-            df_radon = radon_df_dict[interval] 
-            sim_obs = df_radon[df_radon['segment'] == seg] \
-                              [col_of_interest]
-            f.write('%f\n' % sim_obs)                
+    def radon_obs(obs_set):
+        obs_df = m.observations.obs_group[obs_set]['time_series']
+        obs_df = obs_df[obs_df['active'] == True]
+        sfr_location = m.observations.obs_group[obs_set]['locations']['seg_loc']
+        with open(os.path.join(modflow_model.data_folder, 'observations_{}.txt'.format(obs_set))
+                  , 'w') as f:
+            for observation in obs_df.index:
+                interval = int(obs_df['interval'].loc[observation])
+                name = obs_df['name'].loc[observation]
+                seg = sfr_location.loc[name]
+                col_of_interest = 'Rn'
+                df_radon = radon_df_dict[interval] 
+                sim_obs = df_radon[df_radon['segment'] == seg] \
+                                  [col_of_interest]
+                f.write('%f\n' % sim_obs)                
 
+    radon_obs_sets = ['radon', 'rn_sim']
+    for obs_set in radon_obs_sets:
+        radon_obs(obs_set)
+                
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
               

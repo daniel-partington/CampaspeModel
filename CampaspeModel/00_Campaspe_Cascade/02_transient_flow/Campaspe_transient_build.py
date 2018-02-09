@@ -321,6 +321,7 @@ C14_obs_time_series['datetime'] = pd.to_datetime(datetime.date(2015,12,30))
 C14_obs_time_series.rename(columns={'Bore_id':'name', 'a14C_corrected':'value'}, inplace=True)
 C14_bore_points3D = df_C14[['Bore_id', 'zone55_easting', 'zone55_northing', 'z']]
 C14_bore_points3D = C14_bore_points3D[C14_bore_points3D['z'] != 'null']
+C14_obs_time_series = C14_obs_time_series[C14_obs_time_series['name'].isin(C14_bore_points3D['Bore_id'])]
 C14_bore_points3D = C14_bore_points3D.set_index("Bore_id")
 C14_bore_points3D.rename(columns={'zone55_easting':'Easting', 'zone55_northing':'Northing'}, inplace=True)
 
@@ -721,13 +722,14 @@ units = ['uS/cm', 'Bq/l', 'mAHD', 'm^3/d']
 #
 for index, sim in enumerate(sim_river_obs):
     names_seg = ["{}{}".format(sim, x) for x in river_segs_seg]
+    river_seg_locs = pd.DataFrame({'seg_loc':river_segs_seg}, index=names_seg)
     create_obs_for_sim_obs(len(river_segs_seg),
                            12,
                            names_seg,
                            fy_start,
                            fy_end,
                            'M',
-                           river_segs_seg,
+                           river_seg_locs,
                            sim,
                            sim,
                            units[index],
@@ -766,11 +768,92 @@ def filter_to_highest_cells(array):
     return np.asarray(filter(filt, sorted_list))
 # End filter_to_highest_cells()
 
-def porous_potential_obs(sim_type_obs_hgu, hgus, fy_start, fy_end, freq, units, domain, skip=0):
+def _zone_array2layers(zone_array, plots=False):
+    '''
+    Function to generate 2D masked layer arrays for each zone
+    '''
+    zones = [x + 1 for x in range(len(np.unique(zone_array)) - 1)]
+    layers = zone_array.shape[0]
+    zone_mask2D = {}
+    zone_top2D = {}
+
+    for index, zone in enumerate(zones):
+        zone_mask = np.ma.masked_array(zone_array, 
+                                       zone_array == zone).mask
+    
+        zone_mask2D[index] = np.full_like(zone_mask[0], False, dtype=bool)
+        zone_top2D[index] = np.full_like(zone_mask[0], 0, dtype=int)
+        for layer in range(layers):
+            zone_mask2D[index] |= zone_mask[layer] 
+    
+        for layer in range(layers, 0, -1):
+            zone_top2D[index][zone_mask[layer - 1]] = layer - 1
+
+    if plots:
+        import matplotlib.pyplot as plt
+        for index, zone in enumerate(zones):
+            plt.figure()
+            plt.imshow(np.ma.masked_array(zone_top2D[index], ~zone_mask2D[index]), interpolation='none')
+
+    return zone_mask2D, zone_top2D
+
+def select_points_with_skipping(zone_mask2D_layer, skip=0, skip_active=0):
+    '''
+    Function to generate pilot points based in the zonal array in the mesh 
+    array object.
+    
+    Returns points array, points zone array and initial values.
+    '''
+            
+    points = []
+
+    row_points = 0
+    col_points = 0
+    points_active = 0
+    for row in range(zone_mask2D_layer.shape[0]):
+        if skip != 0:
+            row_points += 1
+            if row_points > 1 and row_points < skip:
+                continue
+            elif row_points == skip:
+                row_points = 0
+                continue
+        for col in range(zone_mask2D_layer.shape[1]):
+            if skip != 0:
+                col_points += 1
+                if col_points > 1 and col_points < skip:
+                    continue
+                elif col_points == skip:
+                    col_points = 0
+                    continue
+
+            if zone_mask2D_layer[row][col]:
+                if skip_active != 0:
+                    points_active += 1
+                    if points_active > 1 and points_active < skip_active:
+                        continue
+                    elif points_active == skip_active:
+                        points_active = 0
+                        continue
+                    
+                points += [[row, col]]
+    
+    return points        
+        
+def porous_potential_obs(zone2D_info, sim_type_obs_hgu, hgus, fy_start, fy_end, freq, units, domain, skip=0, plots=False):
     for index, sim_type_hgu in enumerate(sim_type_obs_hgu):
-        sim_locs = np.argwhere(tr_model.model_mesh3D[1] == hgus[index])
-        sim_locs = filter_to_highest_cells(sim_locs)
-        sim_locs = sim_locs[0::skip + 1]
+        #sim_locs = np.argwhere(tr_model.model_mesh3D[1] == hgus[index])
+        #sim_locs = filter_to_highest_cells(sim_locs)
+        #sim_locs = sim_locs[0::skip + 1]
+        hgu = hgus[index]
+        sim_locs_bool = zone2D_info[0][hgu[0]] | zone2D_info[0][hgu[1]]
+        sim_locs_tops = np.minimum(zone2D_info[1][hgu[0]], zone2D_info[1][hgu[1]])
+        if skip > 0:
+            sim_locs_temp = select_points_with_skipping(sim_locs_bool, skip=skip)
+        else:
+            sim_locs_temp = np.argwhere(sim_locs_bool == True)
+        sim_locs = [[sim_locs_tops[x[0], x[1]], x[0], x[1]] for x in sim_locs_temp]
+        
         names_seg = ["{}{}".format(sim_type_hgu, x) for x in range(len(sim_locs))]
         sim_loc_dict = {x[0]:x[1] for x in zip(names_seg, sim_locs)}
         create_obs_for_sim_obs(len(sim_locs),
@@ -784,15 +867,30 @@ def porous_potential_obs(sim_type_obs_hgu, hgus, fy_start, fy_end, freq, units, 
                                sim_type_hgu,
                                units,
                                domain)
+        
+        if plots:
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.imshow(sim_locs_bool, interpolation='none')
+            x_dw = [i[2] for i in sim_locs]
+            y_dw = [i[1] for i in sim_locs]
+            c_dw = [i[0] for i in sim_locs]
+            plt.scatter(x_dw, y_dw, c=c_dw, cmap='viridis')
 
+#hgus = [1, 3, 5, 6]
+hgus = [[0, 2], [4, 5]]
+# Get the zonal array in 2D masks for where they are active along with the highest
+# cell number corresponding to layer for each row col pair
+zone2D_info = _zone_array2layers(tr_model.model_mesh3D[1])
 
-hgus = [1, 3, 5, 6]
 # Create obs for potential head observations        
-sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
-porous_potential_obs(sim_heads_obs_hgu, hgus, fy_start, fy_end, 'M', 'mAHD', 'porous', skip=4)
+#sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
+sim_heads_obs_hgu = ['shshal', 'shdeep']
+porous_potential_obs(zone2D_info, sim_heads_obs_hgu, hgus, fy_start, fy_end, 'M', 'mAHD', 'porous', skip=4)
 # Create obs for potential C14 observations        
-sim_c14_obs_hgu = ['c14coo', 'c14she', 'c14ren', 'c14cal']
-porous_potential_obs(sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 'pmc', 'porous', skip=4)
+#sim_c14_obs_hgu = ['c14coo', 'c14she', 'c14ren', 'c14cal']
+sim_c14_obs_hgu = ['c14shal', 'c14deep']
+porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 'pmc', 'porous', skip=4)
 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
