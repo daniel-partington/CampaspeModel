@@ -1,5 +1,7 @@
 import datetime
 import os
+from itertools import groupby
+from operator import itemgetter
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -89,9 +91,8 @@ with open(model_linking, 'r') as f:
         elif line.split(':')[0] == 'SW_stream_gauges':
             Stream_gauges = process_line(line)
             print('SW: {}'.format(Stream_gauges))
-
-# ******************************************************************************
-# ******************************************************************************
+        # End if
+    # End for
 
 # Set the model boundary using a polygon shapefile:
 if VERBOSE:
@@ -673,8 +674,6 @@ for ind in range(river_seg.shape[0]):
             if curr['rchlen'] < max_length:
                 merge_row += [ind]
 
-from operator import itemgetter
-from itertools import groupby
 merge_row_consec = []
 for k, g in groupby(enumerate(merge_row), lambda (i, x): i - x):
     merge_row_consec.append(map(itemgetter(1), g))
