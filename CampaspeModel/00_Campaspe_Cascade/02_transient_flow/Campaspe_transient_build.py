@@ -355,7 +355,7 @@ tr_model.boundaries.assign_boundary_array('licenced_wells', wel)
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
 
-num_reaches = 20    
+num_reaches = 80    
 river_seg, reach_df, reach_data, known_points = \
     rivers.prepare_river_data_for_Campaspe(tr_model, 
                                     surface_raster_high_res,
@@ -382,7 +382,9 @@ segment_data, seg_dict = \
                                       frequencies, 
                                       date_group,
                                       start,
-                                      end)    
+                                      end,
+                                      include_et=True,
+                                      include_extractions=False)    
     
 tr_model.save_MODFLOW_SFR_dataframes('Campaspe', reach_df, segment_data)
 tr_model.river_mapping['Campaspe'] = river_seg
@@ -415,6 +417,7 @@ for key in river_stage_data[0].keys():
     site_ts['datetime'] = site_ts.index
     site_ts.index = range(site_ts.shape[0])
     site_ts.rename(columns={'Mean':'value'}, inplace=True)
+    site_ts['value'] = site_ts['value'] - Campaspe.loc[Campaspe.index == key, 'Gauge Zero (Ahd)'].tolist()[0]
     #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     # NO FILTERING ON "Qual" AT THIS TIME SO BAD DATA ARE POSSIBLE!!!
     site_ts = site_ts[['name', 'value', 'datetime']]
@@ -434,7 +437,7 @@ tr_model.observations.set_as_observations('stage',
                                           stage_time_series_resampled, 
                                           Campaspe_info, 
                                           domain='stream', 
-                                          obs_type='stage', 
+                                          obs_type='depth', 
                                           units='mAHD', 
                                           weights=1.0, 
                                           real=True)
@@ -720,10 +723,20 @@ def create_obs_for_sim_obs(sim_obs, entries, names, start, end, freq, locs, \
 sim_river_obs = ['ec_sim', 'rn_sim', 'st_sim', 'fl_sim']
 units = ['uS/cm', 'Bq/l', 'mAHD', 'm^3/d']
 #
+
+def closest_nodes(nodes1, nodes2):
+    close_nodes = []
+    for node in nodes1:
+        close_nodes += [np.argmin(np.abs(nodes2-node)) + 1]
+    close_nodes = np.unique(close_nodes)
+    return close_nodes
+    
+river_segs_seg_pp = closest_nodes(tr_model.pilot_points['Campaspe'].points, np.asarray(river_seg['Cumulative Length']))
+
 for index, sim in enumerate(sim_river_obs):
-    names_seg = ["{}{}".format(sim, x) for x in river_segs_seg]
-    river_seg_locs = pd.DataFrame({'seg_loc':river_segs_seg}, index=names_seg)
-    create_obs_for_sim_obs(len(river_segs_seg),
+    names_seg = ["{}{}".format(sim, x) for x in river_segs_seg_pp]
+    river_seg_locs = pd.DataFrame({'seg_loc':river_segs_seg_pp}, index=names_seg)
+    create_obs_for_sim_obs(len(river_segs_seg_pp),
                            12,
                            names_seg,
                            fy_start,
@@ -840,7 +853,7 @@ def select_points_with_skipping(zone_mask2D_layer, skip=0, skip_active=0):
     
     return points        
         
-def porous_potential_obs(zone2D_info, sim_type_obs_hgu, hgus, fy_start, fy_end, freq, units, domain, skip=0, plots=False):
+def porous_potential_obs(zone2D_info, sim_type_obs_hgu, hgus, fy_start, fy_end, freq, units, domain, skip=0, plots=False, plot_titles=None):
     for index, sim_type_hgu in enumerate(sim_type_obs_hgu):
         #sim_locs = np.argwhere(tr_model.model_mesh3D[1] == hgus[index])
         #sim_locs = filter_to_highest_cells(sim_locs)
@@ -870,27 +883,32 @@ def porous_potential_obs(zone2D_info, sim_type_obs_hgu, hgus, fy_start, fy_end, 
         
         if plots:
             import matplotlib.pyplot as plt
-            plt.figure()
-            plt.imshow(sim_locs_bool, interpolation='none')
+            from matplotlib import colors
+            cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
+            if index == 0:
+                fig = plt.figure()
+            
+            ax = fig.add_subplot(1, len(sim_type_obs_hgu), index + 1, aspect='equal')
+            ax.set_title(plot_titles[index])
+            ax.axis('off')
+            plt.imshow(sim_locs_bool, interpolation='none', cmap=cmap_grey_white)
             x_dw = [i[2] for i in sim_locs]
             y_dw = [i[1] for i in sim_locs]
             c_dw = [i[0] for i in sim_locs]
-            plt.scatter(x_dw, y_dw, c=c_dw, cmap='viridis')
+            plt.scatter(x_dw, y_dw, c='black') #, c=c_dw, cmap='viridis')
 
-#hgus = [1, 3, 5, 6]
 hgus = [[0, 2], [4, 5]]
 # Get the zonal array in 2D masks for where they are active along with the highest
 # cell number corresponding to layer for each row col pair
 zone2D_info = _zone_array2layers(tr_model.model_mesh3D[1])
 
 # Create obs for potential head observations        
-#sim_heads_obs_hgu = ['shcoon', 'shshep', 'shrenm', 'shcali']
 sim_heads_obs_hgu = ['shshal', 'shdeep']
-porous_potential_obs(zone2D_info, sim_heads_obs_hgu, hgus, fy_start, fy_end, 'M', 'mAHD', 'porous', skip=4)
+plot_titles = ['Shallow', 'Deep']
+porous_potential_obs(zone2D_info, sim_heads_obs_hgu, hgus, fy_start, fy_end, 'M', 'mAHD', 'porous', skip=6, plots=True, plot_titles=plot_titles)
 # Create obs for potential C14 observations        
-#sim_c14_obs_hgu = ['c14coo', 'c14she', 'c14ren', 'c14cal']
 sim_c14_obs_hgu = ['c14shal', 'c14deep']
-porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 'pmc', 'porous', skip=4)
+porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 'pmc', 'porous', skip=6)
 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -898,8 +916,7 @@ porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-    
-## These are the "Tableau 20" colors as RGB.    
+# These are the "Tableau 20" colors as RGB.    
 #import matplotlib.pyplot as plt
 #colors = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
 #             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
@@ -914,6 +931,7 @@ porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 
 #    
 #flatten = lambda l: [item for sublist in l for item in sublist]
 #fig = plt.figure(figsize=(2.5,5))
+#ax = fig.add_subplot(1,1,1, aspect='equal')
 #for index, reach in enumerate(river_segs_reach[1:]):
 #    reach_river = river_seg[river_seg['iseg'].isin(reach)]
 #    points = [x for x in reach_river['amalg_riv_points_collection']]
@@ -921,7 +939,14 @@ porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 
 #    x_points = [x[0] for x in points]
 #    y_points = [y[1] for y in points]    
 #    plt.plot(x_points, y_points, color=colors[index], label=str(index + 1))
-#plt.legend()
+#    
+#Campaspe_info.plot(kind='scatter', x='Easting', y='Northing', ax=ax)#, label='Site Id')    
+#start_ax, end_ax = ax.get_xlim()
+#start_ax = start_ax // 1000 * 1000 + 1000
+#end_ax = end_ax // 1000 * 1000 - 1000
+#ax.xaxis.set_ticks(np.arange(start_ax, end_ax, 20000.))
+#ax.xaxis.get_major_formatter().set_powerlimits((0, 1))
+#plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='Reach Number')
 #plt.tight_layout()
 #plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master_Colossus3\river_reaches.png")
 
@@ -1090,7 +1115,7 @@ tr_model.parameters.parameter_options('gtv',
                                       OFFSET=0)
 
 # Groundwater concentration of Radon
-tr_model.parameters.create_model_parameter('gwconc', value=30000.)
+tr_model.parameters.create_model_parameter('gwconc', value=20000.)
 tr_model.parameters.parameter_options('gwconc', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
@@ -1099,6 +1124,18 @@ tr_model.parameters.parameter_options('gwconc',
                                       PARGP='radon', 
                                       SCALE=1, 
                                       OFFSET=0)
+
+# Groundwater concentration of EC
+tr_model.parameters.create_model_parameter('gwecconc', value=2000.)
+tr_model.parameters.parameter_options('gwecconc', 
+                                      PARTRANS='log', 
+                                      PARCHGLIM='factor', 
+                                      PARLBND=1000., 
+                                      PARUBND=5000., 
+                                      PARGP='ec', 
+                                      SCALE=1, 
+                                      OFFSET=0)
+
 
 # Hyporheic zone depth         
 tr_model.parameters.create_model_parameter_set('hzdpth', value=0.01, \

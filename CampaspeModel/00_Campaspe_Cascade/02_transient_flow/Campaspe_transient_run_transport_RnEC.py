@@ -8,6 +8,7 @@ import numpy as np
 #sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
+from HydroModelBuilder.Utilities.model_assessment import plot_obs_vs_sim
 
 ## Configuration Loader
 #from HydroModelBuilder.Utilities.Config.ConfigLoader import CONFIG
@@ -15,7 +16,7 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
-def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True, plots=False, EC=False):
+def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True, plots=False):
     """Model Runner."""
 
     # MM is short for model manager
@@ -100,15 +101,13 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
     intervals_of_interest = np.unique(Radon_obs_ts['interval'].unique().tolist() + \
                                       Radon_obs_ts2['interval'].unique().tolist())
 
-    if EC:
-        ec_groups = ['fstrec', 'gstrec', 'ec_sim']
-        for ec_group in ec_groups:
-            ec_obs = m.observations.obs_group[ec_group]
-            ec_obs_ts = ec_obs['time_series']
-        
-            intervals_of_interest = np.unique(intervals_of_interest.tolist() + \
-                                          ec_obs_ts['interval'].unique().tolist())
-    # End if        
+    ec_groups = ['fstrec', 'gstrec', 'ec_sim']
+    for ec_group in ec_groups:
+        ec_obs = m.observations.obs_group[ec_group]
+        ec_obs_ts = ec_obs['time_series']
+    
+        intervals_of_interest = np.unique(intervals_of_interest.tolist() + \
+                                      ec_obs_ts['interval'].unique().tolist())
 
     radon_df_dict = {}
     for i in intervals_of_interest:
@@ -139,6 +138,9 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
     for obs_set in radon_obs_sets:
         write_obs(obs_set, 'Rn')
 
+    for obs_set in ec_groups:
+        write_obs(obs_set, 'EC')
+        
     post = flopyInterface.MT3DPostProcess(modflow_model, 
                                               mt_name='Radon')
         
@@ -160,20 +162,13 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                                   [col_of_interest].tolist()[0]
                 obs_sim_zone_all += [[obs, sim_obs, seg]]                
                     
-            post._plot_obs_vs_sim(obs_set, obs_sim_zone_all, unc=2)
+            plot_obs_vs_sim(obs_set, obs_sim_zone_all, unc=2)
         # End compareObsRn
         compareObs(post, 'radon', 'Rn')    
 
+        for ec_sim_obs_plot in ec_groups[:-1]:
+            compareObs(post, ec_sim_obs_plot, 'EC')  
 
-    if EC:
-        for obs_set in ec_groups:
-            write_obs(obs_set, 'EC')
-    
-        if plots:
-            for ec_sim_obs_plot in ec_groups[:-1]:
-                compareObs(post, ec_sim_obs_plot, 'EC')  
-        
-        
 if __name__ == "__main__":
 
     verbose = False
@@ -199,6 +194,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run = run(model_folder, data_folder, mt_exe_folder, param_file=param_file, verbose=verbose, plots=True, EC=True)
+        run = run(model_folder, data_folder, mt_exe_folder, param_file=param_file, verbose=verbose, plots=True)
     else:
         run = run(model_folder, data_folder, mt_exe_folder, verbose=verbose)

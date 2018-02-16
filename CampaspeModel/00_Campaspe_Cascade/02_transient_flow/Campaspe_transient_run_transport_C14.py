@@ -49,7 +49,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
         print "************************************************************************"
         print " Set initial conc from ss solution "
 
-    species = ['EC', 'C14'] 
+    species = ['C14'] 
 
     path=os.path.join(data_folder, "model_01_steady_state")
     concobj = bf.UcnFile(os.path.join(path, 'MT3D001.UCN'))
@@ -401,121 +401,9 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
 
     # end for
 
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
-    #@@@ SIMPLE RADON MODEL @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
 
-    num_reaches = m.pilot_points['Campaspe'].num_points #4
-    known_points = m.pilot_points['Campaspe'].points
-
-    sfr_df = modflow_model.importSfrOut()
-    sfr_info = m.river_mapping['Campaspe']
-    cum_len = sfr_info['Cumulative Length'].tolist()
-    sfr_df.loc[:, 'Cumulative Length'] = cum_len * (sfr_df['time'].max() + 1)
-    
-    # Hyporheic zone depth         
-    hz_depth_vals = [m.parameters.param['hzdpth{}'.format(x)]['PARVAL1'] for \
-                                        x in range(num_reaches)] 
-    R_depth_HZ = np.interp(sfr_info['Cumulative Length'].tolist(), 
-                           known_points, 
-                           hz_depth_vals)
-
-    df_size = sfr_info.shape[0]
-    t_steps = sfr_df['time'].max() + 1
-    # Hyporheic zone porosity
-    sfr_df.loc[:, 'HZ_poro'] = [m.parameters.param['hzporo']['PARVAL1']] \
-                               * df_size * t_steps
-    # Hyporheic zone production of radon
-    sfr_df.loc[:, 'HZ_Prod_Rate'] = [m.parameters.param['hzprod']['PARVAL1']] \
-                                    * df_size * t_steps
-    # Hyporheic zone residence time
-    sfr_df.loc[:, 'HZ_RTime'] = [m.parameters.param['hz_rt']['PARVAL1']] \
-                                * df_size * t_steps
-    # Depth of the hyporheic zone
-    sfr_df.loc[:, 'R_depth_HZ'] = R_depth_HZ.tolist() * t_steps              
-    # Gas transfer velocity
-    sfr_df.loc[:, 'GTV'] = [m.parameters.param['gtv']['PARVAL1']] \
-                           * df_size * t_steps
-    # Groundwater radon concentration
-    sfr_df.loc[:, 'GW_Rn_conc'] = [m.parameters.param['gwconc']['PARVAL1']] \
-                                  * df_size * t_steps
-    # Groundwater EC
-    sfr_df.loc[:, 'GW_EC'] = [10.] * df_size * t_steps # ARBITRARY!!!!
-    # EC of the inflowing tributary water if present
-    sfr_df.loc[:, 'Trib_EC'] = [10.] * df_size * t_steps # ARBITRARY!!!! 
-    # Radon concentration of inflowing tributary water if present
-    sfr_df.loc[:, 'Trib_Rn'] = [10.] * df_size * t_steps # ARBITRARY!!!!
-    # Reach lengths
-    sfr_df.loc[:, 'dx'] = sfr_info['rchlen'].tolist() * t_steps 
-
-    Radon_obs = m.observations.obs_group['radon']
-    Radon_obs2 = m.observations.obs_group['rn_sim']
-    Radon_obs_ts = Radon_obs['time_series']
-    Radon_obs_ts2 = Radon_obs2['time_series']
-    intervals_of_interest = np.unique(Radon_obs_ts['interval'].unique().tolist() + \
-                                      Radon_obs_ts2['interval'].unique().tolist())
-    radon_df_dict = {}
-    for i in intervals_of_interest:
-        df = sfr_df[sfr_df['time'] == i]
-        Ini_cond = (df.iloc[0]['Qin'], 0., 300.)
-        df.loc[:, 'Flow'], df.loc[:, 'Rn'], df.loc[:, 'EC'] = \
-              modflow_model.Calculate_Rn_from_SFR_with_simple_model(df, 
-                                                                    Ini_cond)
-        radon_df_dict[i] = df
-
-    def radon_obs(obs_set):
-        obs_df = m.observations.obs_group[obs_set]['time_series']
-        obs_df = obs_df[obs_df['active'] == True]
-        sfr_location = m.observations.obs_group[obs_set]['locations']['seg_loc']
-        with open(os.path.join(modflow_model.data_folder, 'observations_{}.txt'.format(obs_set))
-                  , 'w') as f:
-            for observation in obs_df.index:
-                interval = int(obs_df['interval'].loc[observation])
-                name = obs_df['name'].loc[observation]
-                seg = sfr_location.loc[name]
-                col_of_interest = 'Rn'
-                df_radon = radon_df_dict[interval] 
-                sim_obs = df_radon[df_radon['segment'] == seg] \
-                                  [col_of_interest]
-                f.write('%f\n' % sim_obs)                
-                
-    radon_obs_sets = ['radon', 'rn_sim']
-    for obs_set in radon_obs_sets:
-        radon_obs(obs_set)
-
-    if plots:
-        def compareObsRn(post):
-            obs_df = m.observations.obs_group[obs_set]['time_series']
-            obs_df = obs_df[obs_df['active'] == True]
-            sfr_location = m.observations.obs_group[obs_set]['locations']['seg_loc']
-            obs_sim_zone_all = []
-            for observation in obs_df.index:
-                interval = int(obs_df['interval'].loc[observation])
-                name = obs_df['name'].loc[observation]
-                obs = obs_df['value'].loc[observation]
-                seg = sfr_location.loc[name]
-                col_of_interest = 'Rn'
-                df_radon = radon_df_dict[interval] 
-                sim_obs = df_radon[df_radon['segment'] == seg] \
-                                  [col_of_interest].tolist()[0]
-                obs_sim_zone_all += [[obs, sim_obs, seg]]                
-                    
-            post._plot_obs_vs_sim(obs_set, obs_sim_zone_all, unc=2)
-        # End compareObsRn
-        compareObsRn(post)    
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
-              
-    #post.compareAllObs()
     if plots:
         post.viewConcsByZone(nper='final')
-    
-#    for specimen in species:
-#        sfr_transport = pd.read_csv(os.path.join(data_folder, "model_" + m.name,"02_transient_flow_transport_{}".format(specimen)), delim_whitespace=True, skiprows=1)
-#        for sfrnode in [1]:
-#            ax = sfr_transport[sfr_transport['SFR-NODE'] == sfrnode].plot(x='TIME', y=['SFR-CONCENTRATION'])
-#            ax.set_title(specimen)
-
 
 if __name__ == "__main__":
 
