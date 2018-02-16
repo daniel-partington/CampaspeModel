@@ -142,7 +142,7 @@ SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)
 print "************************************************************************"
 print " Mapping Campaspe river to grid"
 
-num_reaches = 20    
+num_reaches = 80    
 river_seg, reach_df, reach_data, known_points = \
     rivers.prepare_river_data_for_Campaspe(SS_model, 
                                     surface_raster_high_res_GSA,
