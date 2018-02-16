@@ -341,7 +341,9 @@ def create_segment_data_transient(ModelBuilderObject,
                                   frequencies, 
                                   date_group,
                                   start,
-                                  end):
+                                  end,
+                                  include_et=True,
+                                  include_extractions=True):
     
     MBO = ModelBuilderObject
     num_reaches = MBO.pilot_points['Campaspe'].num_points
@@ -492,16 +494,18 @@ def create_segment_data_transient(ModelBuilderObject,
             for div_seg in div_reach:
                 flow[div_seg - 1] = flow_temp
 
-        # CID diversions:
-        flow[CID_gauge_loc] = flow[CID_gauge_loc] - rdd_resampled['CID Diversions'].loc[date]
-        # WWC pumping:            
-        flow[WWC_gauge_loc] = flow[WWC_gauge_loc] \
-                             + rdd_resampled['WWC']['WWC TO CAMPASPE (RO317)'].loc[date] \
-                             + rdd_resampled['WWC']['WWC TO CAMPASPE (RO317).1'].loc[date] \
-                             - rdd_resampled['WWC']['CAMPASPE PUMP TO WWC -REG'].loc[date] \
-                             - rdd_resampled['WWC']['CAMPASPE PUMP TO WWC -UNREG'].loc[date] \
+        if include_extractions:
+            # CID diversions:
+            flow[CID_gauge_loc] = flow[CID_gauge_loc] - rdd_resampled['CID Diversions'].loc[date]
+            # WWC pumping:            
+            flow[WWC_gauge_loc] = flow[WWC_gauge_loc] \
+                                 + rdd_resampled['WWC']['WWC TO CAMPASPE (RO317)'].loc[date] \
+                                 + rdd_resampled['WWC']['WWC TO CAMPASPE (RO317).1'].loc[date] \
+                                 - rdd_resampled['WWC']['CAMPASPE PUMP TO WWC -REG'].loc[date] \
+                                 - rdd_resampled['WWC']['CAMPASPE PUMP TO WWC -UNREG'].loc[date] \
 
-        etsw = [interp_et[per][x[1]['i'], x[1]['j']] for x in river_seg.iterrows()] 
+        if include_et:
+            etsw = [interp_et[per][x[1]['i'], x[1]['j']] for x in river_seg.iterrows()] 
         pptsw = [interp_rain[per][x[1]['i'], x[1]['j']] for x in river_seg.iterrows()] 
             
         segment_data[per] = pd.DataFrame({'nseg':nseg, 'icalc':icalc, 'outseg':outseg, 'iupseg':iupseg, 'iprior':iprior, 'nstrpts':nstrpts, \
