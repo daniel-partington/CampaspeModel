@@ -72,7 +72,7 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     river_seg = MBO.river_mapping['Campaspe']
     # Parameters are ordered from upstream to downstream
     num_reaches = num_reaches
-    base_guesses_for_k_bed_x = [0., 0.33, 0.66, 1.0]
+    base_guesses_for_k_bed_x = [0.0, 0.33, 0.66, 1.0]
     base_guesses_for_k_bed_y = [1., 1., 0.01, 0.001]
     interp_guesses_for_k_bed_x = np.linspace(0., 1., num_reaches)
     interp_guesses_for_k_bed_y = np.interp(interp_guesses_for_k_bed_x, 
@@ -96,7 +96,7 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     MBO.parameters.parameter_options_set('kv_riv', 
                                           PARTRANS='log', 
                                           PARCHGLIM='factor', 
-                                          PARLBND=0.01, 
+                                          PARLBND=0.0001, 
                                           PARUBND=10.0, 
                                           PARGP='kv_riv', 
                                           SCALE=1, 
