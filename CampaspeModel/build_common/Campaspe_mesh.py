@@ -46,7 +46,7 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     MBO.build_3D_mesh_from_rasters(model_grid_raster_files, 
                                    MBO.out_data_folder_grid, 1.0, 1000.0)
     # Cleanup any isolated cells:
-    MBO.reclassIsolatedCells()
+    MBO.reclassIsolatedCells(assimilate=True)
     
     print "************************************************************************"
     print " Assign properties to mesh based on pilot points and zonal information"
@@ -96,8 +96,8 @@ def build_mesh_and_set_properties(ModelBuilderObject,
             zone_prop_dict = {zone: HGU_props['Kh mean'][HGU_map[HGU[zone]]] for zone in range(zones)}
             # Define some parameters for pilot point distribution
             if resolution == 1000:
-                skip=[0, 0, 6, 0, 6, 6, 6] 
-                skip_active=[49, 20, 0, 34, 0, 0, 0]
+                skip=[3, 0, 6, 0, 6, 6, 6] 
+                skip_active=[3, 20, 0, 34, 0, 0, 0]
             elif resolution == 500:
                 skip=[0, 0, 12, 0, 12, 12, 12] 
                 skip_active=[100, 40, 0, 70, 0, 0, 0]
@@ -124,7 +124,7 @@ def build_mesh_and_set_properties(ModelBuilderObject,
             # These search_radius values have been tested on the 1000m grid, would be good
             # to add in other resolution lists as they are developed
             if resolution == 1000:
-                search_radius = [30000, 20000, 20000, 20000, 20000, 20000, 20000]
+                search_radius = [40000, 20000, 15000, 20000, 20000, 20000, 20000]
             else:
                 search_radius = [30000, 20000, 40000, 20000, 40000, 50000, 20000]
                 

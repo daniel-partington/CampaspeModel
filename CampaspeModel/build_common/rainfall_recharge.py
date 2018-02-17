@@ -13,6 +13,7 @@ def weather2model_grid(MBO, df, rain_gauges):
 def prepare_transient_rainfall_data_for_model(ModelBuilderObject, 
                                     resampled_weather, 
                                     recharge_zones,
+                                    recharge_info,
                                     long_term_historic_weather,
                                     date_index,
                                     frequencies,
@@ -80,6 +81,18 @@ def prepare_transient_rainfall_data_for_model(ModelBuilderObject,
                                           PARGP='rchred', 
                                           SCALE=1, 
                                           OFFSET=0)
+
+    for i in range(rch_zones - 1):
+        df_rch_row = recharge_info[recharge_info['Zone code'] == rch_zone_dict[i + 1]]
+        if df_rch_row.empty:
+            continue
+        # End if
+        MBO.parameters.param['rchred{}'.format(i)]['PARVAL1'] = (df_rch_row['Mean'] / df_rch_row['P']).tolist()[0]
+        MBO.parameters.param['rchred{}'.format(i)]['PARLBND'] = max(0.001, (df_rch_row['Min'] / df_rch_row['P']).tolist()[0])
+        MBO.parameters.param['rchred{}'.format(i)]['PARUBND'] = (df_rch_row['Max'] / df_rch_row['P']).tolist()[0]
+        if MBO.parameters.param['rchred{}'.format(i)]['PARLBND'] < 0.:
+             MBO.parameters.param['rchred{}'.format(i)]['OFFSET'] = MBO.parameters.param['rchred{}'.format(i)]['PARLBND'] - 0.1
+
     
     for key in interp_rain.keys():
         for i in range(rch_zones - 1):

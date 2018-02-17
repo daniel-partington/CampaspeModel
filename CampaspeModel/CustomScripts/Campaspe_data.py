@@ -287,7 +287,9 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     custom_data['recharge_zone_info'] = pd.read_csv(
         os.path.join(Campaspe_data_folder, r"Linking_recharge", r"Curve_fitting_norm.dat"),
         delim_whitespace=True)
-    
+    custom_data['recharge_zone_info_detailed'] = pd.read_excel(os.path.join(
+        r"C:\Workspace\part0075\MDB modelling\Campaspe_data", r"Linking_recharge", 
+        r"zone_percentage_recharge_statistics_method3.xlsx"), sheet='Sheet1')
     
     if verbose:
         print "************************************************************************"

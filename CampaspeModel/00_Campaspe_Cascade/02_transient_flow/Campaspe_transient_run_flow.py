@@ -170,9 +170,6 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
     par_rech_vals = [m.parameters.param['rchred{}'.format(i)]['PARVAL1'] \
                      for i in xrange(rch_zones - 1)]
 
-#    par_rech_vals = [0.02 \
-#                     for i in range(rch_zones - 1)]
-
     def update_recharge(vals):
         for key in interp_rain.keys():
             for i in xrange(rch_zones - 1):
@@ -183,12 +180,12 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
             interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
                 interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
             interp_rain[key][m.model_mesh3D[1][0] == -1] = 0.
-
         return interp_rain
 
     interp_rain = update_recharge(par_rech_vals)
     rch = interp_rain
 
+    
     m.boundaries.update_boundary_array('Rain_reduced', rch)
 
     if verbose:

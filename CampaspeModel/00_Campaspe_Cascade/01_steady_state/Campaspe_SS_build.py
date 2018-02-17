@@ -43,6 +43,7 @@ HGU_props = custom_data['HGU_props']
 rain_gauges = custom_data['rain_gauges']
 long_term_historic_rainfall = custom_data['long_term_historic_rainfall'] 
 recharge_zones = custom_data['recharge_zones']
+recharge_info = custom_data['recharge_zone_info_detailed']
 surface_raster_high_res = custom_data['surface_raster_high_res'] 
 surface_raster_high_res_GSA = custom_data['surface_raster_high_res_GSA'] 
 river_gauges = custom_data['river_gauges']
@@ -94,21 +95,23 @@ rch_zones = len(rch_zone_dict.keys())
 
 SS_model.parameters.create_model_parameter_set('ssrch', 
                                                value=0.01,
-                                               num_parameters=rch_zones)
+                                               num_parameters=rch_zones - 1)
+
 SS_model.parameters.parameter_options_set('ssrch', 
-                                      PARTRANS='fixed', 
-                                      PARCHGLIM='factor', 
-                                      PARLBND=1.0E-3, 
-                                      PARUBND=0.5, 
-                                      PARGP='ssrch', 
-                                      SCALE=1, 
-                                      OFFSET=0)
+                                          PARTRANS='log', 
+                                          PARCHGLIM='factor', 
+                                          PARLBND=1.0E-3, 
+                                          PARUBND=0.2, 
+                                          PARGP='ssrch', 
+                                          SCALE=1, 
+                                          OFFSET=0)
 
 for i in range(rch_zones - 1):
     interp_rain[recharge_zone_array == rch_zone_dict[i + 1]] = \
         interp_rain[recharge_zone_array == rch_zone_dict[i + 1]] * \
         SS_model.parameters.param['ssrch{}'.format(i)]['PARVAL1']
 
+# Ensure model recharge is 0 over areas where the domain is inactive or where zonal array is a NaN value such as over lakes                                  
 interp_rain[recharge_zone_array==rch_zone_dict[0]] = interp_rain[recharge_zone_array == rch_zone_dict[0]] * 0.0
 interp_rain[SS_model.model_mesh3D[1][0] == -1] = 0.
     

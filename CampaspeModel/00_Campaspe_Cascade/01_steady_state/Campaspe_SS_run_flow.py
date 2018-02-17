@@ -176,10 +176,6 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
                      for i in range(rch_zones - 1)]
 
-#    par_rech_vals = [0.001 \
-#                     for i in range(rch_zones - 1)]
-
-
     def update_recharge(vals):
         for i in range(rch_zones - 1):
             interp_rain[recharge_zone_array == rch_zone_dict[i+1]] = \
@@ -407,6 +403,6 @@ if __name__ == "__main__":
         param_file = model_config['param_file']
 
     if param_file:
-        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose, plots=plots)
+        run = run(model_folder, data_folder, mf_exe_folder, param_file=param_file, verbose=verbose, plots=verbose)
     else:
-        run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose)
+        run = run(model_folder, data_folder, mf_exe_folder, verbose=verbose, plots=verbose)

@@ -55,6 +55,7 @@ HGU_props = custom_data['HGU_props']
 rain_gauges = custom_data['rain_gauges']
 long_term_historic_weather = custom_data['long_term_historic_weather'] 
 recharge_zones = custom_data['recharge_zones']
+recharge_info = custom_data['recharge_zone_info_detailed']
 surface_raster_high_res = custom_data['surface_raster_high_res'] 
 surface_raster_high_res_GSA = custom_data['surface_raster_high_res_GSA'] 
 river_gauges = custom_data['river_gauges']
@@ -138,6 +139,7 @@ interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
     prepare_transient_rainfall_data_for_model(tr_model,
                                               long_term_historic_weather,
                                               recharge_zones,
+                                              recharge_info,
                                               long_term_historic_weather,
                                               date_index,
                                               frequencies,
