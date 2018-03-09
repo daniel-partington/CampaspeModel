@@ -11,18 +11,19 @@ from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get
 
 def process_custom_scripts_and_spatial_data(ModelBuilderObject, 
                                             Campaspe_data_folder,
-                                            verbose=True):
-    
+                                            verbose=True,
+                                            model_boundary_file="GW_model_area2.shp"):
+
     custom_data = {}
     MBO = ModelBuilderObject
     # Set the model boundary using a polygon shapefile:
     if verbose:
         print "************************************************************************"
         print " Setting model boundary "
-    
-    MBO.set_model_boundary_from_polygon_shapefile("GW_model_area2.shp", 
+
+    MBO.set_model_boundary_from_polygon_shapefile(model_boundary_file, 
                                                   shapefile_path=MBO.data_folder)
-    
+
     # Set data boundary for model data
     if verbose:
         print "************************************************************************"
@@ -31,7 +32,7 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     MBO.set_data_boundary_from_polygon_shapefile(MBO.boundary_poly_file, 
                                                       shapefile_path=MBO.out_data_folder,
                                                       buffer_dist=20000)
-    
+
     # Setup recharge:
     # ... read in climate data using Custom_Scripts
     weather_stations = ['Kyneton', 'Eppalock', 'Elmore', 'Rochester', 'Echuca']
