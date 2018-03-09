@@ -6,7 +6,8 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                   resolution=5000,
                                   create_basement=True,
                                   pilot_points_YX=False,
-                                  verbose=True):    
+                                  verbose=True,
+                                  hu_raster_files = None):    
     
     MBO = ModelBuilderObject
     # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
@@ -22,9 +23,10 @@ def build_mesh_and_set_properties(ModelBuilderObject,
         MBO.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
     # end if
     
-    hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
-                       "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
-                       "lta_2b", "bse_1t", "bse_2b.tif"]
+    if not hu_raster_files:
+        hu_raster_files = ["qa_1t", "qa_2b", "utb_1t", "utb_2b", "utqa_1t", "utqa_2b", 
+                           "utam_1t", "utam_2b", "utaf_1t", "utaf_2b", "lta_1t", 
+                           "lta_2b", "bse_1t", "bse_2b.tif"]
     
     # This loads in the raster files and transforms them into the correct coordinate
     # sytstem.
@@ -101,6 +103,9 @@ def build_mesh_and_set_properties(ModelBuilderObject,
             elif resolution == 500:
                 skip=[0, 0, 12, 0, 12, 12, 12] 
                 skip_active=[100, 40, 0, 70, 0, 0, 0]
+            elif resolution == 100:
+                skip=[0, 0, 120, 0, 120, 120, 120] 
+                skip_active=[1000, 400, 0, 700, 0, 0, 0]
             elif resolution == 20000:
                 skip=[0, 0, 0, 0, 0, 0, 0] 
                 skip_active=[0, 0, 0, 0, 0, 0, 0]
@@ -263,6 +268,8 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     Sy = MBO.model_mesh3D[1].astype(float)
     SS = MBO.model_mesh3D[1].astype(float)
     for key in zone_map.keys():
+        if key not in np.unique(MBO.model_mesh3D[1]):
+            continue
         if not pilot_points:
             Kh[Kh == key] = MBO.parameters.param['kh' + zone_map[key]]['PARVAL1']
             Sy[Sy == key] = MBO.parameters.param['sy' + zone_map[key]]['PARVAL1']

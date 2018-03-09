@@ -69,7 +69,7 @@ print '########################################################################'
 HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(SS_model,
                                                   hu_raster_path,
                                                   HGU_props,
-                                                  resolution=1000,
+                                                  resolution=100,
                                                   create_basement=False)
 
 SS_model.map_rasters_to_grid(os.path.basename(surface_raster_high_res), os.path.dirname(surface_raster_high_res))
@@ -226,3 +226,34 @@ print "************************************************************************"
 print " Package up groundwater model builder object"
 
 SS_model.package_model()
+
+print "************************************************************************"
+print " Create a plot for the river"
+
+import matplotlib.pyplot as plt
+
+mesh_split_riv = np.zeros_like(SS_model.model_mesh3D[1])
+
+for row in river_seg[['i', 'j']].iterrows():
+    for lay in range(mesh_split_riv.shape[0]):
+        mesh_split_riv[lay][row[1]['i']] = [1 if x > row[1]['j'] else 0 for x in range(mesh_split_riv.shape[2]) ]
+
+upper_row = river_seg['i'].max()
+lower_row = river_seg['i'].min()
+upper_col = river_seg[river_seg['i'] == upper_row]['j'].tolist()[0]
+lower_col = river_seg[river_seg['i'] == lower_row]['j'].tolist()[0]
+
+for row in range(lower_row, upper_row):
+    if row not in river_seg['i'].unique():
+        missing_row = row
+        print row
+        missing_col = river_seg[river_seg['i'] == missing_row + 1]['j'].tolist()[0]
+
+for lay in range(mesh_split_riv.shape[0]):
+    for undefined_row in range(upper_row, mesh_split_riv.shape[1]):
+        mesh_split_riv[lay][undefined_row] = [1 if x > upper_col else 0 for x in range(mesh_split_riv.shape[2]) ]
+    for undefined_row in range(0, lower_row):
+        mesh_split_riv[lay][undefined_row] = [1 if x > lower_col else 0 for x in range(mesh_split_riv.shape[2]) ]
+    mesh_split_riv[lay][missing_row] = [1 if x > missing_col else 0 for x in range(mesh_split_riv.shape[2]) ]
+
+plt.imshow(mesh_split_riv[0], interpolation='none')                            

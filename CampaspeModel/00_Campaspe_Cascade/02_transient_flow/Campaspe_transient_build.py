@@ -78,6 +78,16 @@ FieldData = custom_data['FieldData']
 bore_data_info = custom_data['bore_data_info']
 bore_data_levels = custom_data['bore_data_levels']
 
+print '########################################################################'
+print '########################################################################'
+print '## Data to consider '
+print '########################################################################'
+print '########################################################################'
+
+use_field_flow = True
+use_field_depth = True
+use_field_ec = True
+
 #******************************************************************************
 #******************************************************************************
 #******************************************************************************
@@ -482,47 +492,49 @@ tr_model.observations.set_as_observations('gflow',
                                           weights=1.0, 
                                           real=True)    
 
+if use_field_flow:
 
-# Field data for stage and discharge
-field_discharge_time_series = FieldData[['Name', 'Flows_Field']]
-field_discharge_time_series.loc[:, 'datetime'] = field_discharge_time_series.index
-field_discharge_time_series.index = range(field_discharge_time_series.shape[0])
-field_discharge_time_series.rename(columns={'Name':'name', 'Flows_Field': 'value'}, inplace=True)
-field_discharge_time_series = field_discharge_time_series.dropna()
-# Ignore tributaries for now ...
-field_discharge_time_series = \
-    field_discharge_time_series[field_discharge_time_series['name'].str.contains('Camp')]
+    # Field data for stage and discharge
+    field_discharge_time_series = FieldData[['Name', 'Flows_Field']]
+    field_discharge_time_series.loc[:, 'datetime'] = field_discharge_time_series.index
+    field_discharge_time_series.index = range(field_discharge_time_series.shape[0])
+    field_discharge_time_series.rename(columns={'Name':'name', 'Flows_Field': 'value'}, inplace=True)
+    field_discharge_time_series = field_discharge_time_series.dropna()
+    # Ignore tributaries for now ...
+    field_discharge_time_series = \
+        field_discharge_time_series[field_discharge_time_series['name'].str.contains('Camp')]
+    
+    # Convert data units in m3/s to that of model, i.e. m3/d
+    field_discharge_time_series['value'] = field_discharge_time_series['value'] * 86400.
 
-# Convert data units in m3/s to that of model, i.e. m3/d
-field_discharge_time_series['value'] = field_discharge_time_series['value'] * 86400.
-
-tr_model.observations.set_as_observations('fflow', 
-                                          field_discharge_time_series, 
-                                          FieldData_info, 
-                                          domain='stream', 
-                                          obs_type='discharge', 
-                                          units='m3/d', 
-                                          weights=1.0, 
-                                          real=True)
-
-field_stage_time_series = FieldData[['Name', 'Depth_Field']]
-field_stage_time_series.loc[:, 'datetime'] = field_stage_time_series.index
-field_stage_time_series.index = range(field_stage_time_series.shape[0])
-field_stage_time_series.rename(columns={'Name':'name', 'Depth_Field': 'value'}, inplace=True)
-field_stage_time_series = field_stage_time_series.dropna()
-# Ignore tributaries for now ...
-field_stage_time_series = field_stage_time_series[field_stage_time_series['name'].str.contains('Camp')]
-
-# NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
-
-tr_model.observations.set_as_observations('fdepth', 
-                                          field_stage_time_series, 
-                                          FieldData_info, 
-                                          domain='stream', 
-                                          obs_type='depth', 
-                                          units='m', 
-                                          weights=1.0, 
-                                          real=True)
+    tr_model.observations.set_as_observations('fflow', 
+                                              field_discharge_time_series, 
+                                              FieldData_info, 
+                                              domain='stream', 
+                                              obs_type='discharge', 
+                                              units='m3/d', 
+                                              weights=1.0, 
+                                              real=True)
+if use_field_depth:
+    
+    field_stage_time_series = FieldData[['Name', 'Depth_Field']]
+    field_stage_time_series.loc[:, 'datetime'] = field_stage_time_series.index
+    field_stage_time_series.index = range(field_stage_time_series.shape[0])
+    field_stage_time_series.rename(columns={'Name':'name', 'Depth_Field': 'value'}, inplace=True)
+    field_stage_time_series = field_stage_time_series.dropna()
+    # Ignore tributaries for now ...
+    field_stage_time_series = field_stage_time_series[field_stage_time_series['name'].str.contains('Camp')]
+    
+    # NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
+    
+    tr_model.observations.set_as_observations('fdepth', 
+                                              field_stage_time_series, 
+                                              FieldData_info, 
+                                              domain='stream', 
+                                              obs_type='depth', 
+                                              units='m', 
+                                              weights=1.0, 
+                                              real=True)
 
 print "************************************************************************"
 print " Creating Campaspe river observations for EC at "
@@ -565,25 +577,25 @@ tr_model.observations.set_as_observations('gstrec',
                                           weights=1.0, 
                                           real=True)    
 
-
-field_ec_time_series = FieldData[['Name', 'EC_Field']]
-field_ec_time_series.loc[:, 'datetime'] = field_ec_time_series.index
-field_ec_time_series.index = range(field_ec_time_series.shape[0])
-field_ec_time_series.rename(columns={'Name':'name', 'EC_Field': 'value'}, inplace=True)
-field_ec_time_series = field_ec_time_series.dropna()
-# Ignore tributaries for now ...
-field_ec_time_series = field_ec_time_series[field_ec_time_series['name'].str.contains('Camp')]
-
-# NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
-
-tr_model.observations.set_as_observations('fstrec', 
-                                          field_ec_time_series, 
-                                          FieldData_info, 
-                                          domain='stream', 
-                                          obs_type='EC', 
-                                          units='uS/cm', 
-                                          weights=1.0, 
-                                          real=True)
+if use_field_ec:
+    field_ec_time_series = FieldData[['Name', 'EC_Field']]
+    field_ec_time_series.loc[:, 'datetime'] = field_ec_time_series.index
+    field_ec_time_series.index = range(field_ec_time_series.shape[0])
+    field_ec_time_series.rename(columns={'Name':'name', 'EC_Field': 'value'}, inplace=True)
+    field_ec_time_series = field_ec_time_series.dropna()
+    # Ignore tributaries for now ...
+    field_ec_time_series = field_ec_time_series[field_ec_time_series['name'].str.contains('Camp')]
+    
+    # NEED DATAFRAME WITH COLS 'Gauge_id' and 'river_seg' 'Easting', 'Northing'
+    
+    tr_model.observations.set_as_observations('fstrec', 
+                                              field_ec_time_series, 
+                                              FieldData_info, 
+                                              domain='stream', 
+                                              obs_type='EC', 
+                                              units='uS/cm', 
+                                              weights=1.0, 
+                                              real=True)
 
 
 print "************************************************************************"
@@ -917,40 +929,65 @@ porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+nrow = tr_model.model_mesh3D[0].shape[1]
+ncol = tr_model.model_mesh3D[0].shape[2]
+delr = tr_model.gridHeight
+delc = tr_model.gridWidth
+top = tr_model.model_mesh3D[0][0]
+#botm = self.model_data.model_mesh3D[0][1:]
+xul = tr_model.model_boundary[0]
+yul = tr_model.model_boundary[3]
+
+x = np.linspace(xul, xul + ncol * delc, ncol)
+y = np.linspace(yul - nrow * delr, yul, nrow)
+X, Y = np.meshgrid(x, y)
+#Z = np.sqrt(X**2 + Y**2)/5
+#Z = (Z - Z.min()) / (Z.max() - Z.min())
+#plt.imshow(zone2D_info[0][6], interpolation='none', cmap=cmap_grey_white)
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][6]))
 
 # These are the "Tableau 20" colors as RGB.    
-#import matplotlib.pyplot as plt
-#colors = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
-#             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
-#             (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
-#             (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
-#             (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]    
-#  
-## Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
-#for i in range(len(colors)):    
-#    r, g, b = colors[i]    
-#    colors[i] = (r / 255., g / 255., b / 255.)    
-#    
-#flatten = lambda l: [item for sublist in l for item in sublist]
-#fig = plt.figure(figsize=(2.5,5))
-#ax = fig.add_subplot(1,1,1, aspect='equal')
-#for index, reach in enumerate(river_segs_reach[1:]):
-#    reach_river = river_seg[river_seg['iseg'].isin(reach)]
-#    points = [x for x in reach_river['amalg_riv_points_collection']]
-#    points = flatten(points)
-#    x_points = [x[0] for x in points]
-#    y_points = [y[1] for y in points]    
-#    plt.plot(x_points, y_points, color=colors[index], label=str(index + 1))
-#    
-#Campaspe_info.plot(kind='scatter', x='Easting', y='Northing', ax=ax)#, label='Site Id')    
-#start_ax, end_ax = ax.get_xlim()
-#start_ax = start_ax // 1000 * 1000 + 1000
-#end_ax = end_ax // 1000 * 1000 - 1000
-#ax.xaxis.set_ticks(np.arange(start_ax, end_ax, 20000.))
-#ax.xaxis.get_major_formatter().set_powerlimits((0, 1))
-#plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='Reach Number')
-#plt.tight_layout()
-#plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST5000\master_Colossus3\river_reaches.png")
+import matplotlib.pyplot as plt
+colors_2 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
+             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
+             (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
+             (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
+             (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]    
+  
+# Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
+for i in range(len(colors_2)):    
+    r, g, b = colors_2[i]    
+    colors_2[i] = (r / 255., g / 255., b / 255.)    
+    
+flatten = lambda l: [item for sublist in l for item in sublist]
+from matplotlib import colors
+cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
+
+fig = plt.figure(figsize=(3.5,7))
+ax = fig.add_subplot(1,1,1, aspect='equal')
+ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][6]), cmap=cmap_grey_white)
+for index, reach in enumerate(river_segs_reach[:]):
+    reach_river = river_seg[river_seg['iseg'].isin(reach)]
+    points = [x for x in reach_river['amalg_riv_points_collection']]
+    points = flatten(points)
+    x_points = [x[0] for x in points]
+    y_points = [y[1] for y in points]    
+    plt.plot(x_points, y_points, color=colors_2[index], label=str(index + 1))
+    
+Campaspe_info.plot(kind='scatter', x='Easting', y='Northing', ax=ax)#, label='Site Id')    
+start_ax, end_ax = ax.get_xlim()
+start_ax = start_ax // 1000 * 1000 + 1000
+end_ax = end_ax // 1000 * 1000 - 1000
+ax.xaxis.set_ticks(np.arange(start_ax, end_ax, 20000.))
+ax.xaxis.get_major_formatter().set_powerlimits((0, 1))
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='Reach Number')
+ax.set_xlim(xul, xul + ncol * delc)
+ax.set_ylim(yul - nrow * delr, yul)
+plt.tight_layout()
+plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST1000\HPC_Feb2018\river_reaches.png")
 
 print "************************************************************************"
 print " Creating Campaspe river boundary"
@@ -1163,3 +1200,51 @@ print "************************************************************************"
 print " Package up groundwater model builder object"
 
 tr_model.package_model()
+
+
+###############################################################################
+
+# Create shapefiles for the observations used in the model:
+
+import geopandas
+from shapely.geometry import Point
+
+for key in tr_model.observations.obs_group:
+    if tr_model.observations.obs_group[key]['real']:
+        print("###### {} #####".format(key))
+        df_ts_names = tr_model.observations.obs_group[key]['time_series']['name'].unique()
+        df = tr_model.observations.obs_group[key]['locations'][['Easting', 'Northing']].copy()
+        df = df[df.index.isin(df_ts_names)]
+        # combine lat and lon column to a shapely Point() object
+        df['geometry'] = df.apply(lambda x: Point((float(x.Easting), float(x.Northing))), axis=1)
+        df = geopandas.GeoDataFrame(df, geometry='geometry')
+        df.crs= Proj_CS.ExportToProj4()
+        df.to_file(os.path.join(tr_model.out_data_folder_grid, '{}_observations.shp'.format(key)), driver='ESRI Shapefile')
+
+###############################################################################
+import matplotlib.pyplot as plt
+from matplotlib import colors
+
+riv_pp_df = river_seg[river_seg['iseg'].isin(river_segs_seg_pp)][['iseg', 'i', 'j', 'k', 'Cumulative Length', 'strtop']]
+
+fig = plt.figure()
+ax = fig.add_subplot(1, 1, 1)
+river_seg.plot(x='Cumulative Length', y='strtop', ax=ax, color='black')
+riv_pp_df.plot(kind='scatter', x='Cumulative Length', y='strtop', ax=ax, c='black', facecolor='black')
+ax.set_xlabel('Chainage (m)')
+ax.set_ylabel('Elevation (mAHD)')
+ax.legend(['River bed', 'Pilot points'])
+
+river_seg[['Cumulative Length', 'strtop']].to_csv(r'C:/Workspace/part0075/MDB modelling/testbox/PEST1000/HPC_Feb2018/river_top.csv')
+riv_pp_df.to_csv(r'C:/Workspace/part0075/MDB modelling/testbox/PEST1000/HPC_Feb2018/river_pp.csv')
+
+#ax = fig.add_subplot(1, 2, 2)
+#ax = fig.add_subplot(1, 1, 1)
+#riv_pp_df[['i', 'j']].plot(kind='scatter', x='j', y='i', c='black', facecolor='black', s=5.5, ax=ax)
+#cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
+#plt.imshow(tr_model.model_mesh3D[1][6], interpolation='none', cmap=cmap_grey_white)
+#plt.axis('off')
+tr_model.boundaries.bc.keys()
+tr_model.boundaries.bc['Rainfall'].keys()
+zarr = tr_model.boundaries.bc['Rain_reduced']['zonal_array']
+plt.imshow(np.ma.masked_where(tr_model.model_mesh3D[1][0] == -1, zarr), interpolation='none', vmin=100, cmap='prism')

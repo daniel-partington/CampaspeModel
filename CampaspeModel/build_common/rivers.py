@@ -133,7 +133,7 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
                                                num_parameters=num_reaches)
     
     MBO.parameters.parameter_options_set('rivwdth', 
-                                          PARTRANS='fixed', 
+                                          PARTRANS='log', 
                                           PARCHGLIM='factor', 
                                           PARLBND=4., 
                                           PARUBND=40., 
