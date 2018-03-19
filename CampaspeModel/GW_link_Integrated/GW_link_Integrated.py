@@ -406,8 +406,7 @@ def main():
         "pumping": 0.1,  # m^3/day
         "MM": MM,
         "verbose": False,
-        "is_steady": True,
-        "recharge_amt": 0.0001
+        "is_steady": True
     }
 
     run(**run_params)
