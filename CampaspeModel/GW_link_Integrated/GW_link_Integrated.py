@@ -218,11 +218,9 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
                 p_j(data_folder, fname, name + '.hds')))
     except IOError:
+        warnings.warn("MODFLOW hds file not found. Recreating head state from existing values.")
         head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
         this_model.initial_conditions.set_as_initial_condition("Head", head)
-        if verbose:
-            print("Using initial head conditions")
-        # End if
     # End try
 
     # Currently using flopyInterface directly rather than running from the ModelManager ...
