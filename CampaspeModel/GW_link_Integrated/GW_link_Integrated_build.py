@@ -73,7 +73,7 @@ SS_model = GWModelBuilder(**model_params)
 if VERBOSE:
     print "Attempting to map these bores..."
 # End if
-model_linking = os.path.join(data_folder, "model_bores.csv")
+model_linking = os.path.join(data_folder, "model_linking.csv")
 with open(model_linking, 'r') as f:
     lines = f.readlines()
 

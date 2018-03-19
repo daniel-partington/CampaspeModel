@@ -1,5 +1,7 @@
 import datetime
 import os
+from itertools import groupby
+from operator import itemgetter
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -71,7 +73,7 @@ SS_model = GWModelBuilder(**model_params)
 if VERBOSE:
     print "Attempting to map these bores..."
 # End if
-model_linking = os.path.join(data_folder, "model_bores.csv")
+model_linking = os.path.join(data_folder, "model_linking.csv")
 with open(model_linking, 'r') as f:
     lines = f.readlines()
 
@@ -673,8 +675,6 @@ for ind in range(river_seg.shape[0]):
             if curr['rchlen'] < max_length:
                 merge_row += [ind]
 
-from operator import itemgetter
-from itertools import groupby
 merge_row_consec = []
 for k, g in groupby(enumerate(merge_row), lambda (i, x): i - x):
     merge_row_consec.append(map(itemgetter(1), g))
