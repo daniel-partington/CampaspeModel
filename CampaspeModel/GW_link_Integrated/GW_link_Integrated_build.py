@@ -67,7 +67,7 @@ SS_model = GWModelBuilder(**model_params)
 # Define the units for the project for consistency and to allow converions on input data
 
 # ******************************************************************************
-# Complimentary models requirements, i.e. bore and gauge data that should be
+# Complementary models requirements, i.e. bore and gauge data that should be
 # referenceable to this model for parsing specific outputs and receiving inputs:
 
 if VERBOSE:
