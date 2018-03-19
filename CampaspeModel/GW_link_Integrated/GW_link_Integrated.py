@@ -39,7 +39,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     :param riv_stages: np recarray, gauge numbers and stage
     :param rainfall_irrigation: np array, array representing rainfall and irrigation input.
                                 Must match the model extent.
-    :param pumping: float, daily pumping amount in m/day
+    :param pumping: float, daily pumping amount in m^3/day
 
     :returns: tuple, four elements
                 xchange: numpy recarray, exchange for each gauge by gauge ID
