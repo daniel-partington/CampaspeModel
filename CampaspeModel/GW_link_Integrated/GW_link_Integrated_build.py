@@ -112,7 +112,7 @@ SS_model.set_data_boundary_from_polygon_shapefile(SS_model.boundary_poly_file,
 
 # Setup recharge:
 # ... read in climate data using Custom_Scripts
-weather_stations = ['Kyneton',  'Elmore', 'Rochester', 'Echuca']
+weather_stations = ['Kyneton', 'Elmore', 'Rochester', 'Echuca']
 
 if VERBOSE:
     print "************************************************************************"

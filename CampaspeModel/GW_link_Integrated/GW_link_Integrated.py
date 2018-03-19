@@ -17,6 +17,7 @@ from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
+
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
 
@@ -34,20 +35,23 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     :param model_folder: str, path to model folder
     :param data_folder: str, path to data
     :param mf_exe_folder: str, path to MODFLOW executable
-    :param farm_zones: list, string IDs of farm zones to map ground water level values to (in order)
+    :param farm_zones: list[str], farm zone IDs to map ground water level values to (in order)
     :param param_file: str, path to parameter file
-    :param riv_stages: np recarray, gauge numbers and stage
-    :param rainfall_irrigation: np array, array representing rainfall and irrigation input.
+    :param riv_stages: np.recarray, gauge numbers and stage
+    :param rainfall_irrigation: np.ndarray, array representing rainfall and irrigation input.
                                 Must match the model extent.
-    :param pumping: float, daily pumping amount in m^3/day
+    :param pumping: float, daily pumping amount in m^3/day (ML/day to m^3/day => ML * 1000)
 
-    :returns: tuple, four elements
-                xchange: numpy recarray, exchange for each gauge by gauge ID
-                avg_gw_depth: numpy recarray, Average depth for each zone
-                ecol_depth_to_gw: numpy recarray, TODO
-                trigger_head: numpy recarray, Trigger well heads
+    :returns: tuple[np.recarray], four elements
+              xchange: exchange for each gauge by gauge ID
+              avg_gw_depth: average depth for each zone
+              ecol_depth_to_gw: average gw depth at each cell that contains an ecological bore of interest.
+              trigger_head: Policy trigger well heads
     """
     p_j = os.path.join
+
+    # DEBUG: Setting constant high pumping rate to see if gw levels go down
+    # pumping = 1.0
 
     if MM is None:
         MM = GWModelManager()
@@ -175,7 +179,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     for i in xrange(1, 8):
         match = mesh_1[0] == i
 
-        if i in temp_lst:  # (4 - 6)
+        if i in temp_lst:  # (4, 5, 6)
             interp_rain[match] = 0
             continue
         # End if
@@ -205,7 +209,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
     fname = 'model_{}'.format(name)
     try:
-        headobj = bf.HeadFile(p_j(data_folder, name + '.hds'))
+        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
         times = headobj.get_times()
         head = headobj.get_data(totim=times[-1])
         this_model.initial_conditions.set_as_initial_condition("Head", head)
@@ -215,17 +219,14 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                 p_j(data_folder, fname, name + '.hds')))
     except IOError:
         head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
-        #print this_model.model_mesh3D[0][0]
-        #print this_model.model_mesh3D[0].shape
-        #print head.shape
         this_model.initial_conditions.set_as_initial_condition("Head", head)
         if verbose:
-            print "Using initial head conditions"
+            print("Using initial head conditions")
         # End if
     # End try
 
     # Currently using flopyInterface directly rather than running from the ModelManager ...
-    modflow_model = flopyInterface.ModflowModel(this_model, data_folder=data_folder)
+    modflow_model = flopyInterface.ModflowModel(this_model, data_folder=p_j(data_folder, "model_{}".format(name)))
 
     # Override temporal aspects of model build:
     modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
@@ -262,10 +263,11 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
         river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
         river_reach_cells.set_value(0, 'gauge_id', 'none')
+
         river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
         river_reach_cells = river_reach_cells.bfill()
-        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(Stream_gauges), [
-            'k', 'i', 'j']].values.tolist()
+        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(Stream_gauges),
+                                                          ['k', 'i', 'j']].values.tolist()
 
         reach_cells = {}
         for gauge in Stream_gauges:
@@ -277,12 +279,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
         river_reach_ecol = river_seg.loc[:, ['gauge_id', 'k', 'j', 'i']]
         river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
+        ecol_gauge_id = river_reach_ecol['gauge_id']
         river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
 
         eco_cells = {}
         for ind, ecol_bore in enumerate(Ecology_bores):
-            eco_cells[Stream_gauges[ind]] = river_reach_ecol.loc[river_reach_ecol['gauge_id']
-                                                                 == Stream_gauges[ind], 'cell'].values[0]
+            eco_cells[Stream_gauges[ind]] = river_reach_ecol.loc[ecol_gauge_id == Stream_gauges[ind], 'cell'].values[0]
         # End for
 
         river_reach_ecol = eco_cells
@@ -345,7 +347,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
        Murray. So can we have the gradient of flow as an indicator in the
        integrated model as well (if it isn't already)?
     """
-
     for trigger_bore in Policy_bores:
         # NOTE: This returns the head in mAHD
         trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
@@ -368,7 +369,7 @@ def main():
             with open(filename, 'r') as f:
                 return pickle.load(f)
         else:
-            print 'File type not recognised as "pkl"'
+            print('File type not recognised as "pkl"')
         # End if
 
     # Example river level data (to be inputted from SW Model)
@@ -402,10 +403,11 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 0.1,
+        "pumping": 0.1,  # m^3/day
         "MM": MM,
         "verbose": False,
-        "is_steady": True
+        "is_steady": True,
+        "recharge_amt": 0.0001
     }
 
     run(**run_params)
@@ -414,10 +416,10 @@ def main():
         run(**run_params)
     # End for
     swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
-    print "swgw_exchanges", swgw_exchanges
-    print "avg_depth_to_gw", avg_depth_to_gw
-    print "ecol_depth_to_gw", ecol_depth_to_gw
-    print "trigger_heads", trigger_heads
+    print("swgw_exchanges", swgw_exchanges)
+    print("avg_depth_to_gw", avg_depth_to_gw)
+    print("ecol_depth_to_gw", ecol_depth_to_gw)
+    print("trigger_heads", trigger_heads)
 
 
 if __name__ == "__main__":
