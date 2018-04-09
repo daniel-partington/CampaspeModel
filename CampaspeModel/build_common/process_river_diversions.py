@@ -15,7 +15,7 @@ def year_period_2_datetime(year, period):
     return pd.to_datetime(date)
 
 
-def getDiversions(fname, plot=False, custom_summary=False):
+def get_diversions(fname, plot=False, custom_summary=False):
     '''
     Function to parse all the diversions data for Campaspe River
     from excel spreadsheet
@@ -84,4 +84,4 @@ def getDiversions(fname, plot=False, custom_summary=False):
 
 if __name__  == "__main__":
     fname = r"C:\Workspace\part0075\MDB modelling\Campaspe_Data\SW\Campaspe_System_Data.xlsx"
-    CD = getDiversions(fname, plot=True, custom_summary=True)
+    CD = get_diversions(fname, plot=True, custom_summary=True)

@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
     else:
         # Get general model config information
-        CONFIG = ConfigLoader('../../config/model_config.json')\
+        CONFIG = ConfigLoader('../../../config/model_config.json')\
                         .set_environment("01_steady_state")
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep

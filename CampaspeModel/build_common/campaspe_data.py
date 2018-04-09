@@ -2,7 +2,11 @@ import os
 import pandas as pd
 import numpy as np
 
-from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get_GW_licence_info, processRiverStations, readHydrogeologicalProperties, processRiverDiversions
+from CampaspeModel.build_common import (process_weather_stations, 
+                                          get_bore_data, get_GW_licence_info, 
+                                          process_river_stations, 
+                                          read_hydrogeological_properties, 
+                                          process_river_diversions)
 
 # Define the units for the project for consistency and to allow converions on input data
 # ModelBuilderObject.length = 'm'
@@ -12,11 +16,13 @@ from CampaspeModel.CustomScripts import processWeatherStations, getBoreData, get
 def process_custom_scripts_and_spatial_data(ModelBuilderObject, 
                                             Campaspe_data_folder,
                                             verbose=True,
-                                            model_boundary_file="GW_model_area2.shp"):
+                                            model_boundary_file="GW_model_area2.shp",
+                                            GW_link_Integrated=False):
 
     custom_data = {}
     MBO = ModelBuilderObject
     # Set the model boundary using a polygon shapefile:
+    
     if verbose:
         print "************************************************************************"
         print " Setting model boundary "
@@ -46,25 +52,25 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     
     rain_info_file = "rain_processed"
     # Check if this data has been processed and if not process it
-    if os.path.exists(MBO.out_data_folder + rain_info_file + '.h5'):
+    if os.path.exists(os.path.join(MBO.out_data_folder, rain_info_file + '.h5')):
         custom_data['long_term_historic_rainfall'] = \
-            MBO.load_dataframe(MBO.out_data_folder + rain_info_file + '.h5')
+            MBO.load_dataframe(os.path.join(MBO.out_data_folder, rain_info_file + '.h5'))
     else:
         custom_data['long_term_historic_rainfall'] = \
-            processWeatherStations.processWeatherStations(weather_stations, 
+            process_weather_stations.process_weather_stations(weather_stations, 
                                                           path=os.path.join(Campaspe_data_folder,r"Climate\\"))
-        MBO.save_dataframe(MBO.out_data_folder + rain_info_file, 
+        MBO.save_dataframe(os.path.join(MBO.out_data_folder, rain_info_file), 
                            custom_data['long_term_historic_rainfall'])
 
     rain_info_file2 = "rain_processed_transient"
-    if os.path.exists(MBO.out_data_folder + rain_info_file2 + '.h5'):
-        custom_data['long_term_historic_weather'] = MBO.load_dataframe(MBO.out_data_folder + rain_info_file2 + '.h5')
+    if os.path.exists(os.path.join(MBO.out_data_folder, rain_info_file2 + '.h5')):
+        custom_data['long_term_historic_weather'] = MBO.load_dataframe(os.path.join(MBO.out_data_folder, rain_info_file2 + '.h5'))
     else:
         custom_data['long_term_historic_weather'] = \
-            processWeatherStations.processWeatherStations(weather_stations, 
+            process_weather_stations.process_weather_stations(weather_stations, 
                                                           path=os.path.join(Campaspe_data_folder,r"Climate\\"), 
                                                           frequency='M')
-        MBO.save_dataframe(MBO.out_data_folder + rain_info_file2, custom_data['long_term_historic_weather'])
+        MBO.save_dataframe(os.path.join(MBO.out_data_folder, rain_info_file2), custom_data['long_term_historic_weather'])
         
     # Read in bore data:
     if verbose:
@@ -74,18 +80,23 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     bore_levels_file = "bore_levels"
     bore_salinity_file = "bore_salinity"
     bore_info_file = "bore_info"
-    if os.path.exists(MBO.out_data_folder + bore_levels_file + ".h5") & \
-       os.path.exists(MBO.out_data_folder + bore_info_file + ".h5") & \
-       os.path.exists(MBO.out_data_folder + bore_salinity_file + ".h5"):
-        custom_data['bore_data_levels'] = MBO.load_dataframe(MBO.out_data_folder + bore_levels_file + ".h5")
-        custom_data['bore_data_info'] = MBO.load_dataframe(MBO.out_data_folder + bore_info_file + ".h5")
-        custom_data['bore_data_salinity'] = MBO.load_dataframe(MBO.out_data_folder + bore_salinity_file + ".h5")
+    if os.path.exists(os.path.join(MBO.out_data_folder, bore_levels_file + ".h5")) & \
+       os.path.exists(os.path.join(MBO.out_data_folder, bore_info_file + ".h5")) & \
+       os.path.exists(os.path.join(MBO.out_data_folder, bore_salinity_file + ".h5")):
+        custom_data['bore_data_levels'] = MBO.load_dataframe(os.path.join(MBO.out_data_folder, bore_levels_file + ".h5"))
+        custom_data['bore_data_info'] = MBO.load_dataframe(os.path.join(MBO.out_data_folder, bore_info_file + ".h5"))
+        custom_data['bore_data_salinity'] = MBO.load_dataframe(os.path.join(MBO.out_data_folder, bore_salinity_file + ".h5"))
     else:
-        custom_data['bore_data_levels'], custom_data['bore_data_info'], custom_data['bore_data_salinity'] = \
-            getBoreData.getBoreData(path=os.path.join(Campaspe_data_folder, "ngis_shp_VIC"))
-        MBO.save_dataframe(MBO.out_data_folder + bore_levels_file, custom_data['bore_data_levels'])
-        MBO.save_dataframe(MBO.out_data_folder + bore_info_file, custom_data['bore_data_info'])
-        MBO.save_dataframe(MBO.out_data_folder + bore_salinity_file, custom_data['bore_data_salinity'])
+        if not GW_link_Integrated:
+            custom_data['bore_data_levels'], custom_data['bore_data_info'], custom_data['bore_data_salinity'] = \
+                get_bore_data.get_bore_data(path=os.path.join(Campaspe_data_folder, "ngis_shp_VIC"))
+        else:
+            custom_data['bore_data_levels'], custom_data['bore_data_info'], custom_data['bore_data_salinity'] = \
+                get_bore_data.get_bore_data(path=os.path.join(Campaspe_data_folder, "ngis_shp_VIC"), construct_record_number_max=1000)
+            
+        MBO.save_dataframe(os.path.join(MBO.out_data_folder, bore_levels_file), custom_data['bore_data_levels'])
+        MBO.save_dataframe(os.path.join(MBO.out_data_folder, bore_info_file), custom_data['bore_data_info'])
+        MBO.save_dataframe(os.path.join(MBO.out_data_folder, bore_salinity_file), custom_data['bore_data_salinity'])
     # end if
     
     # getBoreDepth ... assuming that midpoint of screen interval is representative location and assign to layer accordingly
@@ -166,7 +177,7 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
         print " Executing custom script: readHydrogeologicalProperties "
     
     HGU_file_location = os.path.join(Campaspe_data_folder, r"GW\Aquifer properties\Hydrogeologic_variables.xlsx")
-    custom_data['HGU_props'] = readHydrogeologicalProperties.getHGUproperties(HGU_file_location)
+    custom_data['HGU_props'] = read_hydrogeological_properties.get_HGU_properties(HGU_file_location)
     
     if verbose:
         print "************************************************************************"
@@ -224,21 +235,21 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     if os.path.exists(river_flow_file + '.pkl'):
         custom_data['river_flow_data'] = MBO.load_obj(river_flow_file + '.pkl')
     else:
-        custom_data['river_flow_data'] = processRiverStations.getFlow(path=river_data_folder, sites=sites)
+        custom_data['river_flow_data'] = process_river_stations.get_flow(path=river_data_folder, sites=sites)
         MBO.save_obj(custom_data['river_flow_data'], river_flow_file)
     
     # Check if this data has been processed and if not process it
     if os.path.exists(river_stage_file + '.pkl'):
         custom_data['river_stage_data'] = MBO.load_obj(river_stage_file + '.pkl')
     else:
-        custom_data['river_stage_data'] = processRiverStations.getStage(path=river_data_folder, sites=sites)
+        custom_data['river_stage_data'] = process_river_stations.get_stage(path=river_data_folder, sites=sites)
         MBO.save_obj(custom_data['river_stage_data'], river_stage_file)
     
     # Check if this data has been processed and if not process it
     if os.path.exists(river_ec_file + '.pkl'):
         custom_data['river_ec_data'] = MBO.load_obj(river_ec_file + '.pkl')
     else:
-        custom_data['river_ec_data'] = processRiverStations.getEC(path=river_data_folder, sites=sites)
+        custom_data['river_ec_data'] = process_river_stations.get_EC(path=river_data_folder, sites=sites)
         MBO.save_obj(custom_data['river_ec_data'], river_ec_file)
     
     custom_data['river_gauges'] = MBO.read_points_data(site_shapefile)
@@ -252,7 +263,7 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
         custom_data['river_diversions_data'] = MBO.load_obj(river_diversions_file + '.pkl')
     else:
         custom_data['river_diversions_data'] = \
-            processRiverDiversions.getDiversions(diversions_data_file)
+            process_river_diversions.get_diversions(diversions_data_file)
         MBO.save_obj(custom_data['river_diversions_data'], river_diversions_file)
 
 
@@ -299,6 +310,13 @@ def process_custom_scripts_and_spatial_data(ModelBuilderObject,
     custom_data['WGWbound_poly'] = MBO.read_poly("western_head.shp", path=MBO.data_folder)
     custom_data['EGWbound_poly'] = MBO.read_poly("eastern_head.shp", path=MBO.data_folder)
 
+    if verbose:
+        print "************************************************************************"
+        print "Load in the farms shapefile"
+
+    farms_path = os.path.join(Campaspe_data_folder, "SW", "Farm")
+    custom_data['farms_poly'] = MBO.read_poly("farm_v1_prj.shp", path=farms_path, poly_type='polygon')
+    
 
     return custom_data
     

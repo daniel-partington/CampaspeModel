@@ -51,7 +51,7 @@ N	Deemed not anomalous by the data provider
 """
 
 
-def getBoreDataGMW(path=""):
+def get_bore_data_GMW(path=""):
     '''
     Function to process bore data received from Goulburn Murray Water
 
@@ -88,7 +88,7 @@ def getBoreDataGMW(path=""):
     WaterLevel = df_set['Water Levels']
     water_level_bores = pd.unique(WaterLevel['Bore ID'])
 
-def getBoreData(get='transient', path="", construct_record_number_max=3): 
+def get_bore_data(get='transient', path="", construct_record_number_max=3): 
     '''
     Function to process National Groundwater Information System (NGIS) data
     to extract bores with level readings and that have clear info on 
@@ -236,7 +236,7 @@ def getBoreData(get='transient', path="", construct_record_number_max=3):
     #ax.set_ylabel('Head (mAHD)')
     #ax.plot(title="Bore @" + wellslist[0])
 
-def getBoreDataVicGov(get='transient', path="", construct_record_number_max=3): 
+def get_bore_data_Vic_Gov(get='transient', path="", construct_record_number_max=3): 
     '''
     Function to process data from http://data.water.vic.gov.au/monitoring.htm
     to extract bores with level readings and that have clear info on 
@@ -366,10 +366,10 @@ def getBoreDataVicGov(get='transient', path="", construct_record_number_max=3):
     
 if __name__ == "__main__":
     path2 = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ngis_shp_VIC"
-    df_level2, df_bores2, df_salinity2 = getBoreData(get='transient', path=path2)
+    df_level2, df_bores2, df_salinity2 = get_bore_data(get='transient', path=path2)
     # getBoreDataGMW()
 
     path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Victorian Government Data"
-    df_level, df_bores = getBoreDataVicGov(get='transient', path=path)
+    df_level, df_bores = get_bore_data_Vic_Gov(get='transient', path=path)
     
     

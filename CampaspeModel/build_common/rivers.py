@@ -23,7 +23,8 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
                                     Campaspe,
                                     Campaspe_field_elevations,
                                     num_reaches=4,
-                                    plot=False):
+                                    plot=False,
+                                    RIV_boundary_only=False):
     
     MBO = ModelBuilderObject
     use_gauges = ['CAMPASPE RIVER @ EPPALOCK',
@@ -115,18 +116,19 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
                                           PARGP='rivbed', 
                                           SCALE=1, 
                                           OFFSET=0)
-    # Setting up river bed roughness values
-    MBO.parameters.create_model_parameter_set('mn_riv', 
-                                               value=0.001, 
-                                               num_parameters=num_reaches)
-    MBO.parameters.parameter_options_set('mn_riv', 
-                                          PARTRANS='log', 
-                                          PARCHGLIM='factor', 
-                                          PARLBND=0.001, 
-                                          PARUBND=0.1, 
-                                          PARGP='rough', 
-                                          SCALE=1, 
-                                          OFFSET=0)
+    if not RIV_boundary_only:    
+        # Setting up river bed roughness values
+        MBO.parameters.create_model_parameter_set('mn_riv', 
+                                                   value=0.001, 
+                                                   num_parameters=num_reaches)
+        MBO.parameters.parameter_options_set('mn_riv', 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=0.001, 
+                                              PARUBND=0.1, 
+                                              PARGP='rough', 
+                                              SCALE=1, 
+                                              OFFSET=0)
     # Setting up river width values
     MBO.parameters.create_model_parameter_set('rivwdth', 
                                                value=20.0, 
@@ -219,6 +221,9 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
             Campaspe_gauge_zero[Campaspe_gauge_zero['Site Id'] == 406203]['seg_loc'].tolist()[0] + 1
     Campaspe_gauge_zero2 = Campaspe_gauge_zero
     
+    if len(Campaspe_field_elevations['seg_loc'].unique()) < len(Campaspe_field_elevations['seg_loc']):
+        Campaspe_field_elevations = Campaspe_field_elevations.drop_duplicates(subset='seg_loc')
+    
     river_seg.loc[river_seg['iseg'].isin(Campaspe_gauge_zero2['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_gauge_zero2['new_gauge'].tolist(), reverse=True)
     river_seg.loc[river_seg['iseg'].isin(Campaspe_field_elevations['seg_loc'].tolist()), 'bed_from_gauge'] = sorted(Campaspe_field_elevations['Elevation'].tolist(), reverse=True)
 
@@ -244,9 +249,17 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     for layer in range(7):
         river_seg["surf{}".format(layer)] = surface_layers[layer]
     
-    river_seg['k'] = new_k
-    river_seg['strtop'] = river_seg['bed_from_gauge']
-    river_seg['bottom_layer'] = bottom_layer
+
+    river_seg.loc[:, 'k'] = new_k
+    
+    if not RIV_boundary_only:
+        river_seg.loc[:, 'strtop'] = river_seg['bed_from_gauge']
+        river_seg.loc[:, 'bottom_layer'] = bottom_layer
+    else:
+        river_seg.loc[:, 'strhc1'] = MBO.parameters.param['kv_riv']['PARVAL1']                      
+        river_seg.loc[:, 'width1'] = MBO.parameters.param['rivwdth']['PARVAL1']
+        river_seg.loc[:, 'stage'] = river_seg['stage_from_gauge']
+
     
     if plot:
         river_seg.plot(x='Cumulative Length', y=['bed_from_gauge'] + ["surf{}".format(x) for x in range(7)] + ['bottom_layer'])
@@ -274,7 +287,7 @@ def prepare_river_data_for_Campaspe(ModelBuilderObject,
     
     reach_df = river_seg[['k','i','j','iseg','ireach','rchlen','strtop','slope','strthick','strhc1']]
     reach_data = reach_df.to_records(index=False)
-    
+
     return river_seg, reach_df, reach_data, known_points
     
 def create_segment_data(ModelBuilderObject, river_seg, river_flow_data):
@@ -544,7 +557,7 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
                                               PARGP='murriv', 
                                               SCALE=1, 
                                               OFFSET=0)
-        # Parameter to all shifting the location of the bed which is only estimated based on assumed depth below zero gauge
+        # Parameter to shift the location of the bed which is only estimated based on assumed depth below zero gauge
         MBO.parameters.create_model_parameter('rmbed', value=0.01)
         MBO.parameters.parameter_options('rmbed', 
                                               PARTRANS='log', 
@@ -594,7 +607,7 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
                                               PARGP='murriv', 
                                               SCALE=1, 
                                               OFFSET=0)
-        # Parameter to all shifting the location of the bed which is only estimated based on assumed depth below zero gauge
+        # Parameter to allow shifting the location of the bed which is only estimated based on assumed depth below zero gauge
         MBO.parameters.create_model_parameter('rmbed', value=0.01)
         MBO.parameters.parameter_options('rmbed', 
                                               PARTRANS='fixed', 
@@ -811,3 +824,94 @@ def prepare_river_data_for_Murray(ModelBuilderObject,
     riv[0] = simple_river
 
     return riv, mriver_seg_ghb
+
+def create_riv_data_transient(ModelBuilderObject,
+                                  river_seg,
+                                  river_stage_data,
+                                  Campaspe_info,
+                                  date_index, 
+                                  frequencies, 
+                                  date_group,
+                                  start,
+                                  end):
+    
+    MBO = ModelBuilderObject
+    num_reaches = MBO.pilot_points['Campaspe'].num_points
+    known_points = MBO.pilot_points['Campaspe'].points
+    
+    ###########################################################################
+    # Convert stages to depths for assistance in the interpolation allowing use of bed elevations
+    #
+    # Estimate gauge zeros where there is no data
+    #
+    #
+    #
+    #
+    Campaspe_stage = river_stage_data[1]
+    Campaspe_stage = Campaspe_stage[~Campaspe_stage['Site Name'].str.contains('MURRAY')]
+    filtered = Campaspe_stage['Site ID'].tolist()
+    gauge_points = [x for x in zip(Campaspe_stage.Easting, Campaspe_stage.Northing)]
+    river_gauge_seg = MBO.get_closest_riv_segments('Campaspe', gauge_points)
+    Campaspe_stage.loc[:, 'new_gauge'] = Campaspe_stage[['Gauge Zero (Ahd)', 'Low stage (m)']].max(axis=1) 
+    Campaspe_stage.loc[:, 'seg_loc'] = river_gauge_seg         
+
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@ Create temporal segment data @@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    
+    stage_resampled = {}
+    depth_resampled = {}
+    for gauge in filtered:
+        stage = river_stage_data[0][gauge]
+        #Tidy up stage data:
+        stage = stage[stage['Mean'] > 0.]
+        stage_resampled[gauge] = resample_to_model_data_index(stage, 
+                                                              date_index, 
+                                                              frequencies, 
+                                                              date_group,
+                                                              start,
+                                                              end,
+                                                              df_freq='D',
+                                                              fill='mean'
+                                                              )                                                             
+        depth_resampled[gauge] = stage_resampled[gauge]['Mean'] - Campaspe_stage[Campaspe_stage['Site ID'] == gauge]['new_gauge'].tolist()[0]
+
+
+    width1_val = [MBO.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    width1 = np.interp(river_seg['Cumulative Length'].tolist(), 
+                                    known_points, width1_val)
+    river_seg['width1'] = width1
+    
+    # Prepare the stage data by resampling it to fit the model
+    # stress periods and backfilling missing data with the 25th percentile of flow
+    
+    riv = {}
+    for per, date in enumerate(date_index[:-1]):
+        Campaspe_stage.loc[:, 'depth'] = np.nan
+        for gauge in depth_resampled:
+            Campaspe_stage.loc[Campaspe_stage['Site ID'] == gauge, 'depth'] = depth_resampled[gauge].loc[date] 
+
+        river_seg.loc[:, 'depth'] = np.nan
+        river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 'depth'] = sorted(Campaspe_stage['depth'].tolist(), reverse=True)
+        river_seg.loc[:, 'depth'] = river_seg.set_index(river_seg['Cumulative Length'])['depth'].interpolate(method='values', limit_direction='both').tolist()
+        river_seg.loc[:, 'depth'] = river_seg['depth'].bfill() 
+        river_seg.loc[:, 'stage'] = river_seg['strtop'] + river_seg['depth']
+        
+        simple_river = []
+        for row in river_seg.iterrows():
+            row = row[1]
+            simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+                              row['strhc1'] * row['rchlen'] * row['width1'], \
+                              row['strtop']]]
+    
+        riv[per] = simple_river
+
+    gauge_points = [x for x in zip(Campaspe_stage.Easting, Campaspe_stage.Northing)]
+    river_gauge_seg = MBO.get_closest_riv_segments('Campaspe', gauge_points)
+    river_seg.loc[:, 'gauge_id'] = 'none'
+    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()),
+                  'gauge_id'] = \
+    Campaspe_stage.sort_values('Mean stage (m)', ascending=False)['Site ID'].astype(str).tolist()
+   
+
+    return riv

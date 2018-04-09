@@ -8,8 +8,8 @@ import numpy as np
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
 
-from CampaspeModel.CustomScripts import Campaspe_data
-from CampaspeModel.build_common import Campaspe_mesh
+from CampaspeModel.custom_scripts import campaspe_data
+from CampaspeModel.build_common import campaspe_mesh
 from CampaspeModel.build_common import rivers
 from CampaspeModel.build_common import groundwater_boundary
 
@@ -36,7 +36,7 @@ Campaspe_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data"
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
 
 custom_data = \
-    Campaspe_data.process_custom_scripts_and_spatial_data(SS_model, 
+    campaspe_data.process_custom_scripts_and_spatial_data(SS_model, 
                                                           Campaspe_data_folder,
                                                           verbose=True)
 HGU_props = custom_data['HGU_props']
@@ -66,10 +66,10 @@ print '## Mesh specific model building '
 print '########################################################################'
 print '########################################################################'
 
-HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(SS_model,
+HGU, hu_raster_files_reproj = campaspe_mesh.build_mesh_and_set_properties(SS_model,
                                                   hu_raster_path,
                                                   HGU_props,
-                                                  resolution=100,
+                                                  resolution=1000,
                                                   create_basement=False)
 
 SS_model.map_rasters_to_grid(os.path.basename(surface_raster_high_res), os.path.dirname(surface_raster_high_res))

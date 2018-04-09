@@ -53,7 +53,7 @@ def prepare_drain_data_for_model(ModelBuilderObject,
                 if lower_time <= key_time < time:
                     return period - 1
             lower_time = time
-        return np.nan
+        return 0
     
     drain_start = findInterval(start_irrigation, date_index)
     drain = {}

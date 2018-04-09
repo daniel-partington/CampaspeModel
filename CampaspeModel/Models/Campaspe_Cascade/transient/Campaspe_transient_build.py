@@ -9,8 +9,8 @@ import numpy as np
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
 
-from CampaspeModel.CustomScripts import Campaspe_data
-from CampaspeModel.build_common import Campaspe_mesh
+from CampaspeModel.custom_scripts import campaspe_data
+from CampaspeModel.build_common import campaspe_mesh
 from CampaspeModel.build_utils.multifrequency_resampling import resample_to_model_data_index 
 from CampaspeModel.build_utils.multifrequency_resampling import resample_obs_time_series_to_model_data_index
 from CampaspeModel.build_common.rainfall_recharge import prepare_transient_rainfall_data_for_model 
@@ -48,7 +48,7 @@ Campaspe_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data"
 hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
 
 custom_data = \
-    Campaspe_data.process_custom_scripts_and_spatial_data(tr_model, 
+    campaspe_data.process_custom_scripts_and_spatial_data(tr_model, 
                                                           Campaspe_data_folder,
                                                           verbose=True)
 HGU_props = custom_data['HGU_props']
@@ -136,7 +136,7 @@ tr_model.model_time.set_temporal_components(steady_state=False, start_time=start
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(tr_model,
+HGU, hu_raster_files_reproj = campaspe_mesh.build_mesh_and_set_properties(tr_model,
                                                   hu_raster_path,
                                                   HGU_props,
                                                   resolution=1000,

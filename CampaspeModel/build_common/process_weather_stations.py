@@ -4,7 +4,7 @@ import os
 #import matplotlib.colors as colors
 import re
 
-def processWeatherStations(weather_stations, path='', frequency='A', \
+def process_weather_stations(weather_stations, path='', frequency='A', \
                            plot_monthly_pattern=False, \
                            plot_yearly_rainfall=False):
     
@@ -106,7 +106,7 @@ def processWeatherStations(weather_stations, path='', frequency='A', \
 if __name__ == "__main__":
     
     weather_stations = ['Kyneton', 'Eppalock', 'Elmore', 'Rochester', 'Echuca']
-    weather = processWeatherStations(weather_stations, 
+    weather = process_weather_stations(weather_stations, 
                                      path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Climate\\", 
                                      frequency='M',
                                      plot_monthly_pattern=True)

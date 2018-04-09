@@ -5,7 +5,7 @@ where data is available.
 
 import pandas as pd
 
-def getHGUproperties(fname):
+def get_HGU_properties(fname):
     
     HGUdata = pd.read_excel(fname, sheetname='Hydrogeologic properties summar', skiprows=1, index_col=1)
 
@@ -35,4 +35,4 @@ def getHGUproperties(fname):
 if __name__ == "__main__":
 
     file_location = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Aquifer properties\Hydrogeologic_variables.xlsx"
-    HGUdata = getHGUproperties(file_location)
+    HGUdata = get_HGU_properties(file_location)

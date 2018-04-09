@@ -6,7 +6,7 @@ import pandas as pd
 working_directory = os.getcwd()
 
 
-def getFlow(path=None, start_date=None, end_date=None, summary=False, sites=None):
+def get_flow(path=None, start_date=None, end_date=None, summary=False, sites=None):
 
     if path is None:
         path = working_directory
@@ -68,7 +68,7 @@ def getFlow(path=None, start_date=None, end_date=None, summary=False, sites=None
 ###############################################################################
 
 
-def getStage(path=None, start_date=None, end_date=None, summary=True, sites=None):
+def get_stage(path=None, start_date=None, end_date=None, summary=True, sites=None):
     '''
     Function to process flow data from the "Water Measurement Information System"
     located at http://data.water.vic.gov.au/monitoring.htm
@@ -156,7 +156,7 @@ def getStage(path=None, start_date=None, end_date=None, summary=True, sites=None
     # end for
 
     processed_river_sites_stage = pd.DataFrame(relevant_data)
-    processed_river_sites_stage.to_csv(os.path.join(working_directory, 'processed_river_sites_stage.csv'))
+    #processed_river_sites_stage.to_csv(os.path.join(working_directory, 'processed_river_sites_stage.csv'))
 
     if summary:
         return processed_river_sites_stage_ts, processed_river_sites_stage
@@ -167,7 +167,7 @@ def getStage(path=None, start_date=None, end_date=None, summary=True, sites=None
 ###############################################################################
 
 
-def getEC(path=None, start_date=None, end_date=None, summary=False, sites=None):
+def get_EC(path=None, start_date=None, end_date=None, summary=False, sites=None):
 
     if path is None:
         path = working_directory
@@ -219,6 +219,6 @@ def getEC(path=None, start_date=None, end_date=None, summary=False, sites=None):
 
 
 if __name__ == "__main__":
-    run = getStage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
-    run2 = getFlow(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
-    run3 = getEC(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
+    run = get_stage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
+    run2 = get_flow(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
+    run3 = get_EC(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
