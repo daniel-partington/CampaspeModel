@@ -119,14 +119,14 @@ def get_bore_data(get='transient', path="", construct_record_number_max=3):
 
     if os.path.exists(os.path.join(path, r"ngis_shp_VIC\NGIS_ConstructionLog.dbf")):
         df_ConstructionLog_VIC = dbf2df.dbf2df(os.path.join(path, r"ngis_shp_VIC\NGIS_ConstructionLog.dbf"), cols=[
-                                               "BoreID", "HydroCode", "TopElev", "BottomElev", "Constructi"])
+                                               "BoreID", "HydroCode", "TopElev", "BottomElev", "Constructi", "RefElev"])
         df_HydrogeologicUnit_VIC = dbf2df.dbf2df(os.path.join(
             path, r"ngis_shp_VIC\NGIS_HydrogeologicUnit.dbf"), cols=["HGUNumber", "HGCCode"])
         df_BoreholeLog_VIC = dbf2df.dbf2df(os.path.join(
             path, r"ngis_shp_VIC\NGIS_BoreholeLog.dbf"), cols=["HydroCode", "HGUNumber"])
     else:
         df_ConstructionLog_VIC = pd.read_csv(os.path.join(path, r"NGIS_ConstructionLog.csv"), usecols=[
-                                               "BoreID", "HydroCode", "TopElev", "BottomElev"]) # , "Constructi"])
+                                               "BoreID", "HydroCode", "TopElev", "BottomElev", "RefElev"]) # , "Constructi"])
         df_HydrogeologicUnit_VIC = pd.read_csv(os.path.join(
             path, r"NGIS_HydrogeologicUnit.csv"), usecols=["HGUNumber", "HGCCode"])
         df_BoreholeLog_VIC = pd.read_csv(os.path.join(
@@ -207,11 +207,12 @@ def get_bore_data(get='transient', path="", construct_record_number_max=3):
     df_bores_clear['mean level'] = df_bore_construction_info.groupby('HydroCode').min()['mean level']
     df_bores_clear['BottomElev'] = df_bore_construction_info.groupby('HydroCode').min()['BottomElev']
     df_bores_clear['TopElev'] = df_bore_construction_info.groupby('HydroCode').min()['TopElev']
+    df_bores_clear['RefElev'] = df_bore_construction_info.groupby('HydroCode').min()['RefElev']
 
     # There is probably a cleaner way to do this ... but ...
     # Remove unnecessary columns
 
-    df_bores_clear = df_bores_clear[['mean level', 'BottomElev', 'TopElev']]
+    df_bores_clear = df_bores_clear[['mean level', 'BottomElev', 'TopElev', 'RefElev']]
 
     # print 'Total number of bores with levels and screen info that is non-ambiguous: ', df_bores_clear.shape[0]
 
