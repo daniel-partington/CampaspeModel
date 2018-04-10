@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from CampaspeModel.build_common import (process_weather_stations, 
-                                        get_bore_data, get_GW_licence_info, 
+                                        get_bore_data, get_gw_licence_info, 
                                         process_river_stations, 
                                         read_hydrogeological_properties, 
                                         process_river_diversions)
@@ -105,9 +105,6 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     
     custom_data['bore_data_info']["HydroCode"] = custom_data['bore_data_info'].index
     
-    # For steady state model, only use bore details containing average level, not 
-    #observation_bores = mbo.read_points_data(r"C:\Workspace\part0075\MDB modelling\ngis_shp_VIC\ngis_shp_VIC\NGIS_Bores.shp")
-    
     if verbose:
         print "************************************************************************"
         print " Read in and filtering bore spatial data "
@@ -137,9 +134,9 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     
     if verbose:
         print "************************************************************************"
-        print " Executing custom script: get_GW_licence_info "
+        print " Executing custom script: get_gw_licence_info "
     
-    custom_data['pumping_data'] = get_GW_licence_info.get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
+    custom_data['pumping_data'] = get_gw_licence_info.get_gw_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
     custom_data['pumps_points'] = mbo.read_points_data(os.path.join(campaspe_data_folder, r"GW\Bore data\pumping wells.shp"))        
     
     if verbose:
@@ -147,22 +144,14 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         print "Get the C14 data"
     
     c14_points = mbo.read_points_data(os.path.join(campaspe_data_folder, r"Chemistry\C14.shp"))    
-    
-    #C14_wells_info_file = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\Chemistry\C14_bore_depth.csv"
-    #df_C14_info = pd.read_csv(C14_wells_info_file)    
-    #df_C14_info = df_C14_info.dropna()
-    #df_C14_info = df_C14_info.set_index('Bore_id')    
-    
     c14data = os.path.join(campaspe_data_folder, r"Chemistry\C14_locs.xlsx")
     df_c14 = pd.read_excel(c14data)
     df_c14.drop_duplicates(subset=["Bore_id"], inplace=True)
     df_c14.dropna(inplace=True)
-    
     c14_half_life = 5730.
     c14_lambda = np.log(2) / c14_half_life
     c13_carbonate_signature = -2 # Could be from 0 to -2
     c13_recharge_signature = -18.5 # Cartright 2010, -15 to -25
-    
     df_c14.loc[:, 'a14C_corrected'] = df_c14['a14C(pMC)'] / ( 
                                (df_c14['d13C'] - c13_carbonate_signature) / 
                                (c13_recharge_signature - c13_carbonate_signature))
@@ -175,8 +164,8 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         print "************************************************************************"
         print " Executing custom script: readHydrogeologicalProperties "
     
-    HGU_file_location = os.path.join(campaspe_data_folder, r"GW\Aquifer properties\Hydrogeologic_variables.xlsx")
-    custom_data['HGU_props'] = read_hydrogeological_properties.get_HGU_properties(HGU_file_location)
+    hgu_file_location = os.path.join(campaspe_data_folder, r"GW\Aquifer properties\Hydrogeologic_variables.xlsx")
+    custom_data['HGU_props'] = read_hydrogeological_properties.get_hgu_properties(hgu_file_location)
     
     if verbose:
         print "************************************************************************"
@@ -288,7 +277,7 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     # if raster is in the right projection and if not returning the name of the new
     # reprojected file
     custom_data['surface_raster_high_res_GSA'] = os.path.join(campaspe_data_folder, r"Surface_DEM_Geoscience_Australia\Camp_1sHE_2026754\Camp_1sHE_reproj.tif")
-    custom_data['surface_raster_high_res'] = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID\sur_1t"
+    custom_data['surface_raster_high_res'] = os.path.join(campaspe_data_folder, r"ESRI_GRID_raw\ESRI_GRID\sur_1t")
     
     if verbose:
         print "************************************************************************"
@@ -299,7 +288,7 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         os.path.join(campaspe_data_folder, r"Linking_recharge", r"Curve_fitting_norm.dat"),
         delim_whitespace=True)
     custom_data['recharge_zone_info_detailed'] = pd.read_excel(os.path.join(
-        r"C:\Workspace\part0075\MDB modelling\Campaspe_data", r"Linking_recharge", 
+        campaspe_data_folder, r"Linking_recharge", 
         r"zone_percentage_recharge_statistics_method3.xlsx"), sheet='Sheet1')
     
     if verbose:

@@ -165,7 +165,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
 
-    model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
+#    model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
     # Updating Murray River
     mriver_seg = this_model.river_mapping['Murray']
@@ -173,7 +173,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     mriver_seg['multi'] = mriver_seg['strhc1'] * mriver_seg['rchlen'] * mriver_seg['width1']
     msimple_river = mriver_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
 
-    model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
+#    model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
 
     if verbose:
         print "************************************************************************"
@@ -248,16 +248,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 #        this_model.initial_conditions.set_as_initial_condition("Head", head)
     # End try
 
-    # Initalise model with head from elevations
-    initial_heads_tr = np.full(this_model.model_mesh3D[1].shape, 0.)
-
-    for i in range(7):
-        initial_heads_tr[i] = (this_model.model_mesh3D[0][i] + this_model.model_mesh3D[0][i + 1]) / 2.
-    
-    initial_heads_tr[:] = 90.
-
-    this_model.initial_conditions.set_as_initial_condition("Head", initial_heads_tr)  
-    
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(this_model, data_folder=p_j(data_folder, "model_{}".format(name)))
 

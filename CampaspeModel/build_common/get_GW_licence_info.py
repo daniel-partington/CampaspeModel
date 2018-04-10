@@ -6,7 +6,7 @@ from osgeo import ogr, osr
 p_j = os.path.join
 
 
-def get_GW_licence_info(filename, path=None, out_file=None, out_path=None):
+def get_gw_licence_info(filename, path=None, out_file=None, out_path=None):
 
     if path == None:
         filename = filename
@@ -113,4 +113,4 @@ if __name__ == "__main__":
     out_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\GW\Bore data\\"
     out_file = "pumping wells.shp"
     #Original, GW_pumping_bores = get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
-    df = get_GW_licence_info(filename, path=path, out_file=out_file, out_path=out_path)
+    df = get_gw_licence_info(filename, path=path, out_file=out_file, out_path=out_path)

@@ -1,6 +1,6 @@
 import numpy as np
 
-def build_mesh_and_set_properties(ModelBuilderObject, 
+def build_mesh_and_set_properties(model_builder_object, 
                                   hu_raster_path, 
                                   HGU_props,
                                   resolution=5000,
@@ -9,18 +9,18 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                   verbose=True,
                                   hu_raster_files = None):    
     
-    MBO = ModelBuilderObject
+    mbo = model_builder_object
     # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
     print "************************************************************************"
     print " Defining structured mesh"
     resolution = resolution
-    MBO.define_structured_mesh(resolution, resolution)
+    mbo.define_structured_mesh(resolution, resolution)
     
     # Read in hydrostratigraphic raster info for layer elevations:
     
     # Build basement file ... only need to do this once as it is time consuming so commented out for future runs
     if create_basement:
-        MBO.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
+        mbo.create_basement_bottom(hu_raster_path, "sur_1t", "bse_1t", "bse_2b", hu_raster_path)
     # end if
     
     if not hu_raster_files:
@@ -30,7 +30,7 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     
     # This loads in the raster files and transforms them into the correct coordinate
     # sytstem.
-    MBO.read_rasters(hu_raster_files, path=hu_raster_path)
+    mbo.read_rasters(hu_raster_files, path=hu_raster_path)
     
     hu_raster_files_reproj = [x + "_reproj.tif" for x in hu_raster_files]
     
@@ -40,15 +40,15 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     
     # Build 3D grid
     model_grid_raster_files = [x + "_model_grid.tif" for x in hu_raster_files]
-    MBO.map_rasters_to_grid(hu_raster_files, hu_raster_path)
+    mbo.map_rasters_to_grid(hu_raster_files, hu_raster_path)
 
     # First two arguments of next function are arbitrary and not used ... need to rework module
     print "************************************************************************"
     print " Building 3D mesh based on HGU rasters"
-    MBO.build_3D_mesh_from_rasters(model_grid_raster_files, 
-                                   MBO.out_data_folder_grid, 1.0, 1000.0)
+    mbo.build_3D_mesh_from_rasters(model_grid_raster_files, 
+                                   mbo.out_data_folder_grid, 1.0, 1000.0)
     # Cleanup any isolated cells:
-    MBO.reclassIsolatedCells(assimilate=True)
+    mbo.reclassIsolatedCells(assimilate=True)
     
     print "************************************************************************"
     print " Assign properties to mesh based on pilot points and zonal information"
@@ -83,16 +83,16 @@ def build_mesh_and_set_properties(ModelBuilderObject,
         pilot_point_groups = ['hk', 'ss', 'sy']
         pp_group_dict = {}
         for pilot_points_group in pilot_point_groups:
-            MBO.create_pilot_points(pilot_points_group)           
-            pp_group_dict[pilot_points_group] = MBO.pilot_points[pilot_points_group]
+            mbo.create_pilot_points(pilot_points_group)           
+            pp_group_dict[pilot_points_group] = mbo.pilot_points[pilot_points_group]
             # create alias for brevity ...
             pp_grp = pp_group_dict[pilot_points_group]
             
             # Create some references to data inside the model builder object
-            mesh_array = MBO.model_mesh3D
-            cell_centers = MBO.model_mesh_centroids
-            model_boundary = MBO.model_boundary
-            zones = len(np.unique(MBO.model_mesh3D[1])) - 1
+            mesh_array = mbo.model_mesh3D
+            cell_centers = mbo.model_mesh_centroids
+            model_boundary = mbo.model_boundary
+            zones = len(np.unique(mbo.model_mesh3D[1])) - 1
             
             # Create dict of zones and properties
             zone_prop_dict = {zone: HGU_props['Kh mean'][HGU_map[HGU[zone]]] for zone in range(zones)}
@@ -143,17 +143,17 @@ def build_mesh_and_set_properties(ModelBuilderObject,
             time.sleep(3)
             pp_grp.run_pyfac2real_by_zones(zones)
         
-        MBO.save_pilot_points()
+        mbo.save_pilot_points()
         hk = pp_group_dict['hk']     
         ss = pp_group_dict['ss']
         sy = pp_group_dict['sy']
         
     for unit in HGU:
         if pilot_points and not pilot_points_YX:
-            MBO.parameters.create_model_parameter_set('kh' + unit, 
+            mbo.parameters.create_model_parameter_set('kh' + unit, 
                                                            value=HGU_props['Kh mean'][HGU_map[unit]], 
                                                            num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('kh' + unit, 
+            mbo.parameters.parameter_options_set('kh' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
@@ -161,10 +161,10 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   PARGP='k' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('sy' + unit, 
+            mbo.parameters.create_model_parameter_set('sy' + unit, 
                                                            value=HGU_props['Sy mean'][HGU_map[unit]],
                                                            num_parameters=ss.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('sy' + unit, 
+            mbo.parameters.parameter_options_set('sy' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=1.0E-3, 
@@ -172,10 +172,10 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   PARGP='sy' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('ss' + unit, 
+            mbo.parameters.create_model_parameter_set('ss' + unit, 
                                                            value=HGU_props['SS mean'][HGU_map[unit]],
                                                            num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('ss' + unit, 
+            mbo.parameters.parameter_options_set('ss' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
@@ -184,10 +184,10 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   SCALE=1, 
                                                   OFFSET=0)
         elif pilot_points_YX:
-            MBO.parameters.create_model_parameter_set('kh' + unit, 
+            mbo.parameters.create_model_parameter_set('kh' + unit, 
                                                            value=HGU_props['Kh mean'][HGU_map[unit]], 
                                                            num_parameters=hk.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('kh' + unit, 
+            mbo.parameters.parameter_options_set('kh' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
@@ -195,10 +195,10 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   PARGP='k' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('sy' + unit, 
+            mbo.parameters.create_model_parameter_set('sy' + unit, 
                                                            value=HGU_props['Sy mean'][HGU_map[unit]],
                                                            num_parameters=ss.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('sy' + unit, 
+            mbo.parameters.parameter_options_set('sy' + unit, 
                                                   PARTRANS='fixed', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=1.0E-3, 
@@ -206,10 +206,10 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   PARGP='sy' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter_set('ss' + unit, 
+            mbo.parameters.create_model_parameter_set('ss' + unit, 
                                                            value=HGU_props['SS mean'][HGU_map[unit]],
                                                            num_parameters=sy.num_ppoints_by_zone[HGU_zone[unit]])
-            MBO.parameters.parameter_options_set('ss' + unit, 
+            mbo.parameters.parameter_options_set('ss' + unit, 
                                                   PARTRANS='fixed', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
@@ -220,9 +220,9 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     
     
         else:
-            MBO.parameters.create_model_parameter('kh' + unit, 
+            mbo.parameters.create_model_parameter('kh' + unit, 
                                                        value=HGU_props['Kh mean'][HGU_map[unit]])
-            MBO.parameters.parameter_options('kh' + unit, 
+            mbo.parameters.parameter_options('kh' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['Kh mean'][HGU_map[unit]] / 10., 
@@ -230,8 +230,8 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   PARGP='k' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter('sy' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
-            MBO.parameters.parameter_options('sy' + unit, 
+            mbo.parameters.create_model_parameter('sy' + unit, value=HGU_props['Sy mean'][HGU_map[unit]])
+            mbo.parameters.parameter_options('sy' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=1.0E-3, 
@@ -239,8 +239,8 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   PARGP='sy' + unit, 
                                                   SCALE=1, 
                                                   OFFSET=0)
-            MBO.parameters.create_model_parameter('ss' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
-            MBO.parameters.parameter_options('ss' + unit, 
+            mbo.parameters.create_model_parameter('ss' + unit, value=HGU_props['SS mean'][HGU_map[unit]])
+            mbo.parameters.parameter_options('ss' + unit, 
                                                   PARTRANS='log', 
                                                   PARCHGLIM='factor', 
                                                   PARLBND=HGU_props['SS mean'][HGU_map[unit]] / 10., 
@@ -250,8 +250,8 @@ def build_mesh_and_set_properties(ModelBuilderObject,
                                                   OFFSET=0)
     
             
-        MBO.parameters.create_model_parameter('kv' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
-        MBO.parameters.parameter_options('kv' + unit, 
+        mbo.parameters.create_model_parameter('kv' + unit, value=HGU_props['Kz mean'][HGU_map[unit]])
+        mbo.parameters.parameter_options('kv' + unit, 
                                               PARTRANS='fixed', 
                                               PARCHGLIM='factor', 
                                               PARLBND=HGU_props['Kz mean'][HGU_map[unit]] / 10., 
@@ -263,30 +263,30 @@ def build_mesh_and_set_properties(ModelBuilderObject,
     # This needs to be automatically generated from with the map_raster2mesh routine ...
     zone_map = {1:'qa', 2:'utb', 3:'utqa', 4:'utam', 5:'utaf', 6:'lta', 7:'bse'}
     
-    Kh = MBO.model_mesh3D[1].astype(float)
-    Kv = MBO.model_mesh3D[1].astype(float)
-    Sy = MBO.model_mesh3D[1].astype(float)
-    SS = MBO.model_mesh3D[1].astype(float)
+    Kh = mbo.model_mesh3D[1].astype(float)
+    Kv = mbo.model_mesh3D[1].astype(float)
+    Sy = mbo.model_mesh3D[1].astype(float)
+    SS = mbo.model_mesh3D[1].astype(float)
     for key in zone_map.keys():
-        if key not in np.unique(MBO.model_mesh3D[1]):
+        if key not in np.unique(mbo.model_mesh3D[1]):
             continue
         if not pilot_points:
-            Kh[Kh == key] = MBO.parameters.param['kh' + zone_map[key]]['PARVAL1']
-            Sy[Sy == key] = MBO.parameters.param['sy' + zone_map[key]]['PARVAL1']
-            SS[SS == key] = MBO.parameters.param['ss' + zone_map[key]]['PARVAL1']
-        Kv[Kv == key] = MBO.parameters.param['kv' + zone_map[key]]['PARVAL1']
+            Kh[Kh == key] = mbo.parameters.param['kh' + zone_map[key]]['PARVAL1']
+            Sy[Sy == key] = mbo.parameters.param['sy' + zone_map[key]]['PARVAL1']
+            SS[SS == key] = mbo.parameters.param['ss' + zone_map[key]]['PARVAL1']
+        Kv[Kv == key] = mbo.parameters.param['kv' + zone_map[key]]['PARVAL1']
     
     if pilot_points:
         Kh = hk.val_array
-        Kh[MBO.model_mesh3D[1] == -1] = 0.0
+        Kh[mbo.model_mesh3D[1] == -1] = 0.0
         # We are assuming an anisotropy parameter here where kh is 10 times kv ...
         Kv = hk.val_array * 0.1
         Sy = sy.val_array
         SS = ss.val_array
     
-    MBO.properties.assign_model_properties('Kh', Kh)
-    MBO.properties.assign_model_properties('Kv', Kv)
-    MBO.properties.assign_model_properties('Sy', Sy)
-    MBO.properties.assign_model_properties('SS', SS)
+    mbo.properties.assign_model_properties('Kh', Kh)
+    mbo.properties.assign_model_properties('Kv', Kv)
+    mbo.properties.assign_model_properties('Sy', Sy)
+    mbo.properties.assign_model_properties('SS', SS)
     
     return HGU, hu_raster_files_reproj
