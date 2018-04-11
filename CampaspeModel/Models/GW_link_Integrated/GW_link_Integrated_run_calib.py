@@ -156,8 +156,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # interpolate depths
     
     # Calculate stages using bed elevation and depth
-    
-    
     river_seg['stage'] = \
         river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
         interpolate(method='values', limit_direction='both').values.tolist()
@@ -174,6 +172,22 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     msimple_river = mriver_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
 
 #    model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
+    if verbose:
+        print "************************************************************************"
+        print " Updating Murray River boundary"
+    
+    mriver_seg = this_model.river_mapping['Murray']
+    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
+    
+    simple_river = []
+    for row in mriver_seg.iterrows():
+        row = row[1]
+        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
+    
+    riv = {}
+    riv[0] = simple_river
+    this_model.boundaries.update_boundary_array('Murray River', riv)
 
     if verbose:
         print "************************************************************************"
