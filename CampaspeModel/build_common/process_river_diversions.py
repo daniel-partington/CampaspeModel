@@ -4,8 +4,8 @@ import pandas as pd
 
 
 def year_period_2_datetime(year, period):
-    year_lower = int(year[0].split("/")[0])
-    year_upper = int(year[0].split("/")[1])
+    year_lower = int(year.split("/")[0])
+    year_upper = int(year.split("/")[1])
     if year_upper > 90:
         year_upper = 1900 + year_upper
     else:
@@ -13,7 +13,7 @@ def year_period_2_datetime(year, period):
     # end if
     first_fin = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    date = "{} {}".format(year_lower if period[0] in first_fin else year_upper, period[0])
+    date = "{} {}".format(year_lower if period in first_fin else year_upper, period)
     return pd.to_datetime(date)
 
 
@@ -30,7 +30,8 @@ def get_diversions(fname, plot=False, custom_summary=False):
     CD['Campaspe River Use'] = CD['Campaspe River Use'].reindex(CD['Campaspe River Use'].index.drop(0))
     CD['Campaspe River Use'] = CD['Campaspe River Use'].drop('Cumulative Total (ML)', axis=1)
     CD['Campaspe River Use'] = CD['Campaspe River Use'].drop(CD['Campaspe River Use'].columns[[0, 1]], axis=1)
-    CD['Campaspe River Use'] = CD['Campaspe River Use'].iloc[[0, 1, 2, 3, 6, 7, 10, 11]]
+    CD['Campaspe River Use'] = CD['Campaspe River Use'].iloc[:, [0, 1, 2, 3, 6, 7, 10, 11]]
+    print(CD['Campaspe River Use'])
     CD['Campaspe River Use'].index = CD['Campaspe River Use'].apply(
         lambda row: year_period_2_datetime(row['Year'], row['Period']), axis=1)
     CD['Campaspe River Use'] = CD['Campaspe River Use'].drop(['Year', 'Period'], axis=1)
@@ -74,6 +75,7 @@ def get_diversions(fname, plot=False, custom_summary=False):
     CID_total = CD['CID Diversions'].sum(axis=1)
     if custom_summary:
         if plot:
+            import matplotlib.pyplot as plt
             ax1 = Total_diversions.plot(label='Private diversions')
             CID_total.plot(ax=ax1, label='CID')
             WWC_in.plot(ax=ax1, label='WWC in')
@@ -82,6 +84,7 @@ def get_diversions(fname, plot=False, custom_summary=False):
             ax1.legend()
             ax1.set_xlabel("")
             ax1.set_ylabel("[Ml/d]")
+            plt.show()
 
     return CD
 
