@@ -31,7 +31,6 @@ def get_diversions(fname, plot=False, custom_summary=False):
     CD['Campaspe River Use'] = CD['Campaspe River Use'].drop('Cumulative Total (ML)', axis=1)
     CD['Campaspe River Use'] = CD['Campaspe River Use'].drop(CD['Campaspe River Use'].columns[[0, 1]], axis=1)
     CD['Campaspe River Use'] = CD['Campaspe River Use'].iloc[:, [0, 1, 2, 3, 6, 7, 10, 11]]
-    print(CD['Campaspe River Use'])
     CD['Campaspe River Use'].index = CD['Campaspe River Use'].apply(
         lambda row: year_period_2_datetime(row['Year'], row['Period']), axis=1)
     CD['Campaspe River Use'] = CD['Campaspe River Use'].drop(['Year', 'Period'], axis=1)
