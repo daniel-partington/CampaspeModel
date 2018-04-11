@@ -1,32 +1,29 @@
-import os
 import datetime
+import os
 
-from osgeo import osr
-import pandas as pd
+import matplotlib.pyplot as plt
 import numpy as np
-#import matplotlib.pyplot as plt
+import pandas as pd
+from osgeo import osr
+from scipy.interpolate import griddata
 
+from CampaspeModel.build_common import campaspe_data, campaspe_mesh, rivers
+from CampaspeModel.build_common.drains import prepare_drain_data_for_model
+from CampaspeModel.build_common.groundwater_boundary import \
+    prepare_ghb_boundary_from_Murray_data
+from CampaspeModel.build_common.pumping import prepare_pumping_data_for_model
+from CampaspeModel.build_common.rainfall_recharge import \
+    prepare_transient_rainfall_data_for_model
+from CampaspeModel.build_utils.multifrequency_resampling import (resample_obs_time_series_to_model_data_index,
+                                                                 resample_to_model_data_index)
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import \
     GDALInterface
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
-from CampaspeModel.build_utils.multifrequency_resampling import resample_to_model_data_index 
-from CampaspeModel.build_utils.multifrequency_resampling import resample_obs_time_series_to_model_data_index
-from CampaspeModel.build_common.rainfall_recharge import prepare_transient_rainfall_data_for_model 
-from CampaspeModel.build_common.groundwater_boundary import prepare_ghb_boundary_from_Murray_data
-from CampaspeModel.build_common.pumping import prepare_pumping_data_for_model
-from CampaspeModel.build_common.drains import prepare_drain_data_for_model
-
-from CampaspeModel.build_common import (campaspe_data,
-                                        campaspe_mesh,
-                                        rivers)
-
 p_j = os.path.join
 dir_name = os.path.dirname
-CONFIG = ConfigLoader(p_j(dir_name(dir_name(os.path.realpath(__file__))).replace('models', ''),
-                          "config", "model_config.json"))\
-    .set_environment("GW_link_Integrated")
+CONFIG = ConfigLoader(p_j('..', '..', 'config', 'model_config.json')).set_environment("GW_link_Integrated")
 
 VERBOSE = True
 forecast_run = False
@@ -73,18 +70,18 @@ model_params = {
 tr_model = GWModelBuilder(**model_params)
 
 custom_data = \
-    campaspe_data.process_custom_scripts_and_spatial_data(tr_model, 
+    campaspe_data.process_custom_scripts_and_spatial_data(tr_model,
                                                           campaspe_data_folder,
                                                           verbose=True,
                                                           GW_link_Integrated=True)
 
 hgu_props = custom_data['HGU_props']
 rain_gauges = custom_data['rain_gauges']
-long_term_historic_weather = custom_data['long_term_historic_weather'] 
+long_term_historic_weather = custom_data['long_term_historic_weather']
 recharge_zones = custom_data['recharge_zones']
 recharge_info = custom_data['recharge_zone_info_detailed']
-surface_raster_high_res = custom_data['surface_raster_high_res'] 
-surface_raster_high_res_GSA = custom_data['surface_raster_high_res_GSA'] 
+surface_raster_high_res = custom_data['surface_raster_high_res']
+surface_raster_high_res_GSA = custom_data['surface_raster_high_res_GSA']
 river_gauges = custom_data['river_gauges']
 campaspe_river_poly_file = custom_data['Campaspe_river_poly_file']
 murray_river_poly_file = custom_data['Murray_river_poly_file']
@@ -94,11 +91,11 @@ campaspe = custom_data['Campaspe']
 campaspe_field_elevations = custom_data['Campaspe_field_elevations']
 campaspe_relevant = custom_data['Campaspe_relevant']
 bores_shpfile = custom_data['bores_shpfile']
-final_bores = custom_data['final_bores'] 
+final_bores = custom_data['final_bores']
 pumping_data = custom_data['pumping_data']
 pumps_points = custom_data['pumps_points']
 bore_data_info = custom_data['bore_data_info']
-bore_data_levels = custom_data['bore_data_levels']    
+bore_data_levels = custom_data['bore_data_levels']
 farms_poly = custom_data['farms_poly']
 
 # ******************************************************************************
@@ -148,9 +145,9 @@ if forecast_run:
     tr_model.model_time.set_temporal_components(steady_state=False, start_time=start,
                                                 end_time=end, time_step='A')
     frequencies = ['A']
-    tr_model.model_time.set_temporal_components(steady_state=False, 
-                                                start_time=start, 
-                                                end_time=end, 
+    tr_model.model_time.set_temporal_components(steady_state=False,
+                                                start_time=start,
+                                                end_time=end,
                                                 timestep='A')
 else:
     # 1980 - 2000 Annual
@@ -161,7 +158,7 @@ else:
     date_index_start = pd.date_range(start=start, end=start_time_interest, freq=frequencies[0])
     date_index = date_index_start[:-1].append(pd.date_range(start=start_time_interest, end=end, freq=frequencies[1]))
     date_group = [start, start_time_interest, end]
-    
+
     tr_model.model_time.set_temporal_components(steady_state=False, start_time=start,
                                                 end_time=end, date_index=date_index)
 
@@ -228,7 +225,7 @@ tr_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 # clip bores by those within the farm area:
 #import subprocess
 #from osgeo import ogr
-#def clip_points_data(MBO, filename, clipping_poly, path=None):
+# def clip_points_data(MBO, filename, clipping_poly, path=None):
 #    """Read in point data from shapefile, e.g. observation bore locations, rainfall gauges
 #
 #    :param filename: filename for the point shapefile that is to be read in.
@@ -250,12 +247,12 @@ tr_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 #
 ##        fn = os.path.join(MBO.out_data_folder, base + '_reproj.shp')
 ##        command = 'ogr2ogr -t_srs "' + target_srs + '" "' + fn + '" "' + filename + '"'
-##        print command
-##        try:
+# print command
+# try:
 ##            print(subprocess.check_output(command, shell=True))
-##        except subprocess.CalledProcessError as e:
+# except subprocess.CalledProcessError as e:
 ##            print("stdout output on error:\n" + e.output)
-#        
+#
 #        command = 'ogr2ogr -clipsrc "' + clipping_poly + '" "' + new_file + '" "' + filename + '" -f "ESRI Shapefile"'
 #        print command
 #        try:
@@ -268,11 +265,11 @@ tr_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 #    ds = driver.Open(new_file, 0)
 #    MBO.GISInterface._test_osgeo_load(ds, new_file)
 #    return ds
-## End clip_points_data()    
+# End clip_points_data()
 #
 #farm_bores_shpfile = clip_points_data(tr_model, bores_shpfile.name, farms_poly.name)
 
-# ****** ^^^^ The above is not working at the moment due to a bug that occurs when 
+# ****** ^^^^ The above is not working at the moment due to a bug that occurs when
 # polygon shapefiles generated through py GDAL are returned from a separate module in
 # which case the .shx and .prj are missing and the files are corrrupted. They need
 # to be closed and then loaded again. An issue already exists for this and in the
@@ -285,7 +282,7 @@ tr_model.map_points_to_grid(farm_bores_shpfile, feature_id='HydroCode')
 farm_bores = []
 for bores in tr_model.points_mapped[farm_bores_shpfile.name.split('\\')[-1]]:
     farm_bores += bores[1]
-    
+
 bores_more_filter = []
 bores_more_filter_policy = []
 bores_above_surface = []
@@ -324,7 +321,7 @@ for bores in tr_model.points_mapped["Farm_bores_clipped.shp"]:
             # if [row, col] in filter_gauge_loc:
             #    eco_gauge = [x[1] for x in filter_gauges if x[0] == [row, col]][0]
             #    print('candidate bore for ecology @ {0}: {1}'.format(eco_gauge, bore))
-            #continue
+            # continue
         if bore_depth <= mesh3D_0[-2][row][col]:
             # print 'Ignoring bores in bedrock!!!
             # if bore in Ecology_bores:
@@ -339,13 +336,13 @@ for bores in tr_model.points_mapped["Farm_bores_clipped.shp"]:
                 print('Using above cell in Deep Lead for head by redefining bore_depth')
                 final_bores.set_value(final_bores[final_bores['HydroCode'] == bore].index,
                                       'depth', mesh3D_0[-2][row][col] + 1.0)
-                bores_more_filter_policy += [bore]        
-                bores_more_filter += [bore]        
+                bores_more_filter_policy += [bore]
+                bores_more_filter += [bore]
             continue
-                # sys.exit('Halting model build due to bore not being mapped')
+            # sys.exit('Halting model build due to bore not being mapped')
         if bore in policy_bores:
-            bores_more_filter_policy += [bore]        
-        bores_more_filter += [bore]        
+            bores_more_filter_policy += [bore]
+        bores_more_filter += [bore]
 
 print('Bores above the surface: {}'.format(len(bores_above_surface)))
 print('Bores below top of bedrock: {}'.format(len(bores_below_top_of_bedrock)))
@@ -354,88 +351,90 @@ print('Final bores within aquifers: {}'.format(len(bores_more_filter)))
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
 
-bore_points_3d = final_bores[["HydroCode", "Easting", "Northing", "depth"]] # [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"], final_bores.loc[x, "depth"]] for x in final_bores.index]
+# [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"], final_bores.loc[x, "depth"]] for x in final_bores.index]
+bore_points_3d = final_bores[["HydroCode", "Easting", "Northing", "depth"]]
 bore_points_3d = bore_points_3d.set_index("HydroCode")
 
-def generate_bore_observations_for_model(bores_obs_time_series, name):                                         
+
+def generate_bore_observations_for_model(bores_obs_time_series, name):
     # Modify into standard format for the GWModelBuilder class
-    bores_obs_time_series = bores_obs_time_series.rename(columns= \
-                                                         {'HydroCode':'name', \
-                                                         'bore_date':'datetime', \
-                                                         'result':'value'})
-    
+    bores_obs_time_series = bores_obs_time_series.rename(columns={'HydroCode': 'name',
+                                                                  'bore_date': 'datetime',
+                                                                  'result': 'value'})
+
     bores_obs_time_series['datetime'] = pd.to_datetime(bores_obs_time_series['datetime'])
-    
+
     # Kill all values where head observation is 0.0 indicating bad data that was missed
     # by quality control codes in pre-processing function getBoreData
     bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['value'] > 5.]
     # Remove values that are false records, i.e. bores with a reading at 30/12/1899
-    bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime'] \
-                                                  != datetime.datetime(1899,12,30)]
+    bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime']
+                                                  != datetime.datetime(1899, 12, 30)]
     # Only consider head observations after 2010 to limit the size of the jacobian in PEST
-    bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime'] \
-                                                  > datetime.datetime(1980,12,30)]
-    
+    bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime']
+                                                  > datetime.datetime(1980, 12, 30)]
+
     # Create outlier identifier, i.e mutltiplier for standard deviations from the mean
-    # Using 4 here which is a rather large bound                                              
+    # Using 4 here which is a rather large bound
     bores_obs_outliers_multiplier = 4.0
-    
+
     bores_obs_group = bores_obs_time_series.groupby('name')
     bores_obs_means = bores_obs_group['value'].mean()
     bores_obs_stds = bores_obs_group['value'].std()
-    
+
     bores_obs_cull = []
     for bore in bores_obs_time_series['name'].unique():
-        for row in bores_obs_time_series[bores_obs_time_series['name'] == bore].iterrows():                                              
+        for row in bores_obs_time_series[bores_obs_time_series['name'] == bore].iterrows():
             upper = bores_obs_means.loc[bore] + bores_obs_outliers_multiplier * bores_obs_stds.loc[bore]
             lower = bores_obs_means.loc[bore] - bores_obs_outliers_multiplier * bores_obs_stds.loc[bore]
             if row[1]['value'] < lower or row[1]['value'] > upper:
                 bores_obs_cull += [int(row[0])]
-    
+
     # Now to remove those bores obs that have a reading greater or less than 5 * times sigma either side of the mean
     bores_obs_time_series = bores_obs_time_series[~bores_obs_time_series.index.isin(bores_obs_cull)]
-    
+
     # Now to resample the time series to get the mean heads within a time interval
     bores_obs_time_series = resample_obs_time_series_to_model_data_index(
-                                bores_obs_time_series, 
-                                date_index, 
-                                frequencies, 
-                                date_group,
-                                start,
-                                end,
-                                fill='none')
-                                   
+        bores_obs_time_series,
+        date_index,
+        frequencies,
+        date_group,
+        start,
+        end,
+        fill='none')
+
     # For the weigts of observations we need to specify them as 1/sigma, where sigma is the standard deviation of measurement error
-    tr_model.observations.set_as_observations(name, 
-                                              bores_obs_time_series, 
-                                              bore_points_3d, 
-                                              domain='porous', 
-                                              obs_type='head', 
-                                              units='mAHD', 
-                                              weights=1.0 / 0.2, 
+    tr_model.observations.set_as_observations(name,
+                                              bores_obs_time_series,
+                                              bore_points_3d,
+                                              domain='porous',
+                                              obs_type='head',
+                                              units='mAHD',
+                                              weights=1.0 / 0.2,
                                               by_zone=True)
 
     return bores_obs_time_series
-    
-bores_obs_time_series = bore_data_levels[bore_data_levels["HydroCode"].isin( \
-                        final_bores["HydroCode"])]
+
+
+bores_obs_time_series = bore_data_levels[bore_data_levels["HydroCode"].isin(
+    final_bores["HydroCode"])]
 bores_obs_time_series = generate_bore_observations_for_model(bores_obs_time_series, 'farm_bores')
 
-bores_obs_time_series_policy = bore_data_levels[bore_data_levels["HydroCode"].isin( \
-                        policy_bores)]                                         
+bores_obs_time_series_policy = bore_data_levels[bore_data_levels["HydroCode"].isin(
+    policy_bores)]
 bores_obs_time_series_policy = generate_bore_observations_for_model(bores_obs_time_series_policy, 'policy_bores')
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # SETUP INITIAL CONDITIONS
 
 # Get policy bores with data before 1981:
-bores_obs_time_series_1980 = bores_obs_time_series[bores_obs_time_series['datetime'] < '1981']    
+bores_obs_time_series_1980 = bores_obs_time_series[bores_obs_time_series['datetime'] < '1981']
 bores_obs_time_series_1980 = bores_obs_time_series_1980[bores_obs_time_series_1980['active'] == True]
 # Get policy bores with data before 1981:
-bores_obs_time_series_policy_1980 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] < '1981']    
+bores_obs_time_series_policy_1980 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] < '1981']
 bores_obs_time_series_policy_1980 = bores_obs_time_series_policy_1980[bores_obs_time_series_policy_1980['active'] == True]
 
-bores_1980_combined = pd.concat([bores_obs_time_series_1980, bores_obs_time_series_policy_1980 ])
+bores_1980_combined = pd.concat([bores_obs_time_series_1980, bores_obs_time_series_policy_1980])
 bores_1980_combined.loc[:, 'HydroCode'] = bores_1980_combined['name']
 bores_1980_loc_merge = bores_1980_combined.merge(final_bores, on='HydroCode')
 
@@ -444,7 +443,6 @@ values = bores_1980_loc_merge['value'].tolist()
 
 grid_x, grid_y = tr_model.model_mesh_centroids
 
-from scipy.interpolate import griddata
 
 grid_z0 = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='nearest')
 grid_z1 = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='linear')
@@ -453,10 +451,9 @@ grid_z1[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), grid_z1[~
 
 grid_z2 = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='cubic')
 
-import matplotlib.pyplot as plt
-#plt.subplot(221)
+# plt.subplot(221)
 #plt.plot(points[:,0], points[:,1], 'k.', ms=1)
-#plt.title('Original')
+# plt.title('Original')
 extent = (np.min(grid_x), np.max(grid_x), np.min(grid_y), np.max(grid_y))
 plt.subplot(222)
 plt.imshow(grid_z0.T, extent=extent, origin='lower', interpolation='none')
@@ -470,19 +467,19 @@ plt.title('Cubic')
 plt.gcf().set_size_inches(6, 6)
 plt.show()
 
-bores_in_layers = tr_model.map_points_to_raster_layers(bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
+bores_in_layers = tr_model.map_points_to_raster_layers(
+    bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
 
 # Initalise model with head from elevations
 initial_heads_tr = np.full(tr_model.model_mesh3D[1].shape, 0.)
 
-for i in range(len(hu_raster_files_reproj)/2):
-    initial_heads_tr[i] = grid_z0 #(tr_model.model_mesh3D[0][i] + tr_model.model_mesh3D[0][i + 1]) / 2.
+for i in range(len(hu_raster_files_reproj) / 2):
+    initial_heads_tr[i] = grid_z0  # (tr_model.model_mesh3D[0][i] + tr_model.model_mesh3D[0][i + 1]) / 2.
 
 # Get points of bores with data
 
 
-
-tr_model.initial_conditions.set_as_initial_condition("Head", initial_heads_tr) #interp_heads[hu_raster_files[0]])
+tr_model.initial_conditions.set_as_initial_condition("Head", initial_heads_tr)  # interp_heads[hu_raster_files[0]])
 
 if VERBOSE:
     print "************************************************************************"
@@ -510,16 +507,16 @@ if VERBOSE:
     print "************************************************************************"
     print " Mapping Campaspe river to grid"
 
-num_reaches = 20    
+num_reaches = 20
 river_seg, reach_df, reach_data, known_points = \
-    rivers.prepare_river_data_for_campaspe(tr_model, 
-                                    surface_raster_high_res,
-                                    river_gauges,
-                                    campaspe_river_poly_file,
-                                    campaspe,
-                                    campaspe_field_elevations,
-                                    num_reaches=num_reaches,
-                                    plot=True)
+    rivers.prepare_river_data_for_campaspe(tr_model,
+                                           surface_raster_high_res,
+                                           river_gauges,
+                                           campaspe_river_poly_file,
+                                           campaspe,
+                                           campaspe_field_elevations,
+                                           num_reaches=num_reaches,
+                                           plot=True)
 
 campaspe_info = campaspe
 campaspe_info.index = campaspe_info['Site Id']
@@ -530,21 +527,21 @@ tr_model.river_mapping['Campaspe'] = river_seg
 camp_riv_cells = [x for x in zip(river_seg['i'], river_seg['j'])]
 
 criv = rivers.create_riv_data_transient(tr_model,
-                                      river_seg,
-                                      river_stage_data,
-                                      campaspe_info,
-                                      date_index, 
-                                      frequencies, 
-                                      date_group,
-                                      start,
-                                      end)
+                                        river_seg,
+                                        river_stage_data,
+                                        campaspe_info,
+                                        date_index,
+                                        frequencies,
+                                        date_group,
+                                        start,
+                                        end)
 
 if VERBOSE:
     print "************************************************************************"
     print " Creating Campaspe river boundary"
 
-tr_model.boundaries.create_model_boundary_condition('Campaspe River', 
-                                                    'river', 
+tr_model.boundaries.create_model_boundary_condition('Campaspe River',
+                                                    'river',
                                                     bc_static=False)
 tr_model.boundaries.assign_boundary_array('Campaspe River', criv)
 
@@ -553,13 +550,13 @@ if VERBOSE:
     print " Mapping Murray River to grid"
 
 riv, mriver_seg_ghb = \
-    rivers.prepare_river_data_for_murray(tr_model, 
+    rivers.prepare_river_data_for_murray(tr_model,
                                          surface_raster_high_res_GSA,
                                          murray_river_poly_file,
                                          campaspe_relevant,
                                          river_stage_data,
                                          river_seg,
-                                         plot=True) 
+                                         plot=True)
 
 if VERBOSE:
     print "************************************************************************"
@@ -587,9 +584,9 @@ if VERBOSE:
     print " Mapping Drains to grid"
 
 drain = prepare_drain_data_for_model(tr_model,
-                                 camp_riv_cells,
-                                 start,
-                                 date_index)
+                                     camp_riv_cells,
+                                     start,
+                                     date_index)
 
 if VERBOSE:
     print "************************************************************************"
@@ -597,7 +594,6 @@ if VERBOSE:
 
 tr_model.boundaries.create_model_boundary_condition('Drain', 'drain', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Drain', drain)
-
 
 
 if not forecast_run:
@@ -704,8 +700,8 @@ if VERBOSE:
     print "************************************************************************"
     print " Mapping farm areas to grid"
 
-tr_model.map_polygon_to_grid(farms_poly, feature_name="ZoneID")    
-    
+tr_model.map_polygon_to_grid(farms_poly, feature_name="ZoneID")
+
 if VERBOSE:
     print "************************************************************************"
     print " Package up groundwater model builder object"
