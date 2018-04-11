@@ -518,7 +518,8 @@ river_seg, reach_df, reach_data, known_points = \
                                     campaspe_river_poly_file,
                                     campaspe,
                                     campaspe_field_elevations,
-                                    num_reaches=num_reaches)
+                                    num_reaches=num_reaches,
+                                    plot=True)
 
 campaspe_info = campaspe
 campaspe_info.index = campaspe_info['Site Id']
@@ -557,7 +558,8 @@ riv, mriver_seg_ghb = \
                                          murray_river_poly_file,
                                          campaspe_relevant,
                                          river_stage_data,
-                                         river_seg) 
+                                         river_seg,
+                                         plot=True) 
 
 if VERBOSE:
     print "************************************************************************"

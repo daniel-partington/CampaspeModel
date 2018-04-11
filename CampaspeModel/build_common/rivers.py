@@ -49,8 +49,8 @@ def prepare_river_data_for_campaspe(model_builder_object,
 
 
     mbo.GISInterface.raster_reproject_by_grid(surface_raster_high_res,
-                                                   surface_raster_high_res[:-4] + '_reproj.tif',
-                                                   resample_method='min')
+                                              surface_raster_high_res[:-4] + '_reproj.tif',
+                                              resample_method='min')
     
     surface_raster_high_res = surface_raster_high_res[:-4] + '_reproj.tif'
     
