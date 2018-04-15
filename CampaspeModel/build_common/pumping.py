@@ -1,10 +1,11 @@
 import datetime
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 from CampaspeModel.build_utils.multifrequency_resampling import resample_to_model_data_index
 
-def prepare_pumping_data_for_model(ModelBuilderObject,
+def prepare_pumping_data_for_model(model_builder_object,
                                    pumps_points,
                                    start_pumping,
                                    start,
@@ -12,16 +13,17 @@ def prepare_pumping_data_for_model(ModelBuilderObject,
                                    date_index,
                                    pumping_data,
                                    frequencies,
-                                   date_group):
+                                   date_group,
+                                   plot=False):
 
     '''
     NOTE: This function assumes monthly time_steps for the resampling of pumping
     data, which is resampled again based on date_index for the model
     '''
     
-    MBO = ModelBuilderObject
+    mbo = model_builder_object
     
-    MBO.map_points_to_grid(pumps_points, feature_id = 'OLD ID')
+    mbo.map_points_to_grid(pumps_points, feature_id='OLD ID')
     
     #tr_model.parameters.create_model_parameter('pump_use', value=0.6)
     #tr_model.parameters.parameter_options('pump_use', 
@@ -51,24 +53,24 @@ def prepare_pumping_data_for_model(ModelBuilderObject,
     
     pump_shallow = [] # Shallow (if <25m) or Deep (>= 25m)
 
-    for pump_cell in MBO.points_mapped['pumping wells_clipped.shp']:
+    for pump_cell in mbo.points_mapped['pumping wells_clipped.shp']:
         row = pump_cell[0][0]
         col = pump_cell[0][1]
         for pump in pump_cell[1]: 
             if pumping_data.loc[pump, 'Top screen depth (m)'] == 0.: 
                 #'No data to place pump at depth ... ignoring '            
                 continue
-            pump_depth = MBO.model_mesh3D[0][0][row][col] - pumping_data.loc[pump, 'Top screen depth (m)']        
+            pump_depth = mbo.model_mesh3D[0][0][row][col] - pumping_data.loc[pump, 'Top screen depth (m)']        
             active = False
-            for i in range(MBO.model_mesh3D[0].shape[0]-1):
-                if pump_depth < MBO.model_mesh3D[0][i][row][col] and \
-                     pump_depth > MBO.model_mesh3D[0][i+1][row][col]:
+            for i in range(mbo.model_mesh3D[0].shape[0]-1):
+                if pump_depth < mbo.model_mesh3D[0][i][row][col] and \
+                     pump_depth > mbo.model_mesh3D[0][i+1][row][col]:
                     active_layer = i
                     active = True
                     break
                 # end if
             # end for
-            if MBO.model_mesh3D[1][active_layer][row][col] == -1:
+            if mbo.model_mesh3D[1][active_layer][row][col] == -1:
                 active = False
             # end if
             if active == False: 
@@ -142,15 +144,14 @@ def prepare_pumping_data_for_model(ModelBuilderObject,
                 resample_to_model_data_index(pumping_data_ts, date_index, 
                                              frequencies, date_group, start, end,
                                              index_report=False, fill='zero')
-            
             # Now fill in the well dictionary with the values of pumping at relevant stress periods
             for index, time in enumerate(resampled_pumping_data_ts.iterrows()):
-                if index >= MBO.model_time.t['steps']: 
+                if index >= mbo.model_time.t['steps']: 
                     print index
                     continue
                 try:
                     wel[index] += [[active_layer, row, col, -time[1][pump]]]
                 except:
                     wel[index] = [[active_layer, row, col, -time[1][pump]]]
-    
+        
     return wel

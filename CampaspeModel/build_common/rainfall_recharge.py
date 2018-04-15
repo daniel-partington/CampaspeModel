@@ -11,7 +11,6 @@ def weather2model_grid(MBO, df, rain_gauges):
     return weather_dict
 
 def prepare_transient_rainfall_data_for_model(ModelBuilderObject, 
-                                    resampled_weather, 
                                     recharge_zones,
                                     recharge_info,
                                     long_term_historic_weather,
@@ -105,3 +104,54 @@ def prepare_transient_rainfall_data_for_model(ModelBuilderObject,
         interp_rain[key][MBO.model_mesh3D[1][0] == -1] = 0.
     
     return interp_rain, interp_et, recharge_zone_array, rch_zone_dict
+    
+def prepare_static_rainfall_data_for_model(model_builder_object,
+                                           recharge_zones,
+                                           recharge_info,
+                                           long_term_historic_weather,
+                                           rain_gauges):
+    '''
+    UNTESTED and not documented
+    '''
+    
+    long_term_historic_rainfall = long_term_historic_weather
+    mbo = model_builder_object
+    interp_rain = mbo.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall, feature_id='Name', method='linear')
+    # Adjust rainfall to m from mm and from year to day
+    interp_rain = interp_rain / 1000.0 / 365.0
+    
+    mbo.boundaries.create_model_boundary_condition('Rainfall', 'rainfall', bc_static=True)
+    mbo.boundaries.assign_boundary_array('Rainfall', interp_rain)
+    
+    # Replace interp_rain with a copy to prevent alteration of assigned boundary array
+    interp_rain = np.copy(interp_rain)
+    
+    recharge_zone_array = mbo.map_raster_to_regular_grid_return_array(recharge_zones)
+    
+    rch_zone_dict = {i:x for i, x in enumerate(np.unique(recharge_zone_array))}
+    rch_zones = len(rch_zone_dict.keys())
+    
+    mbo.parameters.create_model_parameter_set('ssrch', 
+                                                   value=0.01,
+                                                   num_parameters=rch_zones - 1)
+    
+    mbo.parameters.parameter_options_set('ssrch', 
+                                              PARTRANS='log', 
+                                              PARCHGLIM='factor', 
+                                              PARLBND=1.0E-3, 
+                                              PARUBND=0.2, 
+                                              PARGP='ssrch', 
+                                              SCALE=1, 
+                                              OFFSET=0)
+    
+    for i in range(rch_zones - 1):
+        interp_rain[recharge_zone_array == rch_zone_dict[i + 1]] = \
+            interp_rain[recharge_zone_array == rch_zone_dict[i + 1]] * \
+            mbo.parameters.param['ssrch{}'.format(i)]['PARVAL1']
+    
+    # Ensure model recharge is 0 over areas where the domain is inactive or where zonal array is a NaN value such as over lakes                                  
+    interp_rain[recharge_zone_array==rch_zone_dict[0]] = interp_rain[recharge_zone_array == rch_zone_dict[0]] * 0.0
+    interp_rain[mbo.model_mesh3D[1][0] == -1] = 0.
+        
+    rch = {}
+    rch[0] = interp_rain    

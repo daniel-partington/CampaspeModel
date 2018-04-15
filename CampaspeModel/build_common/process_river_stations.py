@@ -106,7 +106,7 @@ def get_stage(path=None, start_date=None, end_date=None, summary=True, sites=Non
             print 'Level reading is 0, so ignoring for: ', stage_file
             continue
 
-        qual_codes_to_ignore = [8, 9, 21, 100, 101, 120, 149, 150, 151, 152,
+        qual_codes_to_ignore = [0, 8, 9, 21, 100, 101, 120, 149, 150, 151, 152,
                                 153, 154, 155, 156, 160, 161, 165, 180, 190,
                                 200, 201, 237, 250, 254, 255]
 
@@ -220,5 +220,5 @@ def get_EC(path=None, start_date=None, end_date=None, summary=False, sites=None)
 
 if __name__ == "__main__":
     run = get_stage(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
-    run2 = get_flow(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
-    run3 = get_EC(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
+    #run2 = get_flow(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")
+    #run3 = get_EC(path=r"C:\Workspace\part0075\MDB modelling\Campaspe_data\SW\All_streamflow_Campaspe_catchment\Updated\June2017\MOST RECENT")

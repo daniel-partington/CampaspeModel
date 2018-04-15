@@ -57,8 +57,10 @@ def prepare_drain_data_for_model(ModelBuilderObject,
     
     drain_start = findInterval(start_irrigation, date_index)
     drain = {}
-    if not pilot_points_YX:
+    if not pilot_points_YX and len(date_index) > 1:
         drain[drain_start + 1] = simple_drain
+    elif not pilot_points_YX and len(date_index) == 1:
+        drain[drain_start] = simple_drain
     elif pilot_points_YX:
         drain[0] = simple_drain
 

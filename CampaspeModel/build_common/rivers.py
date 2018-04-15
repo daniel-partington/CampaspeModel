@@ -32,7 +32,7 @@ def prepare_river_data_for_campaspe(model_builder_object,
                   'CAMPASPE RIVER @ AXEDALE',
                   'CAMPASPE RIVER @ BACKHAUS ROAD',
                   'CAMPASPE RIVER @ BARNADOWN',
-                  'CAMPASPE RIVER @ ELMORE',
+                  #'CAMPASPE RIVER @ ELMORE', # Ignoring due to zero gauge being less than the weir level
                   'CAMPASPE RIVER @ CAMPASPE WEIR',
                   'CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)',
                   'CAMPASPE RIVER @ BURNEWANG-BONN ROAD',
@@ -45,8 +45,6 @@ def prepare_river_data_for_campaspe(model_builder_object,
                      'CAMPASPE DR NO 4 U/S NORTHERN HIGHWAY',
                      'AXE CREEK @ LONGLEA',
                      'AXE CREEK @ STRATHFIELDSAYE']
-    
-
 
     mbo.GISInterface.raster_reproject_by_grid(surface_raster_high_res,
                                               surface_raster_high_res[:-4] + '_reproj.tif',
@@ -54,18 +52,16 @@ def prepare_river_data_for_campaspe(model_builder_object,
     
     surface_raster_high_res = surface_raster_high_res[:-4] + '_reproj.tif'
     
-    
     mbo.map_points_to_grid(river_gauges, feature_id='Site Name')
     #SS_model.map_points_to_grid(river_gauges, feature_id='Site_ID')
     
-    Campaspe_river_gauges = mbo.points_mapped['processed_river_sites_stage_clipped.shp']
+    campaspe_river_gauges = mbo.points_mapped['processed_river_sites_stage_clipped.shp']
     
     filter_gauges = []
-    for riv_gauge in Campaspe_river_gauges:
+    for riv_gauge in campaspe_river_gauges:
         #if riv_gauge[1][0] in use_gauges:
         if str(riv_gauge[1][0]) in use_gauges:
             filter_gauges += [riv_gauge]
-    
     
     mbo.create_river_dataframe('Campaspe', campaspe_river_poly_file, surface_raster_high_res)
     
@@ -165,9 +161,17 @@ def prepare_river_data_for_campaspe(model_builder_object,
     
     river_seg['amalg_riv_points_tuple'] = river_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
     
-    river_seg = river_df_tools.merge_collocated_stream_reaches(river_seg, max_length=500.)
-    river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=289.6) #200.)
-    
+    if mbo.gridHeight == 1000:
+        river_seg = river_df_tools.merge_collocated_stream_reaches(river_seg, max_length=500.)
+        river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=289.6) #200.)
+    elif mbo.gridHeight == 5000:
+        river_seg = river_df_tools.merge_collocated_stream_reaches(river_seg, max_length=2000.)
+        river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=200.) #200.)
+    else:
+        print("WARNING: Default values used in identifying collocated reaches and very short reaches")
+        river_seg = river_df_tools.merge_collocated_stream_reaches(river_seg, max_length=500.)
+        river_seg = river_df_tools.merge_very_short_stream_reaches(river_seg, min_length=289.6) #200.)
+        
     mbo.river_mapping['Campaspe'] = river_seg
     
     already_defined = []
@@ -786,10 +790,16 @@ def prepare_river_data_for_murray(model_builder_object,
     mriver_seg = mriver_seg.iloc[::-1]
     mriver_seg.index = range(mriver_seg.shape[0])
     
-    print(" ** Merging collocated stream reaches")
-    mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=2000.)
-    print(" ** Merging short stream reaches")
-    mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=300.)
+    if mbo.gridHeight == 1000:
+        print(" ** Merging collocated stream reaches")
+        mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=2000.)
+        print(" ** Merging short stream reaches")
+        mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=300.)
+    if mbo.gridHeight == 5000:
+        print(" ** Merging collocated stream reaches")
+        mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=4000.)
+        print(" ** Merging short stream reaches")
+        mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=500.)
 
     print(" ** Rechecking for collocated Campaspe and Murray cells")
     #mriver_seg['cell_loc_tuple'] = [(x[1]['k'], x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
@@ -827,7 +837,7 @@ def prepare_river_data_for_murray(model_builder_object,
 def create_riv_data_transient(model_builder_object,
                                   river_seg,
                                   river_stage_data,
-                                  Campaspe_info,
+                                  campaspe_info,
                                   date_index, 
                                   frequencies, 
                                   date_group,
@@ -835,24 +845,54 @@ def create_riv_data_transient(model_builder_object,
                                   end):
     
     mbo = model_builder_object
+    # Define the number of reaches used in parameterisation of the river
     num_reaches = mbo.pilot_points['Campaspe'].num_points
+    # Define the location of points used in defining the reaches with respect to parameterisation
     known_points = mbo.pilot_points['Campaspe'].points
     
     ###########################################################################
     # Convert stages to depths for assistance in the interpolation allowing use of bed elevations
     #
-    # Estimate gauge zeros where there is no data
-    #
-    #
-    #
-    #
-    Campaspe_stage = river_stage_data[1]
-    Campaspe_stage = Campaspe_stage[~Campaspe_stage['Site Name'].str.contains('MURRAY')]
-    filtered = Campaspe_stage['Site ID'].tolist()
-    gauge_points = [x for x in zip(Campaspe_stage.Easting, Campaspe_stage.Northing)]
+    gauge_ignore = [#'CAMPASPE RIVER @ EPPALOCK',
+                  'CAMPASPE RIVER @ DOAKS RESERVE',
+                  'CAMPASPE RIVER @ AXEDALE',
+                  'CAMPASPE RIVER @ BACKHAUS ROAD',
+                  #'CAMPASPE RIVER @ BARNADOWN',
+                  'CAMPASPE RIVER @ ELMORE',
+                  #'CAMPASPE RIVER @ CAMPASPE WEIR',
+                  #'CAMPASPE RIVER @ CAMPASPE WEIR (HEAD GAUGE)',
+                  'CAMPASPE RIVER @ BURNEWANG-BONN ROAD',
+                  #'CAMPASPE RIVER @ ROCHESTER D/S WARANGA WESTERN CH SYPHN',
+                  'CAMPASPE RIVER @ FEHRINGS LANE',
+                  #'CAMPASPE RIVER @ ECHUCA'
+                  ]
+                  
+    campaspe_stage = campaspe_info.copy() #river_stage_data[1]
+    campaspe_stage = campaspe_stage[~campaspe_stage['Site Name'].isin(gauge_ignore)]
+    campaspe_stage = campaspe_stage[~campaspe_stage['Site Name'].str.contains('MURRAY')]
+    rsd_info = river_stage_data[1]                                    
+    filtered = rsd_info[~rsd_info['Site Name'].str.contains('MURRAY')]['Site ID'].tolist()
+    gauge_points = [x for x in zip(campaspe_stage.Easting, campaspe_stage.Northing)]
     river_gauge_seg = mbo.get_closest_riv_segments('Campaspe', gauge_points)
-    Campaspe_stage.loc[:, 'new_gauge'] = Campaspe_stage[['Gauge Zero (Ahd)', 'Low stage (m)']].max(axis=1) 
-    Campaspe_stage.loc[:, 'seg_loc'] = river_gauge_seg         
+    # Define the gauge zero using any available information:
+    campaspe_stage.loc[:, 'new_gauge'] = campaspe_stage[['Gauge Zero (Ahd)', 'Min value', 'Cease to flow level']].max(axis=1) 
+    campaspe_stage.loc[:, 'seg_loc'] = river_gauge_seg         
+    # Fix up colocation of weir gauges by shifting downstream gauge to next downstream cell
+    if campaspe_stage[campaspe_stage['Site Id'] == 406203]['seg_loc'].tolist() == \
+       campaspe_stage[campaspe_stage['Site Id'] == 406218]['seg_loc'].tolist():
+        campaspe_stage.loc[campaspe_stage['Site Id'] == 406203, 'seg_loc'] = \
+            campaspe_stage[campaspe_stage['Site Id'] == 406203]['seg_loc'].tolist()[0] + 1
+
+    gauge_points = [x for x in zip(campaspe_stage.Easting, campaspe_stage.Northing)]
+    #river_gauge_seg = mbo.get_closest_riv_segments('Campaspe', gauge_points)
+    river_seg.loc[:, 'gauge_id'] = 'none'
+    river_seg.loc[:, 'gauge_zero'] = 'none'
+    river_seg.loc[river_seg['iseg'].isin(campaspe_stage['seg_loc'].tolist()),
+                  'gauge_id'] = \
+                  campaspe_stage.sort_values('new_gauge', ascending=False)['Site Id'].astype(str).tolist()
+    river_seg.loc[river_seg['iseg'].isin(campaspe_stage['seg_loc'].tolist()),
+                  'gauge_zero'] = \
+                  campaspe_stage.sort_values('new_gauge', ascending=False)['new_gauge'].tolist()
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@ Create temporal segment data @@
@@ -861,6 +901,7 @@ def create_riv_data_transient(model_builder_object,
     stage_resampled = {}
     depth_resampled = {}
     for gauge in filtered:
+        print gauge
         stage = river_stage_data[0][gauge]
         #Tidy up stage data:
         stage = stage[stage['Mean'] > 0.]
@@ -873,7 +914,7 @@ def create_riv_data_transient(model_builder_object,
                                                               df_freq='D',
                                                               fill='mean'
                                                               )                                                             
-        depth_resampled[gauge] = stage_resampled[gauge]['Mean'] - Campaspe_stage[Campaspe_stage['Site ID'] == gauge]['new_gauge'].tolist()[0]
+        depth_resampled[gauge] = stage_resampled[gauge]['Mean'] - campaspe_stage[campaspe_stage['Site Id'] == gauge]['new_gauge'].tolist()[0]
 
 
     width1_val = [mbo.parameters.param['rivwdth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
@@ -885,13 +926,18 @@ def create_riv_data_transient(model_builder_object,
     # stress periods and backfilling missing data with the 25th percentile of flow
     
     riv = {}
-    for per, date in enumerate(date_index[:-1]):
-        Campaspe_stage.loc[:, 'depth'] = np.nan
+    if len(date_index) == 1:
+        date_index_riv = date_index
+    else:
+        date_index_riv = date_index[:-1]
+    # end if        
+    for per, date in enumerate(date_index_riv):
+        campaspe_stage.loc[:, 'depth'] = np.nan
         for gauge in depth_resampled:
-            Campaspe_stage.loc[Campaspe_stage['Site ID'] == gauge, 'depth'] = depth_resampled[gauge].loc[date] 
+            campaspe_stage.loc[campaspe_stage['Site Id'] == gauge, 'depth'] = depth_resampled[gauge].loc[date] 
 
         river_seg.loc[:, 'depth'] = np.nan
-        river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()), 'depth'] = sorted(Campaspe_stage['depth'].tolist(), reverse=True)
+        river_seg.loc[river_seg['gauge_id'].isin([str(x) for x in filtered]), 'depth'] = sorted(campaspe_stage[campaspe_stage['Site Id'].isin(filtered)]['depth'].tolist(), reverse=True)
         river_seg.loc[:, 'depth'] = river_seg.set_index(river_seg['Cumulative Length'])['depth'].interpolate(method='values', limit_direction='both').tolist()
         river_seg.loc[:, 'depth'] = river_seg['depth'].bfill() 
         river_seg.loc[:, 'stage'] = river_seg['strtop'] + river_seg['depth']
@@ -905,12 +951,4 @@ def create_riv_data_transient(model_builder_object,
     
         riv[per] = simple_river
 
-    gauge_points = [x for x in zip(Campaspe_stage.Easting, Campaspe_stage.Northing)]
-    river_gauge_seg = mbo.get_closest_riv_segments('Campaspe', gauge_points)
-    river_seg.loc[:, 'gauge_id'] = 'none'
-    river_seg.loc[river_seg['iseg'].isin(Campaspe_stage['seg_loc'].tolist()),
-                  'gauge_id'] = \
-    Campaspe_stage.sort_values('Mean stage (m)', ascending=False)['Site ID'].astype(str).tolist()
-   
-
-    return riv
+    return riv, river_seg
