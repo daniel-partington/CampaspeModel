@@ -8,6 +8,7 @@ import cPickle as pickle
 import os
 import sys
 import warnings
+import time
 
 import flopy.utils.binaryfile as bf
 import numpy as np
@@ -116,78 +117,162 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries = this_model.boundaries
     model_boundaries_bc = model_boundaries.bc
 
+    if verbose:
+        print "************************************************************************"
+        print " Updating HGU parameters "
+    
+    # This needs to be automatically generated with the map_raster2mesh routine ...
+    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
+
+    default_array = this_model.model_mesh3D[1].astype(float)
+    zone = np.copy(default_array)
+    kh = np.copy(default_array)
+    kv = np.copy(default_array)
+    sy = np.copy(default_array)
+    ss = np.copy(default_array)
+    
+    alt_k_vals = {'khutqa': 10. ,
+                  'khutb' : 1.,
+                  'khqa'  : 44.355,
+                  'khutam': 0.1,
+                  'khutaf': 60.,
+                  'khlta' : 60.,
+                  'khbse' : 10.}
+
+    alt_ss_vals = {'ssutqa': 1E-12 ,
+                  'ssutb' : 1E-12,
+                  'ssqa'  : 1E-12,
+                  'ssutam': 1E-12,
+                  'ssutaf': 3E-12,
+                  'sslta' : 3E-12,
+                  'ssbse' : 1E-12}
+
+    alt_sy_vals = {'syutqa': 0.6 ,
+                  'syutb' : 0.6,
+                  'syqa'  : 0.6,
+                  'syutam': 0.6,
+                  'syutaf': 0.6,
+                  'sylta' : 0.6,
+                  'sybse' : 0.6}
+                  
+                  
+    def create_pp_points_dict(zone_map, zone, prop_array, prop_name, m):
+        points_values_dict = {}
+        for index, key in enumerate(zone_map.keys()):
+            for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
+                if index2 == 0:
+                    if prop_name == 'ss':
+                        points_values_dict[index] = [alt_ss_vals[prop_name + zone_map[key]]]
+                    elif prop_name == 'sy':
+                        points_values_dict[index] = [alt_sy_vals[prop_name + zone_map[key]]]
+                    elif prop_name == 'kh':
+                        points_values_dict[index] = [alt_k_vals[prop_name + zone_map[key]]]
+                    else:
+                        points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
+                else: 
+                    if prop_name == 'ss':
+                        points_values_dict[index] += [alt_ss_vals[prop_name + zone_map[key]]]
+                    elif prop_name == 'sy':
+                        points_values_dict[index] += [alt_sy_vals[prop_name + zone_map[key]]]
+                    elif prop_name == 'kh':
+                        points_values_dict[index] += [alt_k_vals[prop_name + zone_map[key]]]
+                    else:
+                        points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
+        return points_values_dict    
+        
+    def update_pilot_points(zone_map, zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
+        points_values_dict = create_pp_points_dict(zone_map, zone, prop_array, prop_name, m)
+        p = m.pilot_points[par_name]
+        zones = len(zone_map.keys())
+        p.output_directory = os.path.join(model_folder, prop_folder)
+        p.update_pilot_points_files_by_zones(zones, points_values_dict)
+        time.sleep(3)
+        p.run_pyfac2real_by_zones(zones) 
+        #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
+        return p.val_array
+
+    kh = update_pilot_points(zone_map, zone, kh, 'hk', 'kh', 'hk_pilot_points',
+                             this_model, 'hk_val_array')  
+    #this_model.save_array(os.path.join(data_folder, 'Kh'), kh)
+    if verbose:
+        print("Erroneous K pilot cells: {}".format(len(kh[kh > 10000.])))
+    kh[kh > 10000.] = 25.
+    kv = kh * 0.1
+    #this_model.save_array(os.path.join(data_folder, 'Kv'), kv)
+
+    sy = update_pilot_points(zone_map, zone, sy, 'sy', 'sy', 'sy_pilot_points',
+                             this_model, 'sy_val_array')
+    if verbose:
+        print("Erroneous Sy pilot cells: {}".format(len(sy[sy > 0.5])))
+    sy[sy > 0.5] = 0.5
+    #this_model.save_array(os.path.join(data_folder, 'Sy'), sy)
+    
+    ss = update_pilot_points(zone_map, zone, ss, 'ss', 'ss', 'ss_pilot_points',
+                             this_model, 'ss_val_array')
+    if verbose:
+        print("Erroneous Ss pilot cells: {}".format(len(ss[ss > 0.01])))
+    ss[ss > 0.01] = 1E-5
+    #this_model.save_array(os.path.join(data_folder, 'SS'), ss)
+    
+    this_model.properties.update_model_properties('Kh', kh)
+    this_model.properties.update_model_properties('Kv', kv)
+    this_model.properties.update_model_properties('Sy', sy)
+    this_model.properties.update_model_properties('SS', ss)    
+
+    if verbose:
+        print "************************************************************************"
+        print " Updating Campaspe River boundary"
+
     river_seg = this_model.river_mapping['Campaspe']
     num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
 
     strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
-    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
-    river_seg['stage_from_gauge'] = river_seg['stage']
-    Campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
-
-    try:
-        common_gauges = cache['common_gauges']
-        common_gauges_loc = cache['common_gauges_loc']
-        iseg_loc = cache['iseg_loc']
-    except KeyError:
-        # Get common gauges, and fill specific values
-        common_gauges = list(set(Campaspe_stage['gauge_id'].values).intersection(riv_stages.dtype.names))
-        common_gauges_loc = Campaspe_stage.loc[Campaspe_stage.gauge_id.isin(common_gauges), 'gauge_id']
-        iseg_loc = river_seg.loc[river_seg.iseg.isin(Campaspe_stage.iseg), 'stage_from_gauge']
-
-        cache['common_gauges'] = common_gauges
-        cache['common_gauges_loc'] = common_gauges_loc
-        cache['iseg_loc'] = iseg_loc
-    # End try
-
-    tmp = riv_stages[common_gauges][0].tolist()
-    for idx, row in enumerate(common_gauges_loc.index):
-        Campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
-    # End for
-
-    tmp = sorted(Campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
-    for idx, row in enumerate(iseg_loc.index):
-        river_seg.set_value(row, 'stage_from_gauge', tmp[idx])
-    # End for
-
-    
-    # Convert stages to depths
-    
-    # interpolate depths
-    
-    # Calculate stages using bed elevation and depth
-    river_seg['stage'] = \
-        river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
-        interpolate(method='values', limit_direction='both').values.tolist()
-
+    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val) * 0.05
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
-    simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
+    river_bc = this_model.boundaries.bc['Campaspe River']['bc_array']
 
-#    model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
+    if not is_steady:
+        for key in river_bc:
+            riv_stress_period = river_bc[key]
+            for idx, rc in enumerate(riv_stress_period):
+                river_bc[key][idx] = [rc[0], rc[1], rc[2], rc[3], river_seg['multi'].tolist()[idx], rc[5]] 
+    else:
+        mean_stage = {}
+        for key in river_bc:
+            riv_stress_period = river_bc[key]
+            for idx, rc in enumerate(riv_stress_period):
+                if key == 0:
+                    mean_stage[idx] = rc[3] 
+                else:
+                    mean_stage[idx] = mean_stage[idx] * (1. - 1. / (key + 1.)) + rc[3] / (key + 1.)
+        
+        for key in river_bc:
+            riv_stress_period = river_bc[key]
+            for idx, rc in enumerate(riv_stress_period):
+                river_bc[key][idx] = [rc[0], rc[1], rc[2], mean_stage[idx], river_seg['multi'].tolist()[idx], rc[5]] 
+
+     #simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
+
+    model_boundaries.update_boundary_array('Campaspe River', river_bc)
+
+    if verbose:
+        print "************************************************************************"
+        print " Updating Murray River boundary"
 
     # Updating Murray River
     mriver_seg = this_model.river_mapping['Murray']
     mriver_seg['strhc1'] = model_params['kv_rm']['PARVAL1']
     mriver_seg['multi'] = mriver_seg['strhc1'] * mriver_seg['rchlen'] * mriver_seg['width1']
-    msimple_river = mriver_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
 
-#    model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
-    if verbose:
-        print "************************************************************************"
-        print " Updating Murray River boundary"
-    
-    mriver_seg = this_model.river_mapping['Murray']
-    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
-    
-    simple_river = []
-    for row in mriver_seg.iterrows():
-        row = row[1]
-        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
-                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
-    
-    riv = {}
-    riv[0] = simple_river
-    this_model.boundaries.update_boundary_array('Murray River', riv)
+    mriver_bc = this_model.boundaries.bc['Murray River']['bc_array']
+    for key in mriver_bc:
+        mriv_stress_period = mriver_bc[key]
+        for idx, rc in enumerate(mriv_stress_period):
+            mriver_bc[key][idx] = [rc[0], rc[1], rc[2], rc[3], mriver_seg['multi'].tolist()[idx], rc[5]] 
+    #msimple_river = mriver_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
+
+    model_boundaries.update_boundary_array('Murray River', mriver_bc)
 
     if verbose:
         print "************************************************************************"
@@ -198,7 +283,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     interp_rain = model_boundaries_bc['Rainfall']['bc_array']
     for key in interp_rain.keys():
         interp_rain[key] = np.copy(interp_rain[key])
-
+    
+    if is_steady:
+        interp_rain[0] = np.mean([interp_rain[x] for x in interp_rain], axis=0)
+        
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
 
@@ -210,13 +298,24 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     def update_recharge(vals):
         for key in interp_rain.keys():
             for i in xrange(rch_zones - 1):
-                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
-                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-                    vals[i]
+#                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
+#                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
+#                    vals[i]
+                if i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
+                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
+                        interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
+                        vals[i] * 0.
+                else:
+                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
+                        interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
+                        vals[i] * 0.005
 
             interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
                 interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
+            # Killing recharge on inactive cells
             interp_rain[key][this_model.model_mesh3D[1][0] == -1] = 0.
+            # Killing recharge across the outcropping bedrock              
+            interp_rain[key][this_model.model_mesh3D[1][0] == 7] = 0.
         return interp_rain
 
     interp_rain = update_recharge(par_rech_vals)
@@ -227,8 +326,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     #model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
+    if is_steady:
+        pumping = 0.
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
-
+    if is_steady:
+        wel[0] = wel[wel.keys()[-1]]
+           
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
     MurrayGHB = []
@@ -238,7 +341,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         MurrayGHBstage = MurrayGHB_cell[3]
         dx = this_model.gridHeight
         dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1']  # / 10000.
+        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1'] # / 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
 
@@ -246,21 +349,23 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     ghb[0] = MurrayGHB    
     
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
-#    fname = 'model_{}'.format(name)
-#    try:
-#        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
-#        times = headobj.get_times()
-#        head = headobj.get_data(totim=times[-1])
-#        this_model.initial_conditions.set_as_initial_condition("Head", head)
-#    except IndexError:
-#        raise IndexError(
-#            "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
-#                p_j(data_folder, fname, name + '.hds')))
-#    except IOError:
-#        warnings.warn("MODFLOW hds file not found. Recreating head state from existing values.")
-#        head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
-#        this_model.initial_conditions.set_as_initial_condition("Head", head)
-    # End try
+    
+    if not is_steady:
+        fname = 'model_{}'.format(name)
+        try:
+            headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
+            times = headobj.get_times()
+            head = headobj.get_data(totim=times[-1])
+            this_model.initial_conditions.set_as_initial_condition("Head", head)
+        except IndexError:
+            raise IndexError(
+                "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
+                    p_j(data_folder, fname, name + '.hds')))
+    #    except IOError:
+    #        warnings.warn("MODFLOW hds file not found. Recreating head state from existing values.")
+    #        head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
+    #        this_model.initial_conditions.set_as_initial_condition("Head", head)
+        # End try
 
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(this_model, data_folder=p_j(data_folder, "model_{}".format(name)))
@@ -272,6 +377,9 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.buildMODFLOW()
     modflow_model.runMODFLOW()
 
+    if not is_steady:
+        modflow_model.viewHeadsByZone2(1, head_name='policy_bores')
+    
 #    try:
 #        swgw_exchanges = cache['swgw_exchanges']
 #        avg_depth_to_gw = cache['avg_depth_to_gw']
@@ -410,7 +518,6 @@ def main():
     # Example river level data (to be inputted from SW Model)
     fname = "initial_river_levels.pkl"
     riv_stages = load_obj(os.path.join(CONFIG.settings['data_folder'], fname))
-
     args = sys.argv
     if len(args) > 1:
         model_folder = sys.argv[1]
@@ -422,14 +529,17 @@ def main():
     else:
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
-        data_folder = model_config['data_folder']
+        data_folder = os.path.join(model_config['data_folder'], 'hindcast')
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
     # End if
 
+    model_folder = model_folder.replace("structured_model_grid_5000m", "hindcast/structured_model_grid_5000m")
+    
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
 
+    # SS first
     run_params = {
         "model_folder": model_folder,
         "data_folder": data_folder,
@@ -438,20 +548,39 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 0.1,  # m^3/day
+        "pumping": 1.0,  # m^3/day
+        "MM": MM,
+        "verbose": False,
+        "is_steady": True
+    }
+
+    model_results_ss = run(**run_params)
+
+    ## TR second
+    MM = GWModelManager()
+    MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
+    run_params = {
+        "model_folder": model_folder,
+        "data_folder": data_folder,
+        "mf_exe_folder": mf_exe_folder,
+        "farm_zones": ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+        "param_file": param_file if param_file else None,
+        "riv_stages": riv_stages,
+        "rainfall_irrigation": None,
+        "pumping": 10.0,  # m^3/day
         "MM": MM,
         "verbose": False,
         "is_steady": False
     }
 
     model_results = run(**run_params)
-
+    
 #    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
 #    print("swgw_exchanges", swgw_exchanges)
 #    print("avg_depth_to_gw", avg_depth_to_gw)
 #    print("ecol_depth_to_gw", ecol_depth_to_gw)
 #    print("trigger_heads", trigger_heads)
-    return model_results
+    return model_results_ss, model_results
 
 if __name__ == "__main__":
-    model_results = main()
+    model_results_ss, model_results = main()

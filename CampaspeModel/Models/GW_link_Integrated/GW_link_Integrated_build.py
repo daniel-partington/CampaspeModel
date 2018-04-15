@@ -27,6 +27,10 @@ CONFIG = ConfigLoader(p_j('..', '..', 'config', 'model_config.json')).set_enviro
 
 VERBOSE = True
 forecast_run = False
+if forecast_run:
+    model_mode = 'forecast'
+else:
+    model_mode = 'hindcast'
 
 # Define basic model parameters:
 proj_cs = osr.SpatialReference()
@@ -61,7 +65,7 @@ model_params = {
     "name": "GW_link_Integrated",
     "data_folder": model_build_input_path,
     "campaspe_data": get_conf_set(['model_build', 'campaspe_data']),
-    "model_data_folder": model_config['data_folder'],
+    "model_data_folder": model_config['data_folder'] + model_mode,
     "out_data_folder": get_conf_set(['model_build', 'data_build']),
     "GISInterface": interface,
     "model_type": "Modflow",
@@ -142,13 +146,19 @@ start_time_interest = datetime.date(2000, 01, 01)
 
 if forecast_run:
     start, end = datetime.date(2014, 01, 01), datetime.date(2015, 01, 01)
-    tr_model.model_time.set_temporal_components(steady_state=False, start_time=start,
-                                                end_time=end, time_step='A')
+#    tr_model.model_time.set_temporal_components(steady_state=False, start_time=start,
+#                                                end_time=end, time_step='A')
     frequencies = ['A']
+    date_index = pd.date_range(start=start, end=end, freq=frequencies[0])
+    date_group = [start, end]
     tr_model.model_time.set_temporal_components(steady_state=False,
                                                 start_time=start,
-                                                end_time=end,
-                                                timestep='A')
+                                                end_time=end, 
+                                                date_index=date_index)
+    # OVERRIDE model temporal components:
+    tr_model.model_time.t['steps'] = 1
+    tr_model.model_time.t['intervals'] = [end - start]
+
 else:
     # 1980 - 2000 Annual
     # 2000 - 2015 Monthly
@@ -191,7 +201,6 @@ if VERBOSE:
 
 interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
     prepare_transient_rainfall_data_for_model(tr_model,
-                                              long_term_historic_weather,
                                               recharge_zones,
                                               recharge_info,
                                               long_term_historic_weather,
@@ -427,19 +436,34 @@ bores_obs_time_series_policy = generate_bore_observations_for_model(bores_obs_ti
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # SETUP INITIAL CONDITIONS
 
-# Get policy bores with data before 1981:
-bores_obs_time_series_1980 = bores_obs_time_series[bores_obs_time_series['datetime'] < '1981']
-bores_obs_time_series_1980 = bores_obs_time_series_1980[bores_obs_time_series_1980['active'] == True]
-# Get policy bores with data before 1981:
-bores_obs_time_series_policy_1980 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] < '1981']
-bores_obs_time_series_policy_1980 = bores_obs_time_series_policy_1980[bores_obs_time_series_policy_1980['active'] == True]
-
-bores_1980_combined = pd.concat([bores_obs_time_series_1980, bores_obs_time_series_policy_1980])
-bores_1980_combined.loc[:, 'HydroCode'] = bores_1980_combined['name']
-bores_1980_loc_merge = bores_1980_combined.merge(final_bores, on='HydroCode')
-
-points = zip(bores_1980_loc_merge['Easting'].tolist(), bores_1980_loc_merge['Northing'].tolist())
-values = bores_1980_loc_merge['value'].tolist()
+if not forecast_run:
+    # Get policy bores with data before 1981:
+    bores_obs_time_series_1980 = bores_obs_time_series[bores_obs_time_series['datetime'] < '1981']
+    bores_obs_time_series_1980 = bores_obs_time_series_1980[bores_obs_time_series_1980['active'] == True]
+    # Get policy bores with data before 1981:
+    bores_obs_time_series_policy_1980 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] < '1981']
+    bores_obs_time_series_policy_1980 = bores_obs_time_series_policy_1980[bores_obs_time_series_policy_1980['active'] == True]
+    
+    bores_1980_combined = pd.concat([bores_obs_time_series_1980, bores_obs_time_series_policy_1980])
+    bores_1980_combined.loc[:, 'HydroCode'] = bores_1980_combined['name']
+    bores_1980_loc_merge = bores_1980_combined.merge(final_bores, on='HydroCode')
+    
+    points = zip(bores_1980_loc_merge['Easting'].tolist(), bores_1980_loc_merge['Northing'].tolist())
+    values = bores_1980_loc_merge['value'].tolist()
+else:
+    # Get policy bores with data after 2014:
+    bores_obs_time_series_2015 = bores_obs_time_series[bores_obs_time_series['datetime'] > '2014']
+    bores_obs_time_series_2015 = bores_obs_time_series_2015[bores_obs_time_series_2015['active'] == True]
+    # Get policy bores with data after 2014:
+    bores_obs_time_series_policy_2015 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] > '2014']
+    bores_obs_time_series_policy_2015 = bores_obs_time_series_policy_2015[bores_obs_time_series_policy_2015['active'] == True]
+    
+    bores_2015_combined = pd.concat([bores_obs_time_series_2015, bores_obs_time_series_policy_2015])
+    bores_2015_combined.loc[:, 'HydroCode'] = bores_2015_combined['name']
+    bores_2015_loc_merge = bores_2015_combined.merge(final_bores, on='HydroCode')
+    
+    points = zip(bores_2015_loc_merge['Easting'].tolist(), bores_2015_loc_merge['Northing'].tolist())
+    values = bores_2015_loc_merge['value'].tolist()
 
 grid_x, grid_y = tr_model.model_mesh_centroids
 
@@ -450,18 +474,20 @@ mask = np.isnan(grid_z1)
 grid_z1[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), grid_z1[~mask])
 
 grid_z2 = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='cubic')
+mask = np.isnan(grid_z2)
+grid_z2[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), grid_z2[~mask])
 
 # plt.subplot(221)
 #plt.plot(points[:,0], points[:,1], 'k.', ms=1)
 # plt.title('Original')
 extent = (np.min(grid_x), np.max(grid_x), np.min(grid_y), np.max(grid_y))
-plt.subplot(222)
+plt.subplot(151)
 plt.imshow(grid_z0.T, extent=extent, origin='lower', interpolation='none')
 plt.title('Nearest')
-plt.subplot(223)
+plt.subplot(152)
 plt.imshow(grid_z1.T, extent=extent, origin='lower', interpolation='none')
 plt.title('Linear')
-plt.subplot(224)
+plt.subplot(153)
 plt.imshow(grid_z2.T, extent=extent, origin='lower', interpolation='none')
 plt.title('Cubic')
 plt.gcf().set_size_inches(6, 6)
@@ -520,13 +546,11 @@ river_seg, reach_df, reach_data, known_points = \
 
 campaspe_info = campaspe
 campaspe_info.index = campaspe_info['Site Id']
-campaspe_info = campaspe_info[['Easting', 'Northing', 'Site Name', 'seg_loc']]
-
-tr_model.river_mapping['Campaspe'] = river_seg
+#campaspe_info = campaspe_info[['Easting', 'Northing', 'Site Name', 'seg_loc']]
 
 camp_riv_cells = [x for x in zip(river_seg['i'], river_seg['j'])]
 
-criv = rivers.create_riv_data_transient(tr_model,
+criv, river_seg = rivers.create_riv_data_transient(tr_model,
                                         river_seg,
                                         river_stage_data,
                                         campaspe_info,
@@ -535,6 +559,8 @@ criv = rivers.create_riv_data_transient(tr_model,
                                         date_group,
                                         start,
                                         end)
+
+tr_model.river_mapping['Campaspe'] = river_seg
 
 if VERBOSE:
     print "************************************************************************"
@@ -596,14 +622,13 @@ tr_model.boundaries.create_model_boundary_condition('Drain', 'drain', bc_static=
 tr_model.boundaries.assign_boundary_array('Drain', drain)
 
 
-if not forecast_run:
-    if VERBOSE:
-        print "************************************************************************"
-        print " Collate observations"
-    #
-    tr_model.map_obs_loc2mesh3D(method='nearest', ignore=[-1, 7])
-    tr_model.map_obs2model_times()
-    tr_model.observations.collate_observations()
+if VERBOSE:
+    print "************************************************************************"
+    print " Collate observations"
+#
+tr_model.map_obs_loc2mesh3D(method='nearest', ignore=[-1, 7])
+tr_model.map_obs2model_times()
+tr_model.observations.collate_observations()
 
 obs_active_bores = bores_obs_time_series[bores_obs_time_series['zone'] != 'null']['name']
 obs_active_bores = obs_active_bores[obs_active_bores.isin(bores_in_top_layer)].tolist()
