@@ -79,33 +79,35 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
             for line in lines:
                 if line.split(':')[0] == 'Ecology':
-                    Ecology_bores = process_line(line)
+                    ecology_bores = process_line(line)
                 elif line.split(':')[0] == 'Policy':
-                    Policy_bores = process_line(line)
+                    policy_bores = process_line(line)
                 elif line.split(':')[0] == 'SW_stream_gauges':
-                    Stream_gauges = process_line(line)
+                    stream_gauges = process_line(line)
             # End for
         # End with
 
         MM.ext_linkage_bores = {
-            "Ecology_bores": Ecology_bores,
-            "Policy_bores": Policy_bores,
-            "Stream_gauges": Stream_gauges
+            "Ecology_bores": ecology_bores,
+            "Policy_bores": policy_bores,
+            "Stream_gauges": stream_gauges
         }
 
-        cache['Ecology_bores'] = Ecology_bores
-        cache['Policy_bores'] = Policy_bores
-        cache['Stream_gauges'] = Stream_gauges
+        cache['Ecology_bores'] = ecology_bores
+        cache['Policy_bores'] = policy_bores
+        cache['Stream_gauges'] = stream_gauges
     else:
-        Ecology_bores = cache['Ecology_bores']
-        Policy_bores = cache['Policy_bores']
-        Stream_gauges = cache['Stream_gauges']
+        ecology_bores = cache['Ecology_bores']
+        policy_bores = cache['Policy_bores']
+        stream_gauges = cache['Stream_gauges']
     # End if
 
     name = MM.GW_build.keys()[0]
     this_model = MM.GW_build[name]
     mesh = this_model.model_mesh3D
     mesh_0, mesh_1 = mesh[0], mesh[1]
+
+    print riv_stages
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
@@ -123,7 +125,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
     river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
     river_seg['stage_from_gauge'] = river_seg['stage']
-    Campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
+    campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
 
     try:
         common_gauges = cache['common_gauges']
@@ -131,32 +133,37 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         iseg_loc = cache['iseg_loc']
     except KeyError:
         # Get common gauges, and fill specific values
-        common_gauges = list(set(Campaspe_stage['gauge_id'].values).intersection(riv_stages.dtype.names))
-        common_gauges_loc = Campaspe_stage.loc[Campaspe_stage.gauge_id.isin(common_gauges), 'gauge_id']
-        iseg_loc = river_seg.loc[river_seg.iseg.isin(Campaspe_stage.iseg), 'stage_from_gauge']
+        common_gauges = list(set(campaspe_stage['gauge_id'].values).intersection(riv_stages.dtype.names))
+        common_gauges_loc = campaspe_stage.loc[campaspe_stage.gauge_id.isin(common_gauges), 'gauge_id']
+        iseg_loc = river_seg.loc[river_seg.iseg.isin(campaspe_stage.iseg), 'stage_from_gauge']
 
         cache['common_gauges'] = common_gauges
         cache['common_gauges_loc'] = common_gauges_loc
         cache['iseg_loc'] = iseg_loc
     # End try
-
     tmp = riv_stages[common_gauges][0].tolist()
     for idx, row in enumerate(common_gauges_loc.index):
-        Campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
+        campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
     # End for
 
-    tmp = sorted(Campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
+    tmp = sorted(campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
     for idx, row in enumerate(iseg_loc.index):
         river_seg.set_value(row, 'stage_from_gauge', tmp[idx])
     # End for
+    
+    # Convert stages to depths
+    campaspe_stage.loc[:, 'depth'] = campaspe_stage['stage'] - campaspe_stage['gauge_zero'] 
 
-    river_seg['stage'] = \
-        river_seg.set_index(river_seg['Cumulative Length'])['stage_from_gauge']. \
-        interpolate(method='values', limit_direction='both').values.tolist()
+    river_seg.loc[:, 'depth'] = np.nan
+    river_seg.loc[river_seg.index.isin(campaspe_stage.index), 'depth'] = campaspe_stage['depth']
+    # interpolate depths
+    river_seg.loc[:, 'depth'] = river_seg.set_index(river_seg['Cumulative Length'])['depth'].interpolate(method='values', limit_direction='both').tolist()
+    river_seg.loc[:, 'depth'] = river_seg['depth'].bfill() 
+    # Calculate stages using bed elevation and depth
+    river_seg.loc[:, 'stage'] = river_seg['strtop'] + river_seg['depth']
 
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
-
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
     # Updating Murray River
@@ -167,28 +174,58 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
 
-    if rainfall_irrigation is not None:
-        interp_rain = np.copy(rainfall_irrigation)
-    else:
-        warnings.warn("Rainfall+Irrigation input ignored by GW model")
-        interp_rain = np.copy(model_boundaries_bc['Rainfall']['bc_array'])
-    # End if
+    if verbose:
+        print "************************************************************************"
+        print " Updating Murray River boundary"
+    
+#    mriver_seg = this_model.river_mapping['Murray']
+#    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
+#    
+#    simple_river = []
+#    for row in mriver_seg.iterrows():
+#        row = row[1]
+#        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
+#                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
+#    
+#    riv = {}
+#    riv[0] = simple_river
+#    this_model.boundaries.update_boundary_array('Murray River', riv)
 
-    # integers (1 - 7) reflect number of layers
-    temp_lst = [4, 5, 6]
-    for i in xrange(1, 8):
-        match = mesh_1[0] == i
+    if verbose:
+        print "************************************************************************"
+        print " Updating recharge boundary "
 
-        if i in temp_lst:  # (4, 5, 6)
-            interp_rain[match] = 0
-            continue
-        # End if
+    # Adjust rainfall to recharge using zoned rainfall reduction parameters
+    # Need to make copies of all rainfall arrays
+    interp_rain = model_boundaries_bc['Rainfall']['bc_array']
+    for key in interp_rain.keys():
+        interp_rain[key] = np.copy(interp_rain[key])
 
-        # Adjust rainfall to recharge using a magic number (defaults to 0.03 -> 3%)
-        interp_rain[match] = interp_rain[match] * recharge_amt
-    # End for
+    recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
+    rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
 
-    model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
+    rch_zones = len(rch_zone_dict.keys())
+
+    par_rech_vals = [model_params['rchred{}'.format(i)]['PARVAL1'] \
+                     for i in xrange(rch_zones - 1)]
+
+    def update_recharge(vals):
+        for key in interp_rain.keys():
+            for i in xrange(rch_zones - 1):
+                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
+                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
+                    vals[i]
+
+            interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
+                interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
+            interp_rain[key][this_model.model_mesh3D[1][0] == -1] = 0.
+        return interp_rain
+
+    interp_rain = update_recharge(par_rech_vals)
+    rch = interp_rain
+
+    model_boundaries.update_boundary_array('Rain_reduced', rch)
+    #model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
@@ -206,30 +243,30 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
 
+    ghb = {}
+    ghb[0] = MurrayGHB    
+    
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
     fname = 'model_{}'.format(name)
-    try:
-        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
-        times = headobj.get_times()
-        head = headobj.get_data(totim=times[-1])
-        this_model.initial_conditions.set_as_initial_condition("Head", head)
-    except IndexError:
-        raise IndexError(
-            "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
-                p_j(data_folder, fname, name + '.hds')))
-    except IOError:
-        warnings.warn("MODFLOW hds file not found. Recreating head state from existing values.")
-        head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
-        this_model.initial_conditions.set_as_initial_condition("Head", head)
+#    try:
+#        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
+#        times = headobj.get_times()
+#        head = headobj.get_data(totim=times[-1])
+#        this_model.initial_conditions.set_as_initial_condition("Head", head)
+#    except IndexError:
+#        raise IndexError(
+#            "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
+#                p_j(data_folder, fname, name + '.hds')))
+#    except IOError:
+#        warnings.warn("MODFLOW hds file not found. Recreating head state from existing values.")
+#        head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
+#        this_model.initial_conditions.set_as_initial_condition("Head", head)
     # End try
 
     # Currently using flopyInterface directly rather than running from the ModelManager ...
     modflow_model = flopyInterface.ModflowModel(this_model, data_folder=p_j(data_folder, "model_{}".format(name)))
 
     # Override temporal aspects of model build:
-    modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
-    modflow_model.perlen = 1  # This is the period of time which is set to 1 day here
-    modflow_model.nstp = 1  # This is the number of sub-steps to do in each stress period
     modflow_model.steady = is_steady  # This is to tell FloPy that is a transient model
     modflow_model.executable = mf_exe_folder
 
@@ -249,10 +286,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         geo_mask = cache['geo_mask']
     except KeyError:
         # SW-GW exchanges:
-        swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge in Stream_gauges])
+        swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge in stream_gauges])
         avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
-        ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float) for bore in Ecology_bores])
-        trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in Policy_bores])
+        ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float) for bore in ecology_bores])
+        trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in policy_bores])
 
         cache['swgw_exchanges'] = swgw_exchanges
         cache['avg_depth_to_gw'] = avg_depth_to_gw
@@ -260,15 +297,16 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['trigger_heads'] = trigger_heads
 
         river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
+        # Clear out any gauges not required
         river_reach_cells.set_value(0, 'gauge_id', 'none')
-
         river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
+        river_reach_cells.loc[~river_reach_cells['gauge_id'].isin(stream_gauges), 'gauge_id'] = np.nan
         river_reach_cells = river_reach_cells.bfill()
-        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(Stream_gauges),
+        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(stream_gauges),
                                                           ['k', 'i', 'j']].values.tolist()
 
         reach_cells = {}
-        for gauge in Stream_gauges:
+        for gauge in stream_gauges:
             reach_cells[gauge] = river_reach_cells.loc[river_reach_cells['gauge_id'] == gauge, 'cell'].values
         # End for
 
@@ -281,8 +319,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
 
         eco_cells = {}
-        for ind, ecol_bore in enumerate(Ecology_bores):
-            eco_cells[Stream_gauges[ind]] = river_reach_ecol.loc[ecol_gauge_id == Stream_gauges[ind], 'cell'].values[0]
+        for ind, ecol_bore in enumerate(ecology_bores):
+            eco_cells[stream_gauges[ind]] = river_reach_ecol.loc[ecol_gauge_id == stream_gauges[ind], 'cell'].values[0]
         # End for
 
         river_reach_ecol = eco_cells
@@ -299,7 +337,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['geo_mask'] = geo_mask
     # End try
 
-    for gauge in Stream_gauges:
+    for gauge in stream_gauges:
         swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(river_reach_cells[gauge])
     # End for
 
@@ -317,14 +355,14 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     River gauges of importance for ecology: 406201, 406202, 406207, 406218, 406265
     Corresponding GW bores nearest to:      83003,  89586,  82999,  5662,   44828
 
-    The bores are being ignored for nw as they are too far away from the stream
+    The bores are being ignored for now as they are too far away from the stream
     gauges. Instead the simulated head in the cell with the stream gauge is
     used which represents the average head over the 5 km x 5 km cell.
     """
 
     heads = modflow_model.getHeads()
-    for ind, ecol_bore in enumerate(Ecology_bores):
-        _i, _h, _j = river_reach_ecol[Stream_gauges[ind]]
+    for ind, ecol_bore in enumerate(ecology_bores):
+        _i, _h, _j = river_reach_ecol[stream_gauges[ind]]
         ecol_depth_to_gw[ecol_bore] = mesh_0[_i, _h, _j] - heads[_i, _h, _j]
     # End for
 
@@ -345,14 +383,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
        Murray. So can we have the gradient of flow as an indicator in the
        integrated model as well (if it isn't already)?
     """
-    for trigger_bore in Policy_bores:
+    for trigger_bore in policy_bores:
         # NOTE: This returns the head in mAHD
-        trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
+        trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'policy_bores')[0]
     # End for
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
     # are available for inspection
-    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads
+    return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, modflow_model
+
 # End run()
 
 
@@ -385,11 +424,13 @@ def main():
     else:
         model_config = CONFIG.model_config
         model_folder = model_config['model_folder'] + model_config['grid_resolution'] + os.path.sep
-        data_folder = model_config['data_folder']
+        data_folder = os.path.join(model_config['data_folder'], 'forecast')
         mf_exe_folder = model_config['mf_exe_folder']
         param_file = model_config['param_file']
     # End if
 
+    model_folder = model_folder.replace("structured_model_grid_5000m", "forecast/structured_model_grid_5000m")
+    
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
 
@@ -401,23 +442,18 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 0.1,  # m^3/day
+        "pumping": 1.0,  # m^3/day
         "MM": MM,
         "verbose": False,
-        "is_steady": True
+        "is_steady": False
     }
 
-    run(**run_params)
-    run_params.update({"is_steady": False})
-    for i in xrange(100):
-        run(**run_params)
-    # End for
-    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)
+    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, modflow_model = run(**run_params)
     print("swgw_exchanges", swgw_exchanges)
     print("avg_depth_to_gw", avg_depth_to_gw)
     print("ecol_depth_to_gw", ecol_depth_to_gw)
     print("trigger_heads", trigger_heads)
-
+    return modflow_model
 
 if __name__ == "__main__":
-    main()
+    modflow_model = main()
