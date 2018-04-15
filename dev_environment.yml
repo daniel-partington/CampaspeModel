@@ -44,9 +44,12 @@ dependencies:
 - mkl=2018.0.1
 - numpy=1.13.1
 - scipy=0.19.1
+- gdal=2.2.3
 - pip:
   - backports-abc==0.5
   - backports.functools-lru-cache==1.5
   - backports.ssl-match-hostname==3.5.0.1
   - flopy==3.2.6
-#  - hydro-model-builder==0.1
+  - pyemu==0.4
+  # HydroModelBuilder install
+  - git+https://github.com/daniel-partington/HydroModelBuilder.git@dev-working
