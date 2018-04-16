@@ -36,7 +36,7 @@ def parse_string_to_bool(opt):
 # End parse_string_to_bool()
 
 
-parser = argparse.ArgumentParser("Campaspe Model Build Process")
+parser = argparse.ArgumentParser("Campaspe Model Build Processor")
 parser.add_argument("--forecast",
                     type=parse_string_to_bool,
                     default=True,
