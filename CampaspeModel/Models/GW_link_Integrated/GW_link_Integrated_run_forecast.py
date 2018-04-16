@@ -166,6 +166,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
+    if verbose:
+        print "************************************************************************"
+        print " Updating Murray River boundary"
+
     # Updating Murray River
     mriver_seg = this_model.river_mapping['Murray']
     mriver_seg['strhc1'] = model_params['kv_rm']['PARVAL1']
@@ -174,19 +178,13 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
 
-    if verbose:
-        print "************************************************************************"
-        print " Updating Murray River boundary"
-    
 #    mriver_seg = this_model.river_mapping['Murray']
 #    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
-#    
 #    simple_river = []
 #    for row in mriver_seg.iterrows():
 #        row = row[1]
 #        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
 #                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
-#    
 #    riv = {}
 #    riv[0] = simple_river
 #    this_model.boundaries.update_boundary_array('Murray River', riv)
@@ -397,6 +395,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
 def main():
     print("Running from: " + os.getcwd())
+    print(os.path.join(os.path.dirname(os.path.dirname(__file__))))
     CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)).replace('models',''),
                                        "config", "model_config.json"))\
         .set_environment("GW_link_Integrated")

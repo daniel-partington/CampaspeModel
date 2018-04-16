@@ -131,29 +131,35 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     sy = np.copy(default_array)
     ss = np.copy(default_array)
     
-    alt_k_vals = {'khutqa': 10. ,
-                  'khutb' : 1.,
+    alt_k_vals = {'khutqa': 10.,
+                  'khutb' : 10., #1.,
                   'khqa'  : 44.355,
-                  'khutam': 0.1,
+                  'khutam': 10., #0.1,
                   'khutaf': 60.,
                   'khlta' : 60.,
                   'khbse' : 10.}
+    
+    k_factor = 1.05
+    ghb_k_factor = 3.
+    for key in alt_k_vals:
+        alt_k_vals[key] = alt_k_vals[key] * k_factor
+                  
+                  
+    alt_ss_vals = {'ssutqa': 1E-5 ,
+                  'ssutb' : 1E-5,
+                  'ssqa'  : 1E-5,
+                  'ssutam': 1E-5,
+                  'ssutaf': 1E-5,
+                  'sslta' : 1E-5,
+                  'ssbse' : 1E-5}
 
-    alt_ss_vals = {'ssutqa': 1E-12 ,
-                  'ssutb' : 1E-12,
-                  'ssqa'  : 1E-12,
-                  'ssutam': 1E-12,
-                  'ssutaf': 3E-12,
-                  'sslta' : 3E-12,
-                  'ssbse' : 1E-12}
-
-    alt_sy_vals = {'syutqa': 0.6 ,
-                  'syutb' : 0.6,
-                  'syqa'  : 0.6,
-                  'syutam': 0.6,
-                  'syutaf': 0.6,
-                  'sylta' : 0.6,
-                  'sybse' : 0.6}
+    alt_sy_vals = {'syutqa': 0.25,
+                  'syutb' : 0.25,
+                  'syqa'  : 0.25,
+                  'syutam': 0.25,
+                  'syutaf': 0.25,
+                  'sylta' : 0.25,
+                  'sybse' : 0.25}
                   
                   
     def create_pp_points_dict(zone_map, zone, prop_array, prop_name, m):
@@ -308,7 +314,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                 else:
                     interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
                         interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-                        vals[i] * 0.005
+                        vals[i] #* 0.005
 
             interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
                 interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
@@ -326,8 +332,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     #model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
-    if is_steady:
-        pumping = 0.
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
     if is_steady:
         wel[0] = wel[wel.keys()[-1]]
@@ -341,7 +345,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         MurrayGHBstage = MurrayGHB_cell[3]
         dx = this_model.gridHeight
         dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1'] # / 10000.
+        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1'] * ghb_k_factor # / 10000.
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
 
@@ -378,7 +382,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.runMODFLOW()
 
     if not is_steady:
-        modflow_model.viewHeadsByZone2(1, head_name='policy_bores')
+        #modflow_model.viewHeadsByZone2(1, head_name='policy_bores')
+        modflow_model.compareAllObs('policy_bores') 
     
 #    try:
 #        swgw_exchanges = cache['swgw_exchanges']
@@ -548,7 +553,7 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 1.0,  # m^3/day
+        "pumping": 0.0,  # m^3/day
         "MM": MM,
         "verbose": False,
         "is_steady": True
@@ -567,7 +572,7 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 10.0,  # m^3/day
+        "pumping": 1.0,  # m^3/day
         "MM": MM,
         "verbose": False,
         "is_steady": False
