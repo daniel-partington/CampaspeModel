@@ -185,6 +185,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     # Adjust rainfall to recharge using zoned rainfall reduction parameters
     # Need to make copies of all rainfall arrays
+    # DEBUG: force rainfall raster to None
     rainfall_irrigation = None
     if rainfall_irrigation is not None:
         interp_rain = np.copy(rainfall_irrigation)
