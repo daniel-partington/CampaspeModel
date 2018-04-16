@@ -400,7 +400,7 @@ def main():
     print("Running from: " + os.getcwd())
 
     this_file_loc = os.path.realpath(__file__)
-    pkg_path = this_file_loc[0:this_file_loc.index('models')]
+    pkg_path = this_file_loc[0:os.getcwd().index('models')]
     config_path = os.path.join(pkg_path, "config", "model_config.json")
     CONFIG = ConfigLoader(config_path).set_environment("GW_link_Integrated")
 
