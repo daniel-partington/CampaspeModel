@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import os
 
@@ -21,12 +22,35 @@ from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import \
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
+
+def parse_string_to_bool(opt):
+    if opt.lower().startswith('t'):
+        val = True
+    elif opt.lower().startswith('f'):
+        val = False
+    else:
+        raise ValueError('Invalid option, must be true or false')
+    # End if
+
+    return val
+# End parse_string_to_bool()
+
+
+parser = argparse.ArgumentParser("Campaspe Model Build Processor")
+parser.add_argument("--forecast",
+                    type=parse_string_to_bool,
+                    default=True,
+                    help="Run the build process to generate a forecasting model")
+parser.add_argument("--verbose", type=parse_string_to_bool, default=False, help="Output all status messages")
+args = parser.parse_args()
+
+VERBOSE = bool(args.verbose)
+forecast_run = args.forecast
+
 p_j = os.path.join
 dir_name = os.path.dirname
 CONFIG = ConfigLoader(p_j('..', '..', 'config', 'model_config.json')).set_environment("GW_link_Integrated")
 
-VERBOSE = True
-forecast_run = False
 if forecast_run:
     model_mode = 'forecast'
 else:
@@ -153,7 +177,7 @@ if forecast_run:
     date_group = [start, end]
     tr_model.model_time.set_temporal_components(steady_state=False,
                                                 start_time=start,
-                                                end_time=end, 
+                                                end_time=end,
                                                 date_index=date_index)
     # OVERRIDE model temporal components:
     tr_model.model_time.t['steps'] = 1
@@ -443,11 +467,11 @@ if not forecast_run:
     # Get policy bores with data before 1981:
     bores_obs_time_series_policy_1980 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] < '1981']
     bores_obs_time_series_policy_1980 = bores_obs_time_series_policy_1980[bores_obs_time_series_policy_1980['active'] == True]
-    
+
     bores_1980_combined = pd.concat([bores_obs_time_series_1980, bores_obs_time_series_policy_1980])
     bores_1980_combined.loc[:, 'HydroCode'] = bores_1980_combined['name']
     bores_1980_loc_merge = bores_1980_combined.merge(final_bores, on='HydroCode')
-    
+
     points = zip(bores_1980_loc_merge['Easting'].tolist(), bores_1980_loc_merge['Northing'].tolist())
     values = bores_1980_loc_merge['value'].tolist()
 else:
@@ -457,11 +481,11 @@ else:
     # Get policy bores with data after 2014:
     bores_obs_time_series_policy_2015 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] > '2014']
     bores_obs_time_series_policy_2015 = bores_obs_time_series_policy_2015[bores_obs_time_series_policy_2015['active'] == True]
-    
+
     bores_2015_combined = pd.concat([bores_obs_time_series_2015, bores_obs_time_series_policy_2015])
     bores_2015_combined.loc[:, 'HydroCode'] = bores_2015_combined['name']
     bores_2015_loc_merge = bores_2015_combined.merge(final_bores, on='HydroCode')
-    
+
     points = zip(bores_2015_loc_merge['Easting'].tolist(), bores_2015_loc_merge['Northing'].tolist())
     values = bores_2015_loc_merge['value'].tolist()
 
@@ -551,14 +575,14 @@ campaspe_info.index = campaspe_info['Site Id']
 camp_riv_cells = [x for x in zip(river_seg['i'], river_seg['j'])]
 
 criv, river_seg = rivers.create_riv_data_transient(tr_model,
-                                        river_seg,
-                                        river_stage_data,
-                                        campaspe_info,
-                                        date_index,
-                                        frequencies,
-                                        date_group,
-                                        start,
-                                        end)
+                                                   river_seg,
+                                                   river_stage_data,
+                                                   campaspe_info,
+                                                   date_index,
+                                                   frequencies,
+                                                   date_group,
+                                                   start,
+                                                   end)
 
 tr_model.river_mapping['Campaspe'] = river_seg
 
