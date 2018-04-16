@@ -236,9 +236,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         return interp_rain
     # End update_recharge()
 
-    print(interp_rain[0].shape)
-    raise RuntimeError("debug exit")
-
     interp_rain = update_recharge(par_rech_vals)
     rch = interp_rain
 
