@@ -28,7 +28,7 @@ def process_line(line):
 
 
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
-        rainfall_irrigation=None, pumping=None, verbose=True, MM=None, recharge_amt=0.03, is_steady=False, cache={}):
+        rainfall_irrigation=None, pumping=None, verbose=True, MM=None, is_steady=False, cache={}):
     """
     GW Model Runner.
 
@@ -49,9 +49,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
               trigger_head: Policy trigger well heads
     """
     p_j = os.path.join
-
-    # DEBUG: Setting constant high pumping rate to see if gw levels go down
-    # pumping = 1.0
 
     if MM is None:
         MM = GWModelManager()
@@ -109,7 +106,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     mesh = this_model.model_mesh3D
     mesh_0, mesh_1 = mesh[0], mesh[1]
 
-    print riv_stages
+    # print('River stages:', riv_stages)
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
@@ -120,7 +117,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries = this_model.boundaries
     model_boundaries_bc = model_boundaries.bc
 
-    river_seg = this_model.river_mapping['Campaspe']
+    river_seg = this_model.river_mapping['Campaspe'].copy()
     num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
 
@@ -143,6 +140,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['common_gauges_loc'] = common_gauges_loc
         cache['iseg_loc'] = iseg_loc
     # End try
+
     tmp = riv_stages[common_gauges][0].tolist()
     for idx, row in enumerate(common_gauges_loc.index):
         campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
@@ -183,30 +181,20 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     if verbose:
         print "************************************************************************"
-        print " Updating Murray River boundary"
-
-#    mriver_seg = this_model.river_mapping['Murray']
-#    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']
-#
-#    simple_river = []
-#    for row in mriver_seg.iterrows():
-#        row = row[1]
-#        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
-#                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
-#
-#    riv = {}
-#    riv[0] = simple_river
-#    this_model.boundaries.update_boundary_array('Murray River', riv)
-
-    if verbose:
-        print "************************************************************************"
         print " Updating recharge boundary "
 
     # Adjust rainfall to recharge using zoned rainfall reduction parameters
     # Need to make copies of all rainfall arrays
-    interp_rain = model_boundaries_bc['Rainfall']['bc_array']
-    for key in interp_rain.keys():
-        interp_rain[key] = np.copy(interp_rain[key])
+    rainfall_irrigation = None
+    if rainfall_irrigation is not None:
+        interp_rain = np.copy(rainfall_irrigation)
+    else:
+        warnings.warn("Rainfall+Irrigation input ignored by GW model")
+        interp_rain = model_boundaries_bc['Rainfall']['bc_array']
+
+        for key in interp_rain.keys():
+            interp_rain[key] = np.copy(interp_rain[key])
+    # End if
 
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
@@ -217,16 +205,39 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                      for i in xrange(rch_zones - 1)]
 
     def update_recharge(vals):
-        for key in interp_rain.keys():
-            for i in xrange(rch_zones - 1):
-                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
-                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-                    vals[i]
+        if isinstance(interp_rain, dict):
+            for key in interp_rain.keys():
+                for i in xrange(rch_zones - 1):
+                    matching_zone = recharge_zone_array == rch_zone_dict[i + 1]
+                    interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * vals[i]
+                # End for
 
-            interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
-                interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
-            interp_rain[key][this_model.model_mesh3D[1][0] == -1] = 0.
+                matching_zone = recharge_zone_array == rch_zone_dict[0]
+                interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * 0.0
+                interp_rain[key][mesh_1[0] == -1] = 0.0
+            # End for
+        else:
+            # Assume numpy array
+            temp_lst = [4, 5, 6]
+            for i in xrange(1, 8):
+                match = mesh_1[0] == i
+
+                if i in temp_lst:  # (4 - 6)
+                    interp_rain[match] = interp_rain[match] * 0.0
+                    continue
+                # End if
+
+                # Adjust rainfall to recharge using a magic number (defaults to 0.03 -> 3%)
+                # interp_rain[match] = interp_rain[match] * 0.03
+            # End for
+            return interp_rain
+        # End if
+
         return interp_rain
+    # End update_recharge()
+
+    print(interp_rain[0].shape)
+    raise RuntimeError("debug exit")
 
     interp_rain = update_recharge(par_rech_vals)
     rch = interp_rain
@@ -246,12 +257,9 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         MurrayGHBstage = MurrayGHB_cell[3]
         dx = this_model.gridHeight
         dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1']  # / 10000.
+        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
-
-    ghb = {}
-    ghb[0] = MurrayGHB
 
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
     fname = 'model_{}'.format(name)
@@ -343,10 +351,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['farm_map_dict'] = farm_map_dict
         cache['geo_mask'] = geo_mask
     # End try
-
-    for gauge in stream_gauges:
-        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(river_reach_cells[gauge])
-    # End for
 
     # Average depth to GW table:
     # Mask all cells that are either Coonambidgal or Shepparton formation
