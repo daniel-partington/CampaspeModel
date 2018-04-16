@@ -150,15 +150,16 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     for idx, row in enumerate(iseg_loc.index):
         river_seg.set_value(row, 'stage_from_gauge', tmp[idx])
     # End for
-    
+
     # Convert stages to depths
-    campaspe_stage.loc[:, 'depth'] = campaspe_stage['stage'] - campaspe_stage['gauge_zero'] 
+    campaspe_stage.loc[:, 'depth'] = campaspe_stage['stage'] - campaspe_stage['gauge_zero']
 
     river_seg.loc[:, 'depth'] = np.nan
     river_seg.loc[river_seg.index.isin(campaspe_stage.index), 'depth'] = campaspe_stage['depth']
     # interpolate depths
-    river_seg.loc[:, 'depth'] = river_seg.set_index(river_seg['Cumulative Length'])['depth'].interpolate(method='values', limit_direction='both').tolist()
-    river_seg.loc[:, 'depth'] = river_seg['depth'].bfill() 
+    river_seg.loc[:, 'depth'] = river_seg.set_index(river_seg['Cumulative Length'])[
+        'depth'].interpolate(method='values', limit_direction='both').tolist()
+    river_seg.loc[:, 'depth'] = river_seg['depth'].bfill()
     # Calculate stages using bed elevation and depth
     river_seg.loc[:, 'stage'] = river_seg['strtop'] + river_seg['depth']
 
@@ -177,16 +178,16 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if verbose:
         print "************************************************************************"
         print " Updating Murray River boundary"
-    
+
 #    mriver_seg = this_model.river_mapping['Murray']
-#    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
-#    
+#    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']
+#
 #    simple_river = []
 #    for row in mriver_seg.iterrows():
 #        row = row[1]
 #        simple_river += [[row['k'], row['i'], row['j'], row['stage'], \
 #                          row['strhc1'] * row['rchlen'] * row['width1'], row['strtop']]]
-#    
+#
 #    riv = {}
 #    riv[0] = simple_river
 #    this_model.boundaries.update_boundary_array('Murray River', riv)
@@ -206,7 +207,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     rch_zones = len(rch_zone_dict.keys())
 
-    par_rech_vals = [model_params['rchred{}'.format(i)]['PARVAL1'] \
+    par_rech_vals = [model_params['rchred{}'.format(i)]['PARVAL1']
                      for i in xrange(rch_zones - 1)]
 
     def update_recharge(vals):
@@ -225,7 +226,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     rch = interp_rain
 
     model_boundaries.update_boundary_array('Rain_reduced', rch)
-    #model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
+    # model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
@@ -244,8 +245,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # End for
 
     ghb = {}
-    ghb[0] = MurrayGHB    
-    
+    ghb[0] = MurrayGHB
+
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
     fname = 'model_{}'.format(name)
 #    try:
@@ -397,9 +398,11 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
 def main():
     print("Running from: " + os.getcwd())
-    CONFIG = ConfigLoader(os.path.join(os.path.dirname(os.path.dirname(__file__)).replace('models',''),
-                                       "config", "model_config.json"))\
-        .set_environment("GW_link_Integrated")
+
+    this_file_loc = os.path.realpath(__file__)
+    pkg_path = this_file_loc[0:os.getcwd().index('models')]
+    config_path = os.path.join(pkg_path, "config", "model_config.json")
+    CONFIG = ConfigLoader(config_path).set_environment("GW_link_Integrated")
 
     def load_obj(filename):
         if filename[-4:] == '.pkl':
@@ -430,7 +433,7 @@ def main():
     # End if
 
     model_folder = model_folder.replace("structured_model_grid_5000m", "forecast/structured_model_grid_5000m")
-    
+
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
 
@@ -454,6 +457,7 @@ def main():
     print("ecol_depth_to_gw", ecol_depth_to_gw)
     print("trigger_heads", trigger_heads)
     return modflow_model
+
 
 if __name__ == "__main__":
     modflow_model = main()
