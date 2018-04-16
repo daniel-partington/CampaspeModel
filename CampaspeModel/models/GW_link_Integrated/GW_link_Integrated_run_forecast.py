@@ -169,6 +169,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
+    if verbose:
+        print "************************************************************************"
+        print " Updating Murray River boundary"
+
     # Updating Murray River
     mriver_seg = this_model.river_mapping['Murray']
     mriver_seg['strhc1'] = model_params['kv_rm']['PARVAL1']
