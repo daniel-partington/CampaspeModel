@@ -131,16 +131,16 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     sy = np.copy(default_array)
     ss = np.copy(default_array)
     
-    alt_k_vals = {'khutqa': 10.,
-                  'khutb' : 10., #1.,
-                  'khqa'  : 44.355,
-                  'khutam': 10., #0.1,
-                  'khutaf': 60.,
-                  'khlta' : 60.,
-                  'khbse' : 10.}
+    alt_k_vals = {'khutqa': 1.0,
+                  'khutb' : 0.1, #1.,
+                  'khqa'  : 1.,
+                  'khutam': 0.1, #0.1,
+                  'khutaf': 30.,
+                  'khlta' : 30.,
+                  'khbse' : 0.1}
     
-    k_factor = 1.05
-    ghb_k_factor = 3.
+    k_factor = 2.5
+    ghb_k_factor = 1.0 #10.
     for key in alt_k_vals:
         alt_k_vals[key] = alt_k_vals[key] * k_factor
                   
@@ -149,15 +149,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                   'ssutb' : 1E-5,
                   'ssqa'  : 1E-5,
                   'ssutam': 1E-5,
-                  'ssutaf': 1E-5,
-                  'sslta' : 1E-5,
+                  'ssutaf': 1E-4,
+                  'sslta' : 1E-4,
                   'ssbse' : 1E-5}
 
     alt_sy_vals = {'syutqa': 0.25,
                   'syutb' : 0.25,
                   'syqa'  : 0.25,
                   'syutam': 0.25,
-                  'syutaf': 0.25,
+                  'syutaf': 0.01,
                   'sylta' : 0.25,
                   'sybse' : 0.25}
                   
@@ -234,7 +234,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     known_points = this_model.pilot_points['Campaspe'].points
 
     strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
-    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val) * 0.05
+    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val) * 0.01
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     river_bc = this_model.boundaries.bc['Campaspe River']['bc_array']
 
@@ -314,7 +314,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                 else:
                     interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
                         interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-                        vals[i] #* 0.005
+                        vals[i] * 0.2
 
             interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
                 interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
@@ -341,12 +341,13 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     MurrayGHB = []
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
-        lay, row, col = MurrayGHB_cell[:3]
+        l, r, c = MurrayGHB_cell[:3]
         MurrayGHBstage = MurrayGHB_cell[3]
         dx = this_model.gridHeight
-        dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1'] * ghb_k_factor # / 10000.
-        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
+        dz = mesh_0[l][r][c] - mesh_0[l + 1][r][c]
+        #MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1'] * ghb_k_factor
+        MGHBconductance = dx * dz * kh[l][r][c] * ghb_k_factor
+        MurrayGHB += [[l, r, c, MurrayGHBstage, MGHBconductance]]
     # End for
 
     ghb = {}
@@ -572,7 +573,7 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 1.0,  # m^3/day
+        "pumping": 10.0,  # m^3/day
         "MM": MM,
         "verbose": False,
         "is_steady": False
