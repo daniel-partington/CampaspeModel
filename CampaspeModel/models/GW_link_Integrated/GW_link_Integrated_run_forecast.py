@@ -60,18 +60,9 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if not hasattr(MM, 'ext_linkage_bores') or MM.ext_linkage_bores is None:
 
         # Read in bores that relate to external models
-        model_linking = p_j(data_folder, "model_linking.csv")
-
-        # Need to check given data folder and its parent directory
-        # Dirty hack, I know :(
-        if not os.path.exists(model_linking):
-            model_linking = p_j(data_folder, '..', '..', "model_linking.csv")
-            if not os.path.exists(model_linking):
-                model_linking = p_j(data_folder, '..', "model_linking.csv")
-                if not os.path.exists(model_linking):
-                    raise IOError("Could not find bore linkages information (`model_linking.csv`)")
-            # End if
-        # End if
+        this_file_loc = os.path.realpath(__file__)
+        model_linking = "model_linking.csv"
+        model_linking = p_j(this_file_loc, model_linking)
 
         with open(model_linking, 'r') as f:
             lines = f.readlines()
