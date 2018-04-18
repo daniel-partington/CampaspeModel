@@ -27,6 +27,22 @@ def process_line(line):
 # end process_line
 
 
+def update_recharge(vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1):
+    for key in interp_rain.keys():
+        for i in xrange(rch_zones - 1):
+            matching_zone = recharge_zone_array == rch_zone_dict[i + 1]
+            interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * vals[i]
+        # End for
+
+        matching_zone = recharge_zone_array == rch_zone_dict[0]
+        interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * 0.0
+        interp_rain[key][mesh_1[0] == -1] = 0.0
+    # End for
+
+    return interp_rain
+# End update_recharge()
+
+
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None, verbose=True, MM=None, is_steady=False, cache={}):
     """
@@ -42,11 +58,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                                 Must match the model extent.
     :param pumping: float, daily pumping amount in m^3/day (ML/day to m^3/day => ML * 1000)
 
-    :returns: tuple[np.recarray], four elements
+    :returns: tuple[object], five elements
               xchange: exchange for each gauge by gauge ID
               avg_gw_depth: average depth for each zone
               ecol_depth_to_gw: average gw depth at each cell that contains an ecological bore of interest.
               trigger_head: Policy trigger well heads
+              gw_model object
     """
     p_j = os.path.join
 
@@ -96,8 +113,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     this_model = MM.GW_build[name]
     mesh = this_model.model_mesh3D
     mesh_0, mesh_1 = mesh[0], mesh[1]
-
-    # print('River stages:', riv_stages)
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
@@ -176,10 +191,17 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     # Adjust rainfall to recharge using zoned rainfall reduction parameters
     # Need to make copies of all rainfall arrays
-    # DEBUG: force rainfall raster to None
-    # rainfall_irrigation = None
     if rainfall_irrigation is not None:
-        interp_rain = np.copy(rainfall_irrigation)
+        interp_rain = model_boundaries_bc['Rainfall']['bc_array']
+
+        for key in interp_rain.keys():
+            if key > 0:
+                interp_rain[key] = np.copy(interp_rain[key])
+            else:
+                # top layer
+                interp_rain[key] = np.copy(rainfall_irrigation)
+            # End if
+        # End for
     else:
         warnings.warn("Rainfall+Irrigation input ignored by GW model")
         interp_rain = model_boundaries_bc['Rainfall']['bc_array']
@@ -192,47 +214,11 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
 
     rch_zones = len(rch_zone_dict.keys())
-
     par_rech_vals = [model_params['rchred{}'.format(i)]['PARVAL1']
                      for i in xrange(rch_zones - 1)]
 
-    def update_recharge(vals):
-        if isinstance(interp_rain, dict):
-            for key in interp_rain.keys():
-                for i in xrange(rch_zones - 1):
-                    matching_zone = recharge_zone_array == rch_zone_dict[i + 1]
-                    interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * vals[i]
-                # End for
-
-                matching_zone = recharge_zone_array == rch_zone_dict[0]
-                interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * 0.0
-                interp_rain[key][mesh_1[0] == -1] = 0.0
-            # End for
-        else:
-            # Assume numpy array
-            temp_lst = [4, 5, 6]
-            for i in xrange(1, 8):
-                match = mesh_1[0] == i
-
-                if i in temp_lst:  # (4 - 6)
-                    interp_rain[match] = interp_rain[match] * 0.0
-                    continue
-                # End if
-
-                # Adjust rainfall to recharge using a magic number (defaults to 0.03 -> 3%)
-                # interp_rain[match] = interp_rain[match] * 0.03
-            # End for
-            return interp_rain
-        # End if
-
-        return interp_rain
-    # End update_recharge()
-
-    interp_rain = update_recharge(par_rech_vals)
-    rch = interp_rain
-
+    rch = update_recharge(par_rech_vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1)
     model_boundaries.update_boundary_array('Rain_reduced', rch)
-    # model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
@@ -359,7 +345,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     gauges. Instead the simulated head in the cell with the stream gauge is
     used which represents the average head over the 5 km x 5 km cell.
     """
-
     heads = modflow_model.getHeads()
     for ind, ecol_bore in enumerate(ecology_bores):
         _i, _h, _j = river_reach_ecol[stream_gauges[ind]]
