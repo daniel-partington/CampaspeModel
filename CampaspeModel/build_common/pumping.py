@@ -14,7 +14,8 @@ def prepare_pumping_data_for_model(model_builder_object,
                                    pumping_data,
                                    frequencies,
                                    date_group,
-                                   plot=False):
+                                   plot=False,
+                                   pump_pattern=[0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]):
 
     '''
     NOTE: This function assumes monthly time_steps for the resampling of pumping
@@ -73,6 +74,17 @@ def prepare_pumping_data_for_model(model_builder_object,
             if mbo.model_mesh3D[1][active_layer][row][col] == -1:
                 active = False
             # end if
+            for j in range(6):
+                if mbo.model_mesh3D[1][active_layer][row][col] == 7:
+                    active_layer = active_layer - 1
+                    print("Shifting pump up a layer: {}, {}".format(pump, (active_layer, row, col)))
+                # end if
+                if active_layer < 0:
+                    active = False
+                    print("Unable to map pump to aquifer above bedrock: {}, {}".format(pump, (active_layer, row, col)))
+                    break
+                # end if
+            # end for
             if active == False: 
                 #print 'Well not placed: ', pump            
                 continue

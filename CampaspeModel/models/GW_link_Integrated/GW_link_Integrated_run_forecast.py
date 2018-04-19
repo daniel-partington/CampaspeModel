@@ -159,7 +159,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     # Convert stages to depths
     campaspe_stage.loc[:, 'depth'] = campaspe_stage['stage'] - campaspe_stage['gauge_zero']
-
     river_seg.loc[:, 'depth'] = np.nan
     river_seg.loc[river_seg.index.isin(campaspe_stage.index), 'depth'] = campaspe_stage['depth']
     # interpolate depths
@@ -210,6 +209,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             interp_rain[key] = np.copy(interp_rain[key])
     # End if
 
+    rainfall_irrigation    
+        
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
 
@@ -220,11 +221,19 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     rch = update_recharge(par_rech_vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1)
     model_boundaries.update_boundary_array('Rain_reduced', rch)
 
+    if verbose:
+        print "************************************************************************"
+        print " Updating pumping boundary "
+
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
 
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
+    if verbose:
+        print "************************************************************************"
+        print " Updating GHB boundary "
+    
     MurrayGHB = []
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
@@ -237,20 +246,25 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # End for
 
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
+
+    if verbose:
+        print "************************************************************************"
+        print " Updating heads boundary "
+
     fname = 'model_{}'.format(name)
-#    try:
-#        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
-#        times = headobj.get_times()
-#        head = headobj.get_data(totim=times[-1])
-#        this_model.initial_conditions.set_as_initial_condition("Head", head)
-#    except IndexError:
-#        raise IndexError(
-#            "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
-#                p_j(data_folder, fname, name + '.hds')))
-#    except IOError:
-#        warnings.warn("MODFLOW hds file not found. Recreating head state from existing values.")
-#        head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
-#        this_model.initial_conditions.set_as_initial_condition("Head", head)
+    try:
+        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
+        times = headobj.get_times()
+        head = headobj.get_data(totim=times[-1])
+        this_model.initial_conditions.set_as_initial_condition("Head", head)
+    except IndexError:
+        raise IndexError(
+            "Corrupted MODFLOW hds file - check, replace, or clear {}".format(
+                p_j(data_folder, fname, name + '.hds')))
+    except IOError:
+        warnings.warn("MODFLOW hds file not found. Recreating head state from existing values.")
+        head = np.stack([this_model.model_mesh3D[0][0] for i in range(7)], axis=0)
+        this_model.initial_conditions.set_as_initial_condition("Head", head)
     # End try
 
     # Currently using flopyInterface directly rather than running from the ModelManager ...
@@ -259,7 +273,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # Override temporal aspects of model build:
     modflow_model.steady = is_steady  # This is to tell FloPy that is a transient model
     modflow_model.executable = mf_exe_folder
-
+    modflow_model.nstp = 1
+    modflow_model.nper = 1
+    modflow_model.perlen = 1
+    
     modflow_model.buildMODFLOW()
     modflow_model.runMODFLOW()
 
@@ -421,25 +438,27 @@ def main():
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
 
-    run_params = {
-        "model_folder": model_folder,
-        "data_folder": data_folder,
-        "mf_exe_folder": mf_exe_folder,
-        "farm_zones": ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
-        "param_file": param_file if param_file else None,
-        "riv_stages": riv_stages,
-        "rainfall_irrigation": None,
-        "pumping": 1.0,  # m^3/day
-        "MM": MM,
-        "verbose": False,
-        "is_steady": False
-    }
-
-    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, modflow_model = run(**run_params)
-    print("swgw_exchanges", swgw_exchanges)
-    print("avg_depth_to_gw", avg_depth_to_gw)
-    print("ecol_depth_to_gw", ecol_depth_to_gw)
-    print("trigger_heads", trigger_heads)
+    for i in range(2):
+        run_params = {
+            "model_folder": model_folder,
+            "data_folder": data_folder,
+            "mf_exe_folder": mf_exe_folder,
+            "farm_zones": ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+            "param_file": param_file if param_file else None,
+            "riv_stages": riv_stages,
+            "rainfall_irrigation": None,
+            "pumping": 1.0,  # m^3/day
+            "MM": MM,
+            "verbose": False,
+            "is_steady": False
+        }
+    
+        swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, modflow_model = run(**run_params)
+        #print("swgw_exchanges", swgw_exchanges)
+        #print("avg_depth_to_gw", avg_depth_to_gw)
+        #print("ecol_depth_to_gw", ecol_depth_to_gw)
+        #print("trigger_heads", trigger_heads)
+    # end for
     return modflow_model
 
 
