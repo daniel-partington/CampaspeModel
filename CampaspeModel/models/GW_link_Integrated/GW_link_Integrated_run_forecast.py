@@ -127,7 +127,9 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
 
-    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
+    HYDR_CONDUCT_FUDGE_FACTOR = 1.0  # 0.01  # Default conductance is too high
+    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] * HYDR_CONDUCT_FUDGE_FACTOR
+                   for x in xrange(num_reaches)]
     river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
     river_seg['stage_from_gauge'] = river_seg['stage']
     campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
@@ -209,8 +211,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             interp_rain[key] = np.copy(interp_rain[key])
     # End if
 
-    rainfall_irrigation    
-        
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
 
@@ -233,7 +233,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if verbose:
         print "************************************************************************"
         print " Updating GHB boundary "
-    
+
     MurrayGHB = []
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
@@ -276,7 +276,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     modflow_model.nstp = 1
     modflow_model.nper = 1
     modflow_model.perlen = 1
-    
+
     modflow_model.buildMODFLOW()
     modflow_model.runMODFLOW()
 
@@ -343,6 +343,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         cache['farm_map_dict'] = farm_map_dict
         cache['geo_mask'] = geo_mask
     # End try
+
+    for gauge in stream_gauges:
+        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(river_reach_cells[gauge])
+    # End for
 
     # Average depth to GW table:
     # Mask all cells that are either Coonambidgal or Shepparton formation
@@ -452,7 +456,7 @@ def main():
             "verbose": False,
             "is_steady": False
         }
-    
+
         swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, modflow_model = run(**run_params)
         #print("swgw_exchanges", swgw_exchanges)
         #print("avg_depth_to_gw", avg_depth_to_gw)
