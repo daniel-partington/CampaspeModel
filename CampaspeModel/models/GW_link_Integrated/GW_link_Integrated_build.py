@@ -10,8 +10,9 @@ from scipy.interpolate import griddata
 
 from CampaspeModel.build_common import campaspe_data, campaspe_mesh, rivers
 from CampaspeModel.build_common.drains import prepare_drain_data_for_model
+from CampaspeModel.build_common.initial_head_from_bores import generate_initial_head_from_bores
 from CampaspeModel.build_common.groundwater_boundary import \
-    prepare_ghb_boundary_from_Murray_data
+    prepare_ghb_boundary_from_murray_data
 from CampaspeModel.build_common.pumping import prepare_pumping_data_for_model
 from CampaspeModel.build_common.rainfall_recharge import \
     prepare_transient_rainfall_data_for_model
@@ -460,74 +461,23 @@ bores_obs_time_series_policy = generate_bore_observations_for_model(bores_obs_ti
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # SETUP INITIAL CONDITIONS
 
+bores_obs_time_series_combined = pd.concat([bores_obs_time_series, bores_obs_time_series_policy])    
+
 if not forecast_run:
-    # Get policy bores with data before 1981:
-    bores_obs_time_series_1980 = bores_obs_time_series[bores_obs_time_series['datetime'] < '1981']
-    bores_obs_time_series_1980 = bores_obs_time_series_1980[bores_obs_time_series_1980['active'] == True]
-    # Get policy bores with data before 1981:
-    bores_obs_time_series_policy_1980 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] < '1981']
-    bores_obs_time_series_policy_1980 = bores_obs_time_series_policy_1980[bores_obs_time_series_policy_1980['active'] == True]
-
-    bores_1980_combined = pd.concat([bores_obs_time_series_1980, bores_obs_time_series_policy_1980])
-    bores_1980_combined.loc[:, 'HydroCode'] = bores_1980_combined['name']
-    bores_1980_loc_merge = bores_1980_combined.merge(final_bores, on='HydroCode')
-
-    points = zip(bores_1980_loc_merge['Easting'].tolist(), bores_1980_loc_merge['Northing'].tolist())
-    values = bores_1980_loc_merge['value'].tolist()
+    initial_heads_tr = generate_initial_head_from_bores(tr_model, bores_obs_time_series_combined, 
+                                                        final_bores, 
+                                                        time_max='1981',
+                                                        interp_method='linear', 
+                                                        plot=False)    
 else:
-    # Get policy bores with data after 2014:
-    bores_obs_time_series_2015 = bores_obs_time_series[bores_obs_time_series['datetime'] > '2014']
-    bores_obs_time_series_2015 = bores_obs_time_series_2015[bores_obs_time_series_2015['active'] == True]
-    # Get policy bores with data after 2014:
-    bores_obs_time_series_policy_2015 = bores_obs_time_series_policy[bores_obs_time_series_policy['datetime'] > '2014']
-    bores_obs_time_series_policy_2015 = bores_obs_time_series_policy_2015[bores_obs_time_series_policy_2015['active'] == True]
-
-    bores_2015_combined = pd.concat([bores_obs_time_series_2015, bores_obs_time_series_policy_2015])
-    bores_2015_combined.loc[:, 'HydroCode'] = bores_2015_combined['name']
-    bores_2015_loc_merge = bores_2015_combined.merge(final_bores, on='HydroCode')
-
-    points = zip(bores_2015_loc_merge['Easting'].tolist(), bores_2015_loc_merge['Northing'].tolist())
-    values = bores_2015_loc_merge['value'].tolist()
-
-grid_x, grid_y = tr_model.model_mesh_centroids
-
-
-grid_z0 = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='nearest')
-grid_z1 = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='linear')
-mask = np.isnan(grid_z1)
-grid_z1[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), grid_z1[~mask])
-
-grid_z2 = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='cubic')
-mask = np.isnan(grid_z2)
-grid_z2[mask] = np.interp(np.flatnonzero(mask), np.flatnonzero(~mask), grid_z2[~mask])
-
-# plt.subplot(221)
-#plt.plot(points[:,0], points[:,1], 'k.', ms=1)
-# plt.title('Original')
-extent = (np.min(grid_x), np.max(grid_x), np.min(grid_y), np.max(grid_y))
-plt.subplot(151)
-plt.imshow(grid_z0.T, extent=extent, origin='lower', interpolation='none')
-plt.title('Nearest')
-plt.subplot(152)
-plt.imshow(grid_z1.T, extent=extent, origin='lower', interpolation='none')
-plt.title('Linear')
-plt.subplot(153)
-plt.imshow(grid_z2.T, extent=extent, origin='lower', interpolation='none')
-plt.title('Cubic')
-plt.gcf().set_size_inches(6, 6)
-plt.show()
+    initial_heads_tr = generate_initial_head_from_bores(tr_model, bores_obs_time_series_combined, 
+                                                        final_bores, 
+                                                        time_min='2014',
+                                                        interp_method='linear', 
+                                                        plot=False)    
 
 bores_in_layers = tr_model.map_points_to_raster_layers(
     bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
-
-# Initalise model with head from elevations
-initial_heads_tr = np.full(tr_model.model_mesh3D[1].shape, 0.)
-
-for i in range(len(hu_raster_files_reproj) / 2):
-    initial_heads_tr[i] = grid_z0  # (tr_model.model_mesh3D[0][i] + tr_model.model_mesh3D[0][i + 1]) / 2.
-
-# Get points of bores with data
-
 
 tr_model.initial_conditions.set_as_initial_condition("Head", initial_heads_tr)  # interp_heads[hu_raster_files[0]])
 
@@ -619,7 +569,9 @@ if VERBOSE:
     print "************************************************************************"
     print " Setting up Murray River GHB boundary"
 
-ghb = prepare_ghb_boundary_from_Murray_data(tr_model,
+mriver_seg_ghb.loc[:, 'init_head'] = mriver_seg_ghb.apply(lambda x: initial_heads_tr[0][x['i']][x['j']], axis=1)    
+    
+ghb = prepare_ghb_boundary_from_murray_data(tr_model,
                                             mriver_seg_ghb)
 
 if VERBOSE:
