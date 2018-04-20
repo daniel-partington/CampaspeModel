@@ -199,7 +199,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             if key > 0:
                 interp_rain[key] = np.copy(interp_rain[key])
             else:
-                # top layer
+                # first time period (integrated model is run on a single time period)
                 interp_rain[key] = np.copy(rainfall_irrigation)
             # End if
         # End for
