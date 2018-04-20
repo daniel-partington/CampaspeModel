@@ -255,7 +255,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     for key in interp_rain.keys():
         interp_rain[key] = np.copy(interp_rain[key])
 
-    rainfall_irrigation    
+    interp_rain = {0: rainfall_irrigation}    
         
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']

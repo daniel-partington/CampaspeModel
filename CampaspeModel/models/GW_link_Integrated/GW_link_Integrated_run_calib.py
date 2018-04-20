@@ -129,8 +129,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                   'khutb' : 0.1, #1.,
                   'khqa'  : 20.,
                   'khutam': 10., #0.1,
-                  'khutaf': 170.,
-                  'khlta' : 170.,
+                  'khutaf': 50., #170
+                  'khlta' : 50., #170
                   'khbse' : 0.05}
     
     alt_ss_vals = {'ssutqa': 1E-5 ,
@@ -162,10 +162,17 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 #    non_irrig_red = 0.2 * red_red
 #    irrig_red = 0.50 * red_red
 
-    red_red = 1.
-    non_irrig_red = 1. * red_red
-    irrig_red = 1. * red_red
+    if is_steady:
+        red_red = 1.
+        non_irrig_red = 1. * red_red
+        irrig_red = 1. * red_red
+    else:
+        red_red = 1.
+        non_irrig_red = 1. * red_red
+        irrig_red = 1. * red_red
 
+    this_model.parameters.param['mghbst']['PARVAL1'] = -10.    
+        
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
     #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
@@ -381,22 +388,29 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         print " Updating GHB boundary "
 
     MurrayGHB = []
-    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
+
+    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in this_model.boundaries.bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
-        l, r, c = MurrayGHB_cell[:3]
-        MurrayGHBstage = MurrayGHB_cell[3]
+        lay, row, col = MurrayGHB_cell[:3]
+        MurrayGHBstage = MurrayGHB_cell[3] + this_model.parameters.param['mghbst']['PARVAL1']
+        if MurrayGHBstage < this_model.model_mesh3D[0][lay + 1][row][col]:
+            continue
+        # end except
         dx = this_model.gridHeight
-        dz = mesh_0[l][r][c] - mesh_0[l + 1][r][c]
-        #MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1'] * ghb_k_factor
-        MGHBconductance = dx * dz * kh[l][r][c] * ghb_k_factor
-        MurrayGHB += [[l, r, c, MurrayGHBstage, MGHBconductance]]
-    # End for
+        dz = this_model.model_mesh3D[0][lay][row][col] - \
+            this_model.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * kh[lay][row][col] * ghb_k_factor #m.parameters.param['mghbk']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
     ghb = {}
-    ghb[0] = MurrayGHB    
-    
+    ghb[0] = MurrayGHB
+
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
-    
+  
+    if verbose:
+        print "************************************************************************"
+        print " Initialise head start values "
+        
     if not is_steady:
         fname = 'model_{}'.format(name)
         try:
