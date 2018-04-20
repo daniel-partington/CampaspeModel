@@ -111,6 +111,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     name = MM.GW_build.keys()[0]
     this_model = MM.GW_build[name]
+
+    #if param_file != "":
+    this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
+
     mesh = this_model.model_mesh3D
     mesh_0, mesh_1 = mesh[0], mesh[1]
 
@@ -175,6 +179,69 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
     if verbose:
+            print "************************************************************************"
+            print " Updating HGU parameters "
+    
+    # This needs to be automatically generated with the map_raster2mesh routine ...
+    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
+
+    default_array = this_model.model_mesh3D[1].astype(float)
+    zone = np.copy(default_array)
+    kh = np.copy(default_array)
+    kv = np.copy(default_array)
+    sy = np.copy(default_array)
+    ss = np.copy(default_array)
+    
+                 
+    def create_pp_points_dict(zone_map, zone, prop_array, prop_name, m):
+        points_values_dict = {}
+        for index, key in enumerate(zone_map.keys()):
+            for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
+                if index2 == 0:
+                    points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
+                else: 
+                    points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
+        return points_values_dict    
+        
+    def update_pilot_points(zone_map, zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
+        points_values_dict = create_pp_points_dict(zone_map, zone, prop_array, prop_name, m)
+        p = m.pilot_points[par_name]
+        zones = len(zone_map.keys())
+        p.output_directory = os.path.join(model_folder, prop_folder)
+        p.update_pilot_points_files_by_zones(zones, points_values_dict)
+        p.run_pyfac2real_by_zones(zones) 
+        #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
+        return p.val_array
+
+    kh = update_pilot_points(zone_map, zone, kh, 'hk', 'kh', 'hk_pilot_points',
+                             this_model, 'hk_val_array')  
+    #this_model.save_array(os.path.join(data_folder, 'Kh'), kh)
+    if verbose:
+        print("Erroneous K pilot cells: {}".format(len(kh[kh > 10000.])))
+    kh[kh > 10000.] = 25.
+    kv = kh * 0.1
+    #this_model.save_array(os.path.join(data_folder, 'Kv'), kv)
+
+    sy = update_pilot_points(zone_map, zone, sy, 'sy', 'sy', 'sy_pilot_points',
+                             this_model, 'sy_val_array')
+    if verbose:
+        print("Erroneous Sy pilot cells: {}".format(len(sy[sy > 0.5])))
+    sy[sy > 0.5] = 0.5
+    #this_model.save_array(os.path.join(data_folder, 'Sy'), sy)
+    
+    ss = update_pilot_points(zone_map, zone, ss, 'ss', 'ss', 'ss_pilot_points',
+                             this_model, 'ss_val_array')
+    if verbose:
+        print("Erroneous Ss pilot cells: {}".format(len(ss[ss > 0.01])))
+    #ss[ss > 0.01] = 1E-5
+    #this_model.save_array(os.path.join(data_folder, 'SS'), ss)
+    
+    this_model.properties.update_model_properties('Kh', kh)
+    this_model.properties.update_model_properties('Kv', kv)
+    this_model.properties.update_model_properties('Sy', sy)
+    this_model.properties.update_model_properties('SS', ss)    
+    
+    if verbose:
         print "************************************************************************"
         print " Updating Murray River boundary"
 
@@ -213,12 +280,28 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
-
     rch_zones = len(rch_zone_dict.keys())
-    par_rech_vals = [model_params['rchred{}'.format(i)]['PARVAL1']
+
+    par_rech_vals = [model_params['rchred{}'.format(i)]['PARLBND']#['PARVAL1']
                      for i in xrange(rch_zones - 1)]
 
+    def update_recharge(vals):
+        for key in interp_rain.keys():
+            for i in xrange(rch_zones - 1):
+                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
+                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
+                    vals[i]
+
+            interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
+                interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
+            # Killing recharge on inactive cells
+            interp_rain[key][this_model.model_mesh3D[1][0] == -1] = 0.
+            # Killing recharge across the outcropping bedrock              
+            interp_rain[key][this_model.model_mesh3D[1][0] == 7] = 0.
+        return interp_rain
+
     rch = update_recharge(par_rech_vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1)
+
     model_boundaries.update_boundary_array('Rain_reduced', rch)
 
     if verbose:
@@ -241,7 +324,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         MurrayGHBstage = MurrayGHB_cell[3]
         dx = this_model.gridHeight
         dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1']
+        MGHBconductance = dx * dz * kh[lay][row][col]#model_params['mghbk']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
 
@@ -458,10 +541,10 @@ def main():
         }
 
         swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, modflow_model = run(**run_params)
-        #print("swgw_exchanges", swgw_exchanges)
-        #print("avg_depth_to_gw", avg_depth_to_gw)
-        #print("ecol_depth_to_gw", ecol_depth_to_gw)
-        #print("trigger_heads", trigger_heads)
+        print("swgw_exchanges", swgw_exchanges)
+        print("avg_depth_to_gw", avg_depth_to_gw)
+        print("ecol_depth_to_gw", ecol_depth_to_gw)
+        print("trigger_heads", trigger_heads)
     # end for
     return modflow_model
 

@@ -117,6 +117,68 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries = this_model.boundaries
     model_boundaries_bc = model_boundaries.bc
 
+    #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+ 
+    # Hacky model param changes
+    
+    alt_k_vals = {'khutqa': 1.0,
+                  'khutb' : 0.1, #1.,
+                  'khqa'  : 20.,
+                  'khutam': 10., #0.1,
+                  'khutaf': 50., #170
+                  'khlta' : 50., #170
+                  'khbse' : 0.05}
+    
+    alt_ss_vals = {'ssutqa': 1E-5 ,
+                  'ssutb' : 1E-5,
+                  'ssqa'  : 1E-5,
+                  'ssutam': 1E-5,
+                  'ssutaf': 1E-3,
+                  'sslta' : 1E-3,
+                  'ssbse' : 1E-5}
+
+    alt_sy_vals = {'syutqa': 0.10,
+                  'syutb' : 0.08,
+                  'syqa'  : 0.22,
+                  'syutam': 0.25,
+                  'syutaf': 0.25,
+                  'sylta' : 0.25,
+                  'sybse' : 0.0009}
+
+    k_factor = 1.0 #2.5
+    sy_factor = 1 #2.5
+    ghb_k_factor = 1.0 #10.
+    riv_factor = 0.03
+    for key in alt_k_vals:
+        alt_k_vals[key] = alt_k_vals[key] * k_factor
+    for key in alt_sy_vals:
+        alt_sy_vals[key] = alt_sy_vals[key] * sy_factor
+
+#    red_red = 0.75
+#    non_irrig_red = 0.2 * red_red
+#    irrig_red = 0.50 * red_red
+
+    if is_steady:
+        red_red = 1.
+        non_irrig_red = 1. * red_red
+        irrig_red = 1. * red_red
+    else:
+        red_red = 1.
+        non_irrig_red = 1. * red_red
+        irrig_red = 1. * red_red
+
+    this_model.parameters.param['mghbst']['PARVAL1'] = -10.    
+        
+    #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
+    
     if verbose:
         print "************************************************************************"
         print " Updating HGU parameters "
@@ -131,59 +193,29 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     sy = np.copy(default_array)
     ss = np.copy(default_array)
     
-    alt_k_vals = {'khutqa': 1.0,
-                  'khutb' : 0.1, #1.,
-                  'khqa'  : 1.,
-                  'khutam': 0.1, #0.1,
-                  'khutaf': 30.,
-                  'khlta' : 30.,
-                  'khbse' : 0.1}
-    
-    k_factor = 2.5
-    ghb_k_factor = 1.0 #10.
-    for key in alt_k_vals:
-        alt_k_vals[key] = alt_k_vals[key] * k_factor
-                  
-                  
-    alt_ss_vals = {'ssutqa': 1E-5 ,
-                  'ssutb' : 1E-5,
-                  'ssqa'  : 1E-5,
-                  'ssutam': 1E-5,
-                  'ssutaf': 1E-4,
-                  'sslta' : 1E-4,
-                  'ssbse' : 1E-5}
-
-    alt_sy_vals = {'syutqa': 0.25,
-                  'syutb' : 0.25,
-                  'syqa'  : 0.25,
-                  'syutam': 0.25,
-                  'syutaf': 0.01,
-                  'sylta' : 0.25,
-                  'sybse' : 0.25}
-                  
-                  
+                 
     def create_pp_points_dict(zone_map, zone, prop_array, prop_name, m):
         points_values_dict = {}
         for index, key in enumerate(zone_map.keys()):
             for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
                 if index2 == 0:
                     if prop_name == 'ss':
-                        points_values_dict[index] = [alt_ss_vals[prop_name + zone_map[key]]]
+                        m.parameters.param[param]['PARVAL1'] = alt_ss_vals[prop_name + zone_map[key]]
                     elif prop_name == 'sy':
-                        points_values_dict[index] = [alt_sy_vals[prop_name + zone_map[key]]]
+                        m.parameters.param[param]['PARVAL1'] = alt_sy_vals[prop_name + zone_map[key]]
                     elif prop_name == 'kh':
-                        points_values_dict[index] = [alt_k_vals[prop_name + zone_map[key]]]
-                    else:
-                        points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
+                        m.parameters.param[param]['PARVAL1'] = alt_k_vals[prop_name + zone_map[key]]
+                    # end if
+                    points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
                 else: 
                     if prop_name == 'ss':
-                        points_values_dict[index] += [alt_ss_vals[prop_name + zone_map[key]]]
+                        m.parameters.param[param]['PARVAL1'] += alt_ss_vals[prop_name + zone_map[key]]
                     elif prop_name == 'sy':
-                        points_values_dict[index] += [alt_sy_vals[prop_name + zone_map[key]]]
+                        m.parameters.param[param]['PARVAL1'] += alt_sy_vals[prop_name + zone_map[key]]
                     elif prop_name == 'kh':
-                        points_values_dict[index] += [alt_k_vals[prop_name + zone_map[key]]]
-                    else:
-                        points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
+                        m.parameters.param[param]['PARVAL1'] += alt_k_vals[prop_name + zone_map[key]]
+                    # end if
+                    points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
         return points_values_dict    
         
     def update_pilot_points(zone_map, zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
@@ -217,7 +249,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                              this_model, 'ss_val_array')
     if verbose:
         print("Erroneous Ss pilot cells: {}".format(len(ss[ss > 0.01])))
-    ss[ss > 0.01] = 1E-5
+    #ss[ss > 0.01] = 1E-5
     #this_model.save_array(os.path.join(data_folder, 'SS'), ss)
     
     this_model.properties.update_model_properties('Kh', kh)
@@ -232,9 +264,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     river_seg = this_model.river_mapping['Campaspe']
     num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
+    
+    for x in xrange(num_reaches):
+        model_params['kv_riv{}'.format(x)]['PARVAL1'] = model_params['kv_riv{}'.format(x)]['PARVAL1'] * riv_factor
 
     strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
-    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val) * 0.01
+    river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     river_bc = this_model.boundaries.bc['Campaspe River']['bc_array']
 
@@ -300,6 +335,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     par_rech_vals = [model_params['rchred{}'.format(i)]['PARVAL1'] \
                      for i in xrange(rch_zones - 1)]
+    par_rech_vals = [model_params['rchred{}'.format(i)]['PARLBND'] \
+                     for i in xrange(rch_zones - 1)]
 
     def update_recharge(vals):
         for key in interp_rain.keys():
@@ -310,11 +347,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                 if i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
                     interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
                         interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-                        vals[i] * 0.
+                        vals[i] * non_irrig_red
+#                elif i in [15]:
+#                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
+#                        interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
+#                        vals[i] * 0.
                 else:
                     interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
                         interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-                        vals[i] * 0.2
+                        vals[i] * irrig_red
 
             interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
                 interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
@@ -331,6 +372,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Rain_reduced', rch)
     #model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
+    if verbose:
+        print "************************************************************************"
+        print " Updating pumping boundary "
+    
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
     if is_steady:
@@ -338,23 +383,34 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
            
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
+    if verbose:
+        print "************************************************************************"
+        print " Updating GHB boundary "
+
     MurrayGHB = []
-    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
+
+    MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in this_model.boundaries.bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
-        l, r, c = MurrayGHB_cell[:3]
-        MurrayGHBstage = MurrayGHB_cell[3]
+        lay, row, col = MurrayGHB_cell[:3]
+        MurrayGHBstage = MurrayGHB_cell[3] + this_model.parameters.param['mghbst']['PARVAL1']
+        if MurrayGHBstage < this_model.model_mesh3D[0][lay + 1][row][col]:
+            continue
+        # end except
         dx = this_model.gridHeight
-        dz = mesh_0[l][r][c] - mesh_0[l + 1][r][c]
-        #MGHBconductance = dx * dz * model_params['mghbk']['PARVAL1'] * ghb_k_factor
-        MGHBconductance = dx * dz * kh[l][r][c] * ghb_k_factor
-        MurrayGHB += [[l, r, c, MurrayGHBstage, MGHBconductance]]
-    # End for
+        dz = this_model.model_mesh3D[0][lay][row][col] - \
+            this_model.model_mesh3D[0][lay + 1][row][col]
+        MGHBconductance = dx * dz * kh[lay][row][col] * ghb_k_factor #m.parameters.param['mghbk']['PARVAL1']
+        MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
 
     ghb = {}
-    ghb[0] = MurrayGHB    
-    
+    ghb[0] = MurrayGHB
+
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
-    
+  
+    if verbose:
+        print "************************************************************************"
+        print " Initialise head start values "
+        
     if not is_steady:
         fname = 'model_{}'.format(name)
         try:
@@ -385,122 +441,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if not is_steady:
         #modflow_model.viewHeadsByZone2(1, head_name='policy_bores')
         modflow_model.compareAllObs('policy_bores') 
-    
-#    try:
-#        swgw_exchanges = cache['swgw_exchanges']
-#        avg_depth_to_gw = cache['avg_depth_to_gw']
-#        ecol_depth_to_gw = cache['ecol_depth_to_gw']
-#        trigger_heads = cache['trigger_heads']
-#
-#        river_reach_cells = cache['river_reach_cells']
-#        river_reach_ecol = cache['river_reach_ecol']
-#        farm_map = cache['farm_map']
-#        farm_map_dict = cache['farm_map_dict']
-#        geo_mask = cache['geo_mask']
-#    except KeyError:
-#        # SW-GW exchanges:
-#        swgw_exchanges = np.recarray((1,), dtype=[(gauge, np.float) for gauge in Stream_gauges])
-#        avg_depth_to_gw = np.recarray((1,), dtype=[(farm_zone, np.float) for farm_zone in farm_zones])
-#        ecol_depth_to_gw = np.recarray((1,), dtype=[(bore, np.float) for bore in Ecology_bores])
-#        trigger_heads = np.recarray((1, ), dtype=[(bore, np.float) for bore in Policy_bores])
-#
-#        cache['swgw_exchanges'] = swgw_exchanges
-#        cache['avg_depth_to_gw'] = avg_depth_to_gw
-#        cache['ecol_depth_to_gw'] = ecol_depth_to_gw
-#        cache['trigger_heads'] = trigger_heads
-#
-#        river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
-#        river_reach_cells.set_value(0, 'gauge_id', 'none')
-#
-#        river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
-#        river_reach_cells = river_reach_cells.bfill()
-#        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(Stream_gauges),
-#                                                          ['k', 'i', 'j']].values.tolist()
-#
-#        reach_cells = {}
-#        for gauge in Stream_gauges:
-#            reach_cells[gauge] = river_reach_cells.loc[river_reach_cells['gauge_id'] == gauge, 'cell'].values
-#        # End for
-#
-#        river_reach_cells = reach_cells
-#        cache['river_reach_cells'] = reach_cells
-#
-#        river_reach_ecol = river_seg.loc[:, ['gauge_id', 'k', 'j', 'i']]
-#        river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
-#        ecol_gauge_id = river_reach_ecol['gauge_id']
-#        river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
-#
-#        eco_cells = {}
-#        for ind, ecol_bore in enumerate(Ecology_bores):
-#            eco_cells[Stream_gauges[ind]] = river_reach_ecol.loc[ecol_gauge_id == Stream_gauges[ind], 'cell'].values[0]
-#        # End for
-#
-#        river_reach_ecol = eco_cells
-#        cache['river_reach_ecol'] = eco_cells
-#
-#        # Mask all cells that are either Coonambidgal or Shepparton formation
-#        # A mask could also be constructed for farm areas by using the mapped farms
-#        # from the groundwater model builder object
-#        tgt_mesh = modflow_model.model_data.model_mesh3D[1][0]
-#        geo_mask = (tgt_mesh == 3) | (tgt_mesh == 1)
-#        farm_map, farm_map_dict = this_model.polygons_mapped['farm_v1_prj_model.shp']
-#        cache['farm_map'] = farm_map
-#        cache['farm_map_dict'] = farm_map_dict
-#        cache['geo_mask'] = geo_mask
-#    # End try
-#
-#    for gauge in Stream_gauges:
-#        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(river_reach_cells[gauge])
-#    # End for
-#
-#    # Average depth to GW table:
-#    # Mask all cells that are either Coonambidgal or Shepparton formation
-#    # A mask could also be constructed for farm areas by using the mapped farms
-#    # from the groundwater model builder object
-#    for farm_zone in farm_zones:
-#        mask = geo_mask & (farm_map == farm_map_dict[int(farm_zone)])
-#        avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
-#    # End for
-#
-#    """
-#    Ecology heads of importance
-#    River gauges of importance for ecology: 406201, 406202, 406207, 406218, 406265
-#    Corresponding GW bores nearest to:      83003,  89586,  82999,  5662,   44828
-#
-#    The bores are being ignored for nw as they are too far away from the stream
-#    gauges. Instead the simulated head in the cell with the stream gauge is
-#    used which represents the average head over the 5 km x 5 km cell.
-#    """
-#
-#    heads = modflow_model.getHeads()
-#    for ind, ecol_bore in enumerate(Ecology_bores):
-#        _i, _h, _j = river_reach_ecol[Stream_gauges[ind]]
-#        ecol_depth_to_gw[ecol_bore] = mesh_0[_i, _h, _j] - heads[_i, _h, _j]
-#    # End for
-#
-#    # TODO: Check that all of the wells listed were mapped to the model mesh and
-#    # are available for inspection
-#
-#    """
-#    Trigger heads of importance for policy
-#
-#    1. The reference trigger bore for the Elmore-Rochester/Echuca/Bamawn zone
-#       was selected to represent the interactions between the river and
-#       groundwater extractions. So we'd need to make sure we have baseflow
-#       represented in the river between Lake Eppalock  (which I think is an
-#       input to the ecology model so already covered).
-#
-#    2. The reference trigger bore for the Barnadown zone was selected to
-#       represent the gradient of groundwater flow between the Campaspe and the
-#       Murray. So can we have the gradient of flow as an indicator in the
-#       integrated model as well (if it isn't already)?
-#    """
-#    for trigger_bore in Policy_bores:
-#        # NOTE: This returns the head in mAHD
-#        trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'head')[0]
-#    # End for
+        modflow_model.waterBalanceTS() 
+        modflow_model.viewHeads2() 
 
-    # TODO: Check that all of the wells listed were mapped to the model mesh and
+        # TODO: Check that all of the wells listed were mapped to the model mesh and
     # are available for inspection
     #return swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads
     return modflow_model
@@ -573,7 +517,7 @@ def main():
         "param_file": param_file if param_file else None,
         "riv_stages": riv_stages,
         "rainfall_irrigation": None,
-        "pumping": 10.0,  # m^3/day
+        "pumping": 1.5,  # m^3/day
         "MM": MM,
         "verbose": False,
         "is_steady": False

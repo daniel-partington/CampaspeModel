@@ -9,7 +9,7 @@ import numpy as np
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import GDALInterface
 
-from CampaspeModel.custom_scripts import campaspe_data
+from CampaspeModel.build_common import campaspe_data
 from CampaspeModel.build_common import campaspe_mesh
 from CampaspeModel.build_utils.multifrequency_resampling import resample_to_model_data_index 
 from CampaspeModel.build_utils.multifrequency_resampling import resample_obs_time_series_to_model_data_index
@@ -147,7 +147,6 @@ print " Interpolating rainfall data to grid and time steps"
 
 interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
     prepare_transient_rainfall_data_for_model(tr_model,
-                                              long_term_historic_weather,
                                               recharge_zones,
                                               recharge_info,
                                               long_term_historic_weather,
@@ -369,7 +368,7 @@ print " Mapping Campaspe river to grid"
 
 num_reaches = 80    
 river_seg, reach_df, reach_data, known_points = \
-    rivers.prepare_river_data_for_Campaspe(tr_model, 
+    rivers.prepare_river_data_for_campaspe(tr_model, 
                                     surface_raster_high_res,
                                     river_gauges,
                                     Campaspe_river_poly_file,
@@ -1019,7 +1018,7 @@ print "************************************************************************"
 print " Mapping Murray River to grid"
 
 riv, mriver_seg_ghb = \
-    rivers.prepare_river_data_for_Murray(tr_model, surface_raster_high_res_GSA,
+    rivers.prepare_river_data_for_murray(tr_model, surface_raster_high_res_GSA,
                                          r"C:\Workspace\part0075\MDB modelling\test_model.shp", #Murray_river_poly_file,
                                          Campaspe_relevant,
                                          river_stage_data,
@@ -1034,7 +1033,7 @@ tr_model.boundaries.assign_boundary_array('Murray River', riv)
 print "************************************************************************"
 print " Setting up Murray River GHB boundary"
 
-ghb = prepare_ghb_boundary_from_Murray_data(tr_model,
+ghb = prepare_ghb_boundary_from_murray_data(tr_model,
                                             mriver_seg_ghb)
 
 print "************************************************************************"
