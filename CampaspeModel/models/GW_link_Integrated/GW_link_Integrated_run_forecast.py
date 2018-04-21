@@ -216,23 +216,35 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         print "************************************************************************"
         print " Updating pumping boundary "
 
-    # try:
-    #     # Need a copy of the list of lists
-    #     orig_well_array = copy.deepcopy(cache['well_boundary'])
-    # except KeyError:
-    #     cache['well_boundary'] = copy.deepcopy(model_boundaries_bc['licenced_wells']['bc_array'])
-    #     orig_well_array = copy.deepcopy(cache['well_boundary'])
-    # # End try
-
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
 
+    try:
+        summed_vals = cache['summed_pump']
+    except KeyError:
+        # Need a copy of the list of lists
+        well_boundary = copy.deepcopy(pumpy)
+
+        PUMPING_VAL_POS = 3  # zero-based index
+        # sum the 4th item in the list of lists
+        summed_vals = {key: sum(zip(*vals)[PUMPING_VAL_POS]) for key, vals in well_boundary.iteritems()}
+        summed_vals = sum(summed_vals.values())
+
+        cache['summed_pump'] = float(summed_vals)
+    # End try
+
     # well dict element structure: [ active_layer, row, col, -time[1][pump] ]
-    # wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()
-    # pumping = 0.0
-    # wel = {key: [[b[0], b[1], b[2], b[3] * (pumping / float(len(a)))] for b in a]
-    #        for key, a in orig_well_array.iteritems()}
-    print(pumping)
-    wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
+    # DEBUG: ORIGINAL
+    # wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
+    #        for key, a in pumpy.iteritems()}
+
+    """
+    What should be done is to get the bc array for pumping first,
+    cycle through and get the sum of pumping and then normalise it all so it sums to 1,
+    then you can go through applying your pumping value such that the model pumping is as you want it to be specified.
+    """
+
+    # DEBUG: REPLACEMENT
+    wel = {key: [[b[0], b[1], b[2], b[3] * (pumping / summed_vals)] for b in a]
            for key, a in pumpy.iteritems()}
 
     model_boundaries.assign_boundary_array('licenced_wells', wel)

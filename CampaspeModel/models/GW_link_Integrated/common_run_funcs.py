@@ -134,6 +134,7 @@ def update_campaspe_pilot_points(model, model_folder, use_alt_vals=False):
     model.properties.update_model_properties('Kv', kv)
     model.properties.update_model_properties('Sy', sy)
     model.properties.update_model_properties('SS', ss)
+
 # End update_campaspe_pilot_points()
 
 

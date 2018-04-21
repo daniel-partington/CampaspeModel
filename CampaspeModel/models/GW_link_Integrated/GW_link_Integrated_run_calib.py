@@ -457,7 +457,6 @@ def main():
         data_folder.replace('hindcast', 'forecast'), 'tr_parameters.txt'))
 
     dst_loc = os.path.join(data_folder.replace('hindcast', ''), 'forecast_initial.hds')
-    from shutil import copyfile
     print('Copying {} to {}'.format(heads_file_loc, dst_loc))
     copyfile(heads_file_loc, dst_loc)
 
