@@ -216,22 +216,22 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         print "************************************************************************"
         print " Updating pumping boundary "
 
-    try:
-        # Need a copy of the list of lists
-        orig_well_array = copy.deepcopy(cache['well_boundary'])
-    except KeyError:
-        cache['well_boundary'] = copy.deepcopy(model_boundaries_bc['licenced_wells']['bc_array'])
-        orig_well_array = copy.deepcopy(cache['well_boundary'])
-    # End try
+    # try:
+    #     # Need a copy of the list of lists
+    #     orig_well_array = copy.deepcopy(cache['well_boundary'])
+    # except KeyError:
+    #     cache['well_boundary'] = copy.deepcopy(model_boundaries_bc['licenced_wells']['bc_array'])
+    #     orig_well_array = copy.deepcopy(cache['well_boundary'])
+    # # End try
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
 
     # well dict element structure: [ active_layer, row, col, -time[1][pump] ]
-    # wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
-    print(pumping)
-    pumping = 1.0
+    # wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()
+    # pumping = 0.0
     # wel = {key: [[b[0], b[1], b[2], b[3] * (pumping / float(len(a)))] for b in a]
     #        for key, a in orig_well_array.iteritems()}
+    print(pumping)
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
            for key, a in pumpy.iteritems()}
 
@@ -441,6 +441,15 @@ def main():
 
     this_model = MM.GW_build[MM.name]
     update_campaspe_pilot_points(this_model, model_folder, use_alt_vals=True)
+
+    model_name = this_model.name
+    model_dir = 'model_{}'.format(model_name)
+    heads_file_loc = os.path.join(data_folder.replace('forecast', ''), '{}.hds'.format('forecast_initial'))
+    dst_loc = os.path.join(data_folder, model_dir, '{}.hds'.format(model_name))
+
+    from shutil import copyfile
+    print('Copying {} to {}'.format(heads_file_loc, dst_loc))
+    copyfile(heads_file_loc, dst_loc)
 
     for i in range(2):
         run_params = {
