@@ -219,7 +219,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
 
     try:
-        summed_vals = cache['summed_pump']
+        # summed_vals = cache['summed_pump']
+        normalized_well = cache['normalized_pumpy']
     except KeyError:
         # Need a copy of the list of lists
         well_boundary = copy.deepcopy(pumpy)
@@ -227,9 +228,13 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         PUMPING_VAL_POS = 3  # zero-based index
         # sum the 4th item in the list of lists
         summed_vals = {key: sum(zip(*vals)[PUMPING_VAL_POS]) for key, vals in well_boundary.iteritems()}
-        summed_vals = sum(summed_vals.values())
+        summed_vals = float(sum(summed_vals.values()))
 
-        cache['summed_pump'] = float(summed_vals)
+        normalized_well = {key: [[b[0], b[1], b[2], b[3] / summed_vals] for b in a]
+                           for key, a in well_boundary.iteritems()}
+
+        # cache['summed_pump'] = summed_vals
+        cache['normalized_pumpy'] = normalized_well
     # End try
 
     # well dict element structure: [ active_layer, row, col, -time[1][pump] ]
@@ -244,8 +249,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     """
 
     # DEBUG: REPLACEMENT
-    wel = {key: [[b[0], b[1], b[2], b[3] * (pumping / summed_vals)] for b in a]
-           for key, a in pumpy.iteritems()}
+    # wel = {key: [[b[0], b[1], b[2], b[3] * (pumping / summed_vals)] for b in a]
+    #        for key, a in pumpy.iteritems()}
+    wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
+           for key, a in normalized_well.iteritems()}
 
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
