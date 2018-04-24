@@ -139,7 +139,7 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     filename = "Groundwater licence information for Dan Partington bc301115.xlsx"
     # TODO: Check if these separators are necessary
     path = os.path.join(campaspe_data_folder, "GW", "Bore data") + os.path.sep
-    out_path = os.path.join(campaspe_data_folder, "GW" "Bore data") + os.path.sep
+    out_path = os.path.join(campaspe_data_folder, "GW", "Bore data") + os.path.sep
     out_file = "pumping wells.shp"
 
     if verbose:
