@@ -271,7 +271,7 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         print "************************************************************************"
         print "Load in the Campaspe river field sampling data"
 
-    field_data_folder = os.path.join(campaspe_data_folder, r"Chemistry\Radon_interpreter")
+    field_data_folder = os.path.join(campaspe_data_folder, "Chemistry", "Radon_interpreter")
     field_data_file = "data_Campaspe.csv"
     custom_data['FieldData'] = pd.read_csv(os.path.join(field_data_folder, field_data_file), skiprows=[
                                            1], index_col='Date', parse_dates=True, dayfirst=True, usecols=range(0, 15))
