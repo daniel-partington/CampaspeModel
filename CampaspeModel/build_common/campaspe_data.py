@@ -259,7 +259,7 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     river_diversions_file = os.path.join(mbo.out_data_folder, river_diversions_file)
 
     diversions_data_file = os.path.join(campaspe_data_folder,
-                                        r"SW\Campaspe_System_Data.xlsx")
+                                        "SW", "Campaspe_System_Data.xlsx")
     if os.path.exists(river_diversions_file + '.pkl'):
         custom_data['river_diversions_data'] = mbo.load_obj(river_diversions_file + '.pkl')
     else:
@@ -280,27 +280,28 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         print "************************************************************************"
         print "Load in the river shapefiles"
 
-    custom_data['Campaspe_river_poly_file'] = os.path.join(mbo.data_folder, r"Waterways\Campaspe_Riv.shp")
+    custom_data['Campaspe_river_poly_file'] = os.path.join(mbo.data_folder, "Waterways", "Campaspe_Riv.shp")
     custom_data['Campaspe_river_poly'] = mbo.read_poly(
-        "Campaspe_Riv.shp", path=os.path.join(mbo.data_folder, r"Waterways"))
-    custom_data['Murray_river_poly_file'] = os.path.join(mbo.data_folder, r"Waterways\River_Murray.shp")
+        "Campaspe_Riv.shp", path=os.path.join(mbo.data_folder, "Waterways"))
+    custom_data['Murray_river_poly_file'] = os.path.join(mbo.data_folder, "Waterways", "River_Murray.shp")
     custom_data['Murray_river_poly'] = mbo.read_poly(
-        "River_Murray.shp", path=os.path.join(mbo.data_folder, r"Waterways"))
+        "River_Murray.shp", path=os.path.join(mbo.data_folder, "Waterways"))
 
     # This is disgusting, but works for now ... needs cleaning up through first testing
     # if raster is in the right projection and if not returning the name of the new
     # reprojected file
+
     custom_data['surface_raster_high_res_GSA'] = os.path.join(
-        campaspe_data_folder, r"Surface_DEM_Geoscience_Australia\Camp_1sHE_2026754\Camp_1sHE_reproj.tif")
-    custom_data['surface_raster_high_res'] = os.path.join(campaspe_data_folder, r"ESRI_GRID_raw\ESRI_GRID\sur_1t")
+        campaspe_data_folder, os.path.join("Surface_DEM_Geoscience_Australia", "Camp_1sHE_2026754", "Camp_1sHE_reproj.tif"))
+    custom_data['surface_raster_high_res'] = os.path.join(campaspe_data_folder, "ESRI_GRID_raw", "ESRI_GRID", "sur_1t")
 
     if verbose:
         print "************************************************************************"
         print "Load in the recharge zones as determined by Yueqing Xie"
 
-    custom_data['recharge_zones'] = os.path.join(campaspe_data_folder, "Linking_recharge", r"Zones_24.tif")
+    custom_data['recharge_zones'] = os.path.join(campaspe_data_folder, "Linking_recharge", "Zones_24.tif")
     custom_data['recharge_zone_info'] = pd.read_csv(
-        os.path.join(campaspe_data_folder, r"Linking_recharge", r"Curve_fitting_norm.dat"),
+        os.path.join(campaspe_data_folder, "Linking_recharge", "Curve_fitting_norm.dat"),
         delim_whitespace=True)
     custom_data['recharge_zone_info_detailed'] = pd.read_excel(os.path.join(
         campaspe_data_folder, r"Linking_recharge",
