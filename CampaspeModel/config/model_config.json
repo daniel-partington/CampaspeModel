@@ -1,6 +1,20 @@
 {
   "GW_link_Integrated": {
     "environment": {
+        "ti7004": {
+          "grid_resolution": "5000m",
+          "model_folder": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/structured_model_grid_",
+          "data_folder": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/",
+          "param_file": "",
+          "working_dir": "",
+          "mf_exe_folder": "/short/ws39/ti7004/CampaspeProject/CampaspeModel/CampaspeModel/mfnwt",
+          "model_build": {
+              "input_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+              "data_build": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/data_build",
+              "campaspe_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+              "temp_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data"
+          }
+        },
       "fses\\takuyai": {
         "grid_resolution": "5000m",
         "model_folder": "C:/UserData/takuyai/campaspe/groundwater/devbox/integrated/data/structured_model_grid_",
