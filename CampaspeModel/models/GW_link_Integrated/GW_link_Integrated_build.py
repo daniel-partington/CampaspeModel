@@ -10,9 +10,10 @@ from scipy.interpolate import griddata
 
 from CampaspeModel.build_common import campaspe_data, campaspe_mesh, rivers
 from CampaspeModel.build_common.drains import prepare_drain_data_for_model
-from CampaspeModel.build_common.initial_head_from_bores import generate_initial_head_from_bores
 from CampaspeModel.build_common.groundwater_boundary import \
     prepare_ghb_boundary_from_murray_data
+from CampaspeModel.build_common.initial_head_from_bores import \
+    generate_initial_head_from_bores
 from CampaspeModel.build_common.pumping import prepare_pumping_data_for_model
 from CampaspeModel.build_common.rainfall_recharge import \
     prepare_transient_rainfall_data_for_model
@@ -408,7 +409,7 @@ def generate_bore_observations_for_model(bores_obs_time_series, name):
     bores_obs_time_series = bores_obs_time_series[bores_obs_time_series['datetime']
                                                   > datetime.datetime(1980, 12, 30)]
 
-    # Create outlier identifier, i.e mutltiplier for standard deviations from the mean
+    # Create outlier identifier, i.e multiplier for standard deviations from the mean
     # Using 4 here which is a rather large bound
     bores_obs_outliers_multiplier = 4.0
 
@@ -461,20 +462,20 @@ bores_obs_time_series_policy = generate_bore_observations_for_model(bores_obs_ti
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # SETUP INITIAL CONDITIONS
 
-bores_obs_time_series_combined = pd.concat([bores_obs_time_series, bores_obs_time_series_policy])    
+bores_obs_time_series_combined = pd.concat([bores_obs_time_series, bores_obs_time_series_policy])
 
 if not forecast_run:
-    initial_heads_tr = generate_initial_head_from_bores(tr_model, bores_obs_time_series_combined, 
-                                                        final_bores, 
+    initial_heads_tr = generate_initial_head_from_bores(tr_model, bores_obs_time_series_combined,
+                                                        final_bores,
                                                         time_max='1981',
-                                                        interp_method='linear', 
-                                                        plot=False)    
+                                                        interp_method='linear',
+                                                        plot=False)
 else:
-    initial_heads_tr = generate_initial_head_from_bores(tr_model, bores_obs_time_series_combined, 
-                                                        final_bores, 
+    initial_heads_tr = generate_initial_head_from_bores(tr_model, bores_obs_time_series_combined,
+                                                        final_bores,
                                                         time_min='2014',
-                                                        interp_method='linear', 
-                                                        plot=False)    
+                                                        interp_method='linear',
+                                                        plot=False)
 
 bores_in_layers = tr_model.map_points_to_raster_layers(
     bore_points, final_bores["depth"].tolist(), hu_raster_files_reproj)
@@ -569,10 +570,10 @@ if VERBOSE:
     print "************************************************************************"
     print " Setting up Murray River GHB boundary"
 
-mriver_seg_ghb.loc[:, 'init_head'] = mriver_seg_ghb.apply(lambda x: initial_heads_tr[0][x['i']][x['j']], axis=1)    
-    
-ghb = prepare_ghb_boundary_from_murray_data(tr_model,
-                                            mriver_seg_ghb)
+mriver_seg_ghb.loc[:, 'init_head'] = mriver_seg_ghb.apply(
+    lambda x: initial_heads_tr[0][int(x['i'])][int(x['j'])], axis=1)
+
+ghb = prepare_ghb_boundary_from_murray_data(tr_model, mriver_seg_ghb)
 
 if VERBOSE:
     print "************************************************************************"
