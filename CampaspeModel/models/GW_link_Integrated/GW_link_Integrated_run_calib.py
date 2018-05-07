@@ -137,8 +137,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                   'ssutb' : 1E-5,
                   'ssqa'  : 1E-5,
                   'ssutam': 1E-5,
-                  'ssutaf': 1E-3,
-                  'sslta' : 1E-3,
+                  'ssutaf': 5E-6,
+                  'sslta' : 5E-6,
                   'ssbse' : 1E-5}
 
     alt_sy_vals = {'syutqa': 0.10,
@@ -150,7 +150,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                   'sybse' : 0.0009}
 
     k_factor = 1.0 #2.5
-    sy_factor = 1 #2.5
+    if is_steady:
+        kv_factor = 0.02
+    else:
+        kv_factor = 0.01
+    # end if
+    sy_factor = 0.001 #2.5
     ghb_k_factor = 1.0 #10.
     riv_factor = 0.03
     for key in alt_k_vals:
@@ -171,7 +176,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         non_irrig_red = 1. * red_red
         irrig_red = 1. * red_red
 
-    this_model.parameters.param['mghbst']['PARVAL1'] = -10.    
+    this_model.parameters.param['mghbst']['PARVAL1'] = -15.    
         
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
     #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
@@ -235,7 +240,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if verbose:
         print("Erroneous K pilot cells: {}".format(len(kh[kh > 10000.])))
     kh[kh > 10000.] = 25.
-    kv = kh * 0.1
+    kv = kh * kv_factor
     #this_model.save_array(os.path.join(data_folder, 'Kv'), kv)
 
     sy = update_pilot_points(zone_map, zone, sy, 'sy', 'sy', 'sy_pilot_points',

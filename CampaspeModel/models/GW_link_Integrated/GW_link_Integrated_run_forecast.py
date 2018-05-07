@@ -285,21 +285,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     par_rech_vals = [model_params['rchred{}'.format(i)]['PARLBND']#['PARVAL1']
                      for i in xrange(rch_zones - 1)]
 
-    def update_recharge(vals):
-        for key in interp_rain.keys():
-            for i in xrange(rch_zones - 1):
-                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
-                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
-                    vals[i]
-
-            interp_rain[key][recharge_zone_array == rch_zone_dict[0]] = \
-                interp_rain[key][recharge_zone_array == rch_zone_dict[0]] * 0.0
-            # Killing recharge on inactive cells
-            interp_rain[key][this_model.model_mesh3D[1][0] == -1] = 0.
-            # Killing recharge across the outcropping bedrock              
-            interp_rain[key][this_model.model_mesh3D[1][0] == 7] = 0.
-        return interp_rain
-
     rch = update_recharge(par_rech_vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1)
 
     model_boundaries.update_boundary_array('Rain_reduced', rch)
@@ -525,7 +510,7 @@ def main():
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
 
-    for i in range(2):
+    for i in range(100):
         run_params = {
             "model_folder": model_folder,
             "data_folder": data_folder,
@@ -534,7 +519,7 @@ def main():
             "param_file": param_file if param_file else None,
             "riv_stages": riv_stages,
             "rainfall_irrigation": None,
-            "pumping": 1.0,  # m^3/day
+            "pumping": 1.01,  # m^3/day
             "MM": MM,
             "verbose": False,
             "is_steady": False
