@@ -1,0 +1,219 @@
+{
+  "GW_link_Integrated": {
+    "environment": {
+      "ti7004": {
+        "grid_resolution": "5000m",
+        "model_folder": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/structured_model_grid_",
+        "data_folder": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "/short/ws39/ti7004/CampaspeProject/CampaspeModel/CampaspeModel/mfnwt",
+        "model_build": {
+          "input_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/data_build",
+          "campaspe_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data"
+        }
+      },
+      "fses\\takuyai": {
+        "grid_resolution": "5000m",
+        "model_folder": "C:/UserData/takuyai/campaspe/groundwater/devbox/integrated/data/structured_model_grid_",
+        "data_folder": "C:/UserData/takuyai/campaspe/groundwater/devbox/integrated/data/",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "C:/UserData/takuyai/ownCloud/bitbucket/CampaspeProject/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "model_build": {
+          "input_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "C:/UserData/takuyai/campaspe/groundwater/data_build",
+          "campaspe_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data"
+        }
+      },
+      "taku-clevolap\\takuya": {
+        "grid_resolution": "5000m",
+        "model_folder": "D:/windows_utils/ownCloud/CampaspeModel/testbox/integrated/data/structured_model_grid_",
+        "data_folder": "D:/windows_utils/ownCloud/CampaspeModel/testbox/integrated/data",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "D:/windows_utils/ownCloud/CampaspeModel/MODFLOW_NWT_64.exe",
+        "model_build": {
+          "input_data": "D:/windows_utils/ownCloud/CampaspeModel/testbox/integrated/model_build/input_data",
+          "data_build": "D:/development/campaspe/groundwater/data_build",
+          "campaspe_data": "D:/development/campaspe/GW_data/Campaspe_data",
+          "temp_data": "D:/development/campaspe/GW_data/"
+        }
+      },
+      "uds\\u5121114": {
+        "grid_resolution": "5000m",
+        "model_folder": "D:/development/campaspe/groundwater/devbox/integrated/data/structured_model_grid_",
+        "data_folder": "D:/development/campaspe/groundwater/devbox/integrated/data",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "D:/windows_utils/ownCloud/bitbucket/CampaspeProject/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "model_build": {
+          "input_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "D:/development/campaspe/groundwater/data_build",
+          "campaspe_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data"
+        }
+      },
+      "isd\\part0075": {
+        "grid_resolution": "5000m",
+        "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/GW_link_Integrated/",
+        "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/GW_link_Integrated/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "model_build": {
+          "input_data": "C:/Workspace/part0075/MDB modelling/testbox/input_data",
+          "data_build": "C:/Workspace/part0075/MDB modelling/testbox/GW_link_Integrated/data_build",
+          "campaspe_data": "C:/Workspace/part0075/MDB modelling/Campaspe_data",
+          "temp_data": "C:/Workspace/part0075/MDB modelling/"
+        }
+      },
+      "masher": {
+        "grid_resolution": "1000m",
+        "model_folder": "/Users/masher/Documents/projects/phd/CampaspeModel/testbox/integrated/data/structured_model_grid_",
+        "data_folder": "/Users/masher/Documents/projects/phd/CampaspeModel/testbox/integrated",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "/Users/masher/Downloads/mfnwt"
+      },
+      "default": {
+        "grid_resolution": "5000m",
+        "model_folder": "testbox/integrated/data/structured_model_grid_",
+        "data_folder": "testbox/integrated/data",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "/mfnwt",
+        "model_build": {
+          "input_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "/shared/campaspeim_data/Groundwater/2017-08-21/data_build",
+          "campaspe_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "/shared/campaspeim_data/Groundwater/2017-08-21/GW_data"
+        }
+      }
+    }
+  },
+  "01_steady_state": {
+    "environment": {
+      "isd\\part0075": {
+        "grid_resolution": "1000m",
+        "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
+        "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/00_Campaspe_Cascade/01_steady_state/structured_model_grid_",
+        "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
+        "working_dir": "",
+        "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "mt_exe_folder": "MT3D-USGS_64.exe"
+      },
+      "part0075": {
+        "grid_resolution": "1000m",
+        "data_folder": "/home/part0075/MDBmodelling/testbox/PEST1000/master",
+        "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "mfnwt",
+        "mt_exe_folder": "mt3dusgs"
+      },
+      "danpartington": {
+        "grid_resolution": "1000m",
+        "data_folder": "/home/users/danpartington/MDBmodelling/testbox/PEST1000/master",
+        "model_folder": "/home/users/danpartington/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "mfnwt",
+        "mt_exe_folder": "mt3dusgs"
+      },
+      "uds\\u5121114": {
+        "grid_resolution": "5000m",
+        "model_folder": "D:/development/campaspe/groundwater/devbox/integrated/data/structured_model_grid_",
+        "data_folder": "D:/development/campaspe/groundwater/devbox/integrated/data",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "D:/windows_utils/ownCloud/bitbucket/CampaspeProject/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "model_build": {
+          "input_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "D:/development/campaspe/groundwater/data_build",
+          "campaspe_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data"
+        }
+      }
+    }
+  },
+  "02_transient_flow": {
+    "environment": {
+      "isd\\part0075": {
+        "grid_resolution": "1000m",
+        "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master",
+        "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/00_Campaspe_Cascade/02_transient_flow/structured_model_grid_",
+        "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/master/parameters.txt",
+        "working_dir": "",
+        "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "mt_exe_folder": "MT3D-USGS_64.exe"
+      },
+      "part0075": {
+        "grid_resolution": "1000m",
+        "data_folder": "/home/part0075/MDBmodelling/testbox/PEST1000/master",
+        "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "mfnwt",
+        "mt_exe_folder": "mt3dusgs"
+      },
+      "danpartington": {
+        "grid_resolution": "1000m",
+        "data_folder": "/home/users/danpartington/MDBmodelling/testbox/PEST1000/master",
+        "model_folder": "/home/users/danpartington/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "mfnwt",
+        "mt_exe_folder": "mt3dusgs"
+      },
+      "uds\\u5121114": {
+        "grid_resolution": "5000m",
+        "model_folder": "D:/development/campaspe/groundwater/devbox/integrated/data/structured_model_grid_",
+        "data_folder": "D:/development/campaspe/groundwater/devbox/integrated/data",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "D:/windows_utils/ownCloud/bitbucket/CampaspeProject/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "model_build": {
+          "input_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "D:/development/campaspe/groundwater/data_build",
+          "campaspe_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "D:/windows_utils/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data"
+        }
+      }
+    }
+  },
+  "03_recharge_flow": {
+    "environment": {
+      "isd\\part0075": {
+        "grid_resolution": "1000m",
+        "data_folder": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/recharge",
+        "model_folder": "C:/Workspace/part0075/MDB modelling/testbox/00_Campaspe_Cascade/03_transient_flow/structured_model_grid_",
+        "param_file": "C:/Workspace/part0075/MDB modelling/testbox/PEST1000/recharge/parameters.txt",
+        "working_dir": "",
+        "mf_exe_folder": "C:/Workspace/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/MODFLOW_NWT_64.exe",
+        "mt_exe_folder": "MT3D-USGS_64.exe"
+      },
+      "part0075": {
+        "grid_resolution": "1000m",
+        "data_folder": "/home/part0075/MDBmodelling/testbox/PEST1000/master",
+        "model_folder": "/home/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "mfnwt",
+        "mt_exe_folder": "mt3dusgs"
+      },
+      "danpartington": {
+        "grid_resolution": "1000m",
+        "data_folder": "/home/users/danpartington/MDBmodelling/testbox/PEST1000/recharge",
+        "model_folder": "/home/users/danpartington/GIT_REPOS/CampaspeModel/CampaspeModel/00_Campaspe_Cascade/packaged/structured_model_grid_",
+        "param_file": "",
+        "working_dir": "",
+        "mf_exe_folder": "mfnwt",
+        "mt_exe_folder": "mt3dusgs"
+      }
+    }
+  }
+}
