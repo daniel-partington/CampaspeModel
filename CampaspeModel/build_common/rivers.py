@@ -797,10 +797,17 @@ def prepare_river_data_for_murray(model_builder_object,
         mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=300.)
     if mbo.gridHeight == 5000:
         print(" ** Merging collocated stream reaches")
-        mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=4000.)
+        mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=7000.)
         print(" ** Merging short stream reaches")
         mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=500.)
+    else:
+        print("WARNING: Default values used in identifying collocated reaches and very short reaches")
+        mriver_seg = river_df_tools.merge_collocated_stream_reaches(mriver_seg, max_length=500.)
+        mriver_seg = river_df_tools.merge_very_short_stream_reaches(mriver_seg, min_length=289.6) #200.)
 
+        
+        
+        
     print(" ** Rechecking for collocated Campaspe and Murray cells")
     #mriver_seg['cell_loc_tuple'] = [(x[1]['k'], x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]
     #mriver_seg['cell_loc_tuple'] = [(x[1]['i'], x[1]['j']) for x in mriver_seg.iterrows()]

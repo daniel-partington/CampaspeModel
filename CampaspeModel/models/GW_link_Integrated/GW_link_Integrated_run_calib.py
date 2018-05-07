@@ -128,30 +128,37 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # Hacky model param changes
 
     alt_k_vals = {'khutqa': 1.0,
-                  'khutb': 0.1,  # 1.,
-                  'khqa': 20.,
-                  'khutam': 10.,  # 0.1,
-                  'khutaf': 50.,  # 170
-                  'khlta': 50.,  # 170
-                  'khbse': 0.05}
-
-    alt_ss_vals = {'ssutqa': 1E-5,
-                   'ssutb': 1E-5,
-                   'ssqa': 1E-5,
-                   'ssutam': 1E-5,
-                   'ssutaf': 1E-3,
-                   'sslta': 1E-3,
-                   'ssbse': 1E-5}
+                  'khutb' : 0.1, #1.,
+                  'khqa'  : 20.,
+                  'khutam': 10., #0.1,
+                  'khutaf': 50., #170
+                  'khlta' : 50., #170
+                  'khbse' : 0.05}
+    
+    alt_ss_vals = {'ssutqa': 1E-5 ,
+                  'ssutb' : 1E-5,
+                  'ssqa'  : 1E-5,
+                  'ssutam': 1E-5,
+                  'ssutaf': 5E-6,
+                  'sslta' : 5E-6,
+                  'ssbse' : 1E-5}
 
     alt_sy_vals = {'syutqa': 0.10,
-                   'syutb': 0.08,
-                   'syqa': 0.22,
-                   'syutam': 0.25,
-                   'syutaf': 0.25,
-                   'sylta': 0.25,
-                   'sybse': 0.0009}
+                  'syutb' : 0.08,
+                  'syqa'  : 0.22,
+                  'syutam': 0.25,
+                  'syutaf': 0.25,
+                  'sylta' : 0.25,
+                  'sybse' : 0.0009}
 
-    ghb_k_factor = 1.0  # 10.
+    k_factor = 1.0 #2.5
+    if is_steady:
+        kv_factor = 0.02
+    else:
+        kv_factor = 0.01
+    # end if
+    sy_factor = 0.001 #2.5
+    ghb_k_factor = 1.0 #10.
     riv_factor = 0.03
 
 #    red_red = 0.75
@@ -168,7 +175,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         irrig_red = 1. * red_red
 
     this_model.parameters.param['mghbst']['PARVAL1'] = -10.
-
+    
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
     #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_

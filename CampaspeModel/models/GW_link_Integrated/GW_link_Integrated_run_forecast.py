@@ -479,7 +479,7 @@ def main():
             "param_file": param_file if param_file else None,
             "riv_stages": riv_stages,
             "rainfall_irrigation": None,
-            "pumping": 1.0,  # m^3/day
+            "pumping": 1.01,  # m^3/day
             "MM": MM,
             "verbose": False,
             "is_steady": False
