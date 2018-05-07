@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import os
 
 def update_HGU_parameters(m, data_folder, verbose=True):
     if verbose:
