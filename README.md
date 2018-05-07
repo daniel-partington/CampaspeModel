@@ -1,9 +1,9 @@
 # CampaspeModel
 
-CampaspeModel is a MODFLOW-based groundwater model generated with the help of [HydroModelBuilder](https://github.com/daniel-partington/HydroModelBuilder). It was developed for the Lower Campaspe catchment in Victoria, Australia.
+CampaspeModel is a MODFLOW-based groundwater model generated with the help of [HydroModelBuilder](https://github.com/daniel-partington/HydroModelBuilder).
+It was developed for the Lower Campaspe catchment in Victoria, Australia.
 
 ## Development setup
--------------------------
 We use the Anaconda Python Distribution to ensure consistent runtime environments.
 
 Quick setup can be achieved by downloading or cloning this repo and running the following:
@@ -25,6 +25,10 @@ The environment may be removed with:
 
 After environment setup run `conda develop .` from within the repository folder to allow use of CampaspeModel as a Python package (yes, the dot matters).
 
-### Other information
+### MODFLOW
 
+CampaspeModel uses MODFLOW-NWT which may be obtained (compiled) using [pymake](https://github.com/modflowpy/pymake)
+
+
+## Other information
 CampaspeModel requires additional data files for its initial build which, unfortunately, consists of some proprietary data. Example data suitable for demonstrating the build process is currently not available, but is intended to be included in the future.
