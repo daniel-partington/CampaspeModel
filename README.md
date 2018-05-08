@@ -25,9 +25,9 @@ The environment may be removed with:
 
 After environment setup run `conda develop .` from within the repository folder to allow use of CampaspeModel as a Python package (yes, the dot matters).
 
-### MODFLOW
+### Flow and transport modelling
 
-CampaspeModel uses MODFLOW-NWT which may be obtained (compiled) using [pymake](https://github.com/modflowpy/pymake)
+To model flow and transport, CampaspeModel uses [MODFLOW-NWT](https://water.usgs.gov/ogw/modflow-nwt/) and [MT3D-USGS](https://water.usgs.gov/ogw/mt3d-usgs/) which may be obtained (compiled) using [pymake](https://github.com/modflowpy/pymake)
 
 
 ## Other information
