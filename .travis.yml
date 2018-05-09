@@ -1,0 +1,6 @@
+language: python
+
+sudo:enabled
+
+os: linux
+
