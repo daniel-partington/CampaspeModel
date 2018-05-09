@@ -21,7 +21,7 @@ install:
   - conda info -a
 
   # Create and set conda environment
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file $HOME/daniel-partington/CampaspeModel/dev_linux_env.yml
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file /daniel-partington/CampaspeModel/dev_linux_env.yml
   - source activate test-environment
   - python setup.py install
 
