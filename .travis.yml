@@ -2,7 +2,7 @@ language: python
 python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "2.7"
-  - "3.6"
+  # - "3.6"
 install:
   - sudo apt-get update
   # We do this conditionally because it saves us some downloading if the
@@ -29,9 +29,8 @@ install:
 
   # Install mfnwt and mt3d-usgs
   - pip install https://github.com/modflowpy/pymake/zipball/master
-  
+
+before_script: cd CampaspeModel/tests
 script:
-  # Your test script goes here
-  cd CampaspeModel/tests
-  python build_exes.py
-  pytest
+  - python build_exes.py
+  - pytest
