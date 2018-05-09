@@ -21,9 +21,10 @@ install:
   - conda info -a
 
   # Create and set conda environment
-  - ls
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
-  - source activate test-environment
+  #- conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
+  - conda env create -q python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
+  - source activate gwdev
+  #test-environment
   - python setup.py install
 
   # Install mfnwt and mt3d-usgs
