@@ -40,6 +40,7 @@ dependencies:
 - numpy=1.13.1
 - scipy=0.19.1
 - gdal=2.2.3
+- pytest=3.5.1
 - pip:
   - backports-abc==0.5
   - backports.functools-lru-cache==1.5
