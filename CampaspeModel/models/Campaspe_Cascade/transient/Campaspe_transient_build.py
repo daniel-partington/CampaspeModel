@@ -14,7 +14,7 @@ from CampaspeModel.build_common import campaspe_mesh
 from CampaspeModel.build_utils.multifrequency_resampling import resample_to_model_data_index 
 from CampaspeModel.build_utils.multifrequency_resampling import resample_obs_time_series_to_model_data_index
 from CampaspeModel.build_common.rainfall_recharge import prepare_transient_rainfall_data_for_model 
-from CampaspeModel.build_common.groundwater_boundary import prepare_ghb_boundary_from_Murray_data
+from CampaspeModel.build_common.groundwater_boundary import prepare_ghb_boundary_from_murray_data
 from CampaspeModel.build_common import rivers
 from CampaspeModel.build_common.pumping import prepare_pumping_data_for_model
 from CampaspeModel.build_common.channels import prepare_channel_data_for_model
@@ -686,6 +686,8 @@ river_seg['reach'].fillna(method='bfill', inplace=True)
 river_seg['reach'].astype(int, inplace=True)
 river_segs_reach = [river_seg['iseg'][river_seg['reach'] == x].tolist() for x in reach_no]
 
+tr_model.river_mapping['Campaspe'] = river_seg
+
 obs_names_seg = ['srf_a', 'srf_s', 'srf_m']
 river_segs_seg = [x for x in river_seg['iseg']]
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -1135,7 +1137,7 @@ tr_model.parameters.create_model_parameter('hz_rt', value=1.)
 tr_model.parameters.parameter_options('hz_rt', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.05, 
+                                      PARLBND=0.05,
                                       PARUBND=5., 
                                       PARGP='radon', 
                                       SCALE=1, 

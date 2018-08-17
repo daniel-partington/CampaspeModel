@@ -197,7 +197,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in m.boundaries.bc['GHB']['bc_array'][0]]
     for MurrayGHB_cell in MurrayGHB_cells:
         lay, row, col = MurrayGHB_cell[:3]
-        MurrayGHBstage = MurrayGHB_cell[3] + m.parameters.param['mghb_stage']['PARVAL1']
+        MurrayGHBstage = MurrayGHB_cell[3] # m.parameters.param['mghbst']['PARVAL1']
         # Don't use GHB cell is stage is below cell bottom.
         if MurrayGHBstage < m.model_mesh3D[0][lay + 1][row][col]:
             continue
@@ -207,7 +207,6 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
             m.model_mesh3D[0][lay + 1][row][col]
         MGHBconductance = dx * dz * m.parameters.param['mghbk']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
-        
 
     ghb = {}
     ghb[0] = MurrayGHB
