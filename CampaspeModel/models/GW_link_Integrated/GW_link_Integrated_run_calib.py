@@ -209,7 +209,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
                     elif prop_name == 'sy':
                         m.parameters.param[param]['PARVAL1'] = alt_sy_vals[prop_name + zone_map[key]]
                     elif prop_name == 'kh':
-                        m.parameters.param[param]['PARVAL1'] = alt_k_vals[prop_name + zone_map[key]]
+                        if 'khutqa' in param:
+                            m.parameters.param[param]['PARVAL1'] = alt_k_vals[prop_name + zone_map[key]]
+                        else:
+                        # end if
                     # end if
                     points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
                 else: 
