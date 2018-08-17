@@ -185,6 +185,67 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if verbose:
         print "************************************************************************"
         print " Updating HGU parameters "
+<<<<<<< HEAD
+    
+    # This needs to be automatically generated with the map_raster2mesh routine ...
+    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
+
+    default_array = this_model.model_mesh3D[1].astype(float)
+    zone = np.copy(default_array)
+    kh = np.copy(default_array)
+    kv = np.copy(default_array)
+    sy = np.copy(default_array)
+    ss = np.copy(default_array)
+    
+                 
+    def create_pp_points_dict(zone_map, zone, prop_array, prop_name, m):
+        points_values_dict = {}
+        for index, key in enumerate(zone_map.keys()):
+            for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
+                if index2 == 0:
+                    if prop_name == 'ss':
+                        m.parameters.param[param]['PARVAL1'] = alt_ss_vals[prop_name + zone_map[key]]
+                    elif prop_name == 'sy':
+                        m.parameters.param[param]['PARVAL1'] = alt_sy_vals[prop_name + zone_map[key]]
+                    elif prop_name == 'kh':
+                        if 'khutqa' in param:
+                            m.parameters.param[param]['PARVAL1'] = alt_k_vals[prop_name + zone_map[key]]
+                        else:
+                        # end if
+                    # end if
+                    points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
+                else: 
+                    if prop_name == 'ss':
+                        m.parameters.param[param]['PARVAL1'] += alt_ss_vals[prop_name + zone_map[key]]
+                    elif prop_name == 'sy':
+                        m.parameters.param[param]['PARVAL1'] += alt_sy_vals[prop_name + zone_map[key]]
+                    elif prop_name == 'kh':
+                        m.parameters.param[param]['PARVAL1'] += alt_k_vals[prop_name + zone_map[key]]
+                    # end if
+                    points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
+        return points_values_dict    
+        
+    def update_pilot_points(zone_map, zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
+        points_values_dict = create_pp_points_dict(zone_map, zone, prop_array, prop_name, m)
+        p = m.pilot_points[par_name]
+        zones = len(zone_map.keys())
+        p.output_directory = os.path.join(model_folder, prop_folder)
+        p.update_pilot_points_files_by_zones(zones, points_values_dict)
+        time.sleep(3)
+        p.run_pyfac2real_by_zones(zones) 
+        #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
+        return p.val_array
+
+    kh = update_pilot_points(zone_map, zone, kh, 'hk', 'kh', 'hk_pilot_points',
+                             this_model, 'hk_val_array')  
+    #this_model.save_array(os.path.join(data_folder, 'Kh'), kh)
+    if verbose:
+        print("Erroneous K pilot cells: {}".format(len(kh[kh > 10000.])))
+    kh[kh > 10000.] = 25.
+    kv = kh * kv_factor
+    #this_model.save_array(os.path.join(data_folder, 'Kv'), kv)
+=======
+>>>>>>> amal_speed
 
     kh = this_model.properties.properties['Kh']
 

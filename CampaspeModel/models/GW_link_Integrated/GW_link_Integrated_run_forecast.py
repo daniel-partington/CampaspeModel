@@ -4,6 +4,7 @@ then return SW/GW exchanges, avg depth to GW, depth to GW at ecology sites and
 head at trigger bores.
 """
 
+import copy
 import cPickle as pickle
 import os
 import sys
@@ -12,6 +13,7 @@ import warnings
 import flopy.utils.binaryfile as bf
 import numpy as np
 
+from common_run_funcs import *
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
@@ -20,27 +22,6 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
-
-
-def process_line(line):
-    return [x.strip() for x in line.split(':')[1].strip().split(',')]
-# end process_line
-
-
-def update_recharge(vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1):
-    for key in interp_rain.keys():
-        for i in xrange(rch_zones - 1):
-            matching_zone = recharge_zone_array == rch_zone_dict[i + 1]
-            interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * vals[i]
-        # End for
-
-        matching_zone = recharge_zone_array == rch_zone_dict[0]
-        interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * 0.0
-        interp_rain[key][mesh_1[0] == -1] = 0.0
-    # End for
-
-    return interp_rain
-# End update_recharge()
 
 
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
@@ -109,18 +90,18 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         stream_gauges = cache['Stream_gauges']
     # End if
 
-    name = MM.GW_build.keys()[0]
+    name = MM.name
     this_model = MM.GW_build[name]
-
-    #if param_file != "":
-    this_model.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
 
     mesh = this_model.model_mesh3D
     mesh_0, mesh_1 = mesh[0], mesh[1]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
     if param_file:
-        this_model.updateModelParameters(p_j(data_folder, 'parameters.txt'), verbose=verbose)
+        if 'parameters.txt' not in param_file:
+            param_file = p_j(param_file, 'parameters.txt')
+        # End if
+        this_model.updateModelParameters(param_file, verbose=verbose)
     # End if
 
     model_params = this_model.parameters.param
@@ -131,9 +112,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
 
-    HYDR_CONDUCT_FUDGE_FACTOR = 1.0  # 0.01  # Default conductance is too high
-    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] * HYDR_CONDUCT_FUDGE_FACTOR
-                   for x in xrange(num_reaches)]
+    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
     river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
     river_seg['stage_from_gauge'] = river_seg['stage']
     campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
@@ -179,68 +158,12 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
     if verbose:
-            print "************************************************************************"
-            print " Updating HGU parameters "
-    
+        print "************************************************************************"
+        print " Updating HGU parameters "
+
     # This needs to be automatically generated with the map_raster2mesh routine ...
-    zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
+    # zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
-    default_array = this_model.model_mesh3D[1].astype(float)
-    zone = np.copy(default_array)
-    kh = np.copy(default_array)
-    kv = np.copy(default_array)
-    sy = np.copy(default_array)
-    ss = np.copy(default_array)
-    
-                 
-    def create_pp_points_dict(zone_map, zone, prop_array, prop_name, m):
-        points_values_dict = {}
-        for index, key in enumerate(zone_map.keys()):
-            for index2, param in enumerate(m.parameters.param_set[prop_name + zone_map[key]]):
-                if index2 == 0:
-                    points_values_dict[index] = [m.parameters.param[param]['PARVAL1']]
-                else: 
-                    points_values_dict[index] += [m.parameters.param[param]['PARVAL1']]
-        return points_values_dict    
-        
-    def update_pilot_points(zone_map, zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
-        points_values_dict = create_pp_points_dict(zone_map, zone, prop_array, prop_name, m)
-        p = m.pilot_points[par_name]
-        zones = len(zone_map.keys())
-        p.output_directory = os.path.join(model_folder, prop_folder)
-        p.update_pilot_points_files_by_zones(zones, points_values_dict)
-        p.run_pyfac2real_by_zones(zones) 
-        #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
-        return p.val_array
-
-    kh = update_pilot_points(zone_map, zone, kh, 'hk', 'kh', 'hk_pilot_points',
-                             this_model, 'hk_val_array')  
-    #this_model.save_array(os.path.join(data_folder, 'Kh'), kh)
-    if verbose:
-        print("Erroneous K pilot cells: {}".format(len(kh[kh > 10000.])))
-    kh[kh > 10000.] = 25.
-    kv = kh * 0.1
-    #this_model.save_array(os.path.join(data_folder, 'Kv'), kv)
-
-    sy = update_pilot_points(zone_map, zone, sy, 'sy', 'sy', 'sy_pilot_points',
-                             this_model, 'sy_val_array')
-    if verbose:
-        print("Erroneous Sy pilot cells: {}".format(len(sy[sy > 0.5])))
-    sy[sy > 0.5] = 0.5
-    #this_model.save_array(os.path.join(data_folder, 'Sy'), sy)
-    
-    ss = update_pilot_points(zone_map, zone, ss, 'ss', 'ss', 'ss_pilot_points',
-                             this_model, 'ss_val_array')
-    if verbose:
-        print("Erroneous Ss pilot cells: {}".format(len(ss[ss > 0.01])))
-    #ss[ss > 0.01] = 1E-5
-    #this_model.save_array(os.path.join(data_folder, 'SS'), ss)
-    
-    this_model.properties.update_model_properties('Kh', kh)
-    this_model.properties.update_model_properties('Kv', kv)
-    this_model.properties.update_model_properties('Sy', sy)
-    this_model.properties.update_model_properties('SS', ss)    
-    
     if verbose:
         print "************************************************************************"
         print " Updating Murray River boundary"
@@ -282,7 +205,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
     rch_zones = len(rch_zone_dict.keys())
 
-    par_rech_vals = [model_params['rchred{}'.format(i)]['PARLBND']#['PARVAL1']
+    par_rech_vals = [model_params['rchred{}'.format(i)]['PARLBND']  # ['PARVAL1']
                      for i in xrange(rch_zones - 1)]
 
     rch = update_recharge(par_rech_vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1)
@@ -294,13 +217,50 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         print " Updating pumping boundary "
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
-    wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
+
+    try:
+        # summed_vals = cache['summed_pump']
+        normalized_well = cache['normalized_pumpy']
+    except KeyError:
+        # Need a copy of the list of lists
+        well_boundary = copy.deepcopy(pumpy)
+
+        PUMPING_VAL_POS = 3  # zero-based index
+        # sum the 4th item in the list of lists
+        summed_vals = {key: sum(zip(*vals)[PUMPING_VAL_POS]) for key, vals in well_boundary.iteritems()}
+        summed_vals = float(sum(summed_vals.values()))
+
+        normalized_well = {key: [[b[0], b[1], b[2], b[3] / summed_vals] for b in a]
+                           for key, a in well_boundary.iteritems()}
+
+        # cache['summed_pump'] = summed_vals
+        cache['normalized_pumpy'] = normalized_well
+    # End try
+
+    # well dict element structure: [ active_layer, row, col, -time[1][pump] ]
+    # DEBUG: ORIGINAL
+    # wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
+    #        for key, a in pumpy.iteritems()}
+
+    """
+    What should be done is to get the bc array for pumping first,
+    cycle through and get the sum of pumping and then normalise it all so it sums to 1,
+    then you can go through applying your pumping value such that the model pumping is as you want it to be specified.
+    """
+
+    # DEBUG: REPLACEMENT
+    # wel = {key: [[b[0], b[1], b[2], b[3] * (pumping / summed_vals)] for b in a]
+    #        for key, a in pumpy.iteritems()}
+    wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
+           for key, a in normalized_well.iteritems()}
 
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
     if verbose:
         print "************************************************************************"
         print " Updating GHB boundary "
+
+    kh = this_model.properties.properties['Kh']
 
     MurrayGHB = []
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
@@ -309,7 +269,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         MurrayGHBstage = MurrayGHB_cell[3]
         dx = this_model.gridHeight
         dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
-        MGHBconductance = dx * dz * kh[lay][row][col]#model_params['mghbk']['PARVAL1']
+        MGHBconductance = dx * dz * kh[lay][row][col]  # model_params['mghbk']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
     # End for
 
@@ -422,7 +382,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # from the groundwater model builder object
     for farm_zone in farm_zones:
         mask = geo_mask & (farm_map == farm_map_dict[int(farm_zone)])
-        avg_depth_to_gw[farm_zone] = modflow_model.getAverageDepthToGW(mask=mask)
+        avg_depth_to_gw[farm_zone] = modflow_model.get_average_depth_to_GW(mask=mask)
     # End for
 
     """
@@ -472,18 +432,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 def main():
     print("Running from: " + os.getcwd())
 
-    this_file_loc = os.path.realpath(__file__)
-    pkg_path = this_file_loc[0:this_file_loc.index('models')]
-    config_path = os.path.join(pkg_path, "config", "model_config.json")
-    CONFIG = ConfigLoader(config_path).set_environment("GW_link_Integrated")
-
-    def load_obj(filename):
-        if filename[-4:] == '.pkl':
-            with open(filename, 'r') as f:
-                return pickle.load(f)
-        else:
-            print('File type not recognised as "pkl"')
-        # End if
+    CONFIG = load_model_config()
 
     # Example river level data (to be inputted from SW Model)
     fname = "initial_river_levels.pkl"
@@ -506,11 +455,22 @@ def main():
     # End if
 
     model_folder = model_folder.replace("structured_model_grid_5000m", "forecast/structured_model_grid_5000m")
-
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"GW_link_Integrated_packaged.pkl"))
 
-    for i in range(100):
+    this_model = MM.GW_build[MM.name]
+    update_campaspe_pilot_points(this_model, model_folder, use_alt_vals=True)
+
+    model_name = this_model.name
+    model_dir = 'model_{}'.format(model_name)
+    heads_file_loc = os.path.join(data_folder.replace('forecast', ''), '{}.hds'.format('forecast_initial'))
+    dst_loc = os.path.join(data_folder, model_dir, '{}.hds'.format(model_name))
+
+    from shutil import copyfile
+    print('Copying {} to {}'.format(heads_file_loc, dst_loc))
+    copyfile(heads_file_loc, dst_loc)
+
+    for i in range(2):
         run_params = {
             "model_folder": model_folder,
             "data_folder": data_folder,
