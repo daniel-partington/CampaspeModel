@@ -36,6 +36,12 @@ def parse_string_to_bool(opt):
     return val
 # End parse_string_to_bool()
 
+
+def process_line(line):
+    processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
+    return processed
+
+
 def main():
 
     parser = argparse.ArgumentParser("Campaspe Model Build Processor")
@@ -132,14 +138,10 @@ def main():
         print("************************************************************************")
         print("Attempting to map these bores...")
     # End if
+
     model_linking = os.path.join(data_folder, "model_linking.csv")
     with open(model_linking, 'r') as f:
         lines = f.readlines()
-
-        def process_line(line):
-            processed = [x.strip() for x in line.split(':')[1].strip().split(',')]
-            return processed
-
         for line in lines:
             if line.split(':')[0] == 'Ecology':
                 ecology_bores = process_line(line)
@@ -152,22 +154,25 @@ def main():
                 print('SW: {}'.format(stream_gauges))
             # End if
         # End for
+    # End with
 
     try:
-        assert ecology_bores == ['62599', '111274', 'WRK059861'], "Ecology bore IDs incorrect!"
+        # assert ecology_bores == ['62599', '111274', 'WRK059861'], "Ecology bore IDs incorrect!"
+        assert ecology_bores == ['62599', '47249', '79329'], "Ecology bore IDs incorrect!"
         assert policy_bores == ['62589', '79324'], "Policy bore IDs incorrect!"
         assert stream_gauges == ['406201', '406202', '406265'], "Stream gauge IDs incorrect!"
-    except AssertionError:
+    except AssertionError as e:
         print(e)
         print("Config error occurred, check the model_linking.csv file")
+        raise RuntimeError("Config error occurred, check the model_linking.csv file")
     # End try
 
     if VERBOSE:
-        print '########################################################################'
-        print '########################################################################'
-        print '## Model specific building '
-        print '########################################################################'
-        print '########################################################################'
+        print('########################################################################')
+        print('########################################################################')
+        print('## Model specific building ')
+        print('########################################################################')
+        print('########################################################################')
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@ CONSTRUCTION OF TIME PERIODS FOR MODEL @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -212,8 +217,8 @@ def main():
     # Define the grid width and grid height for the model mesh which is stored as a multipolygon
     # shapefile GDAL object
     if VERBOSE:
-        print "************************************************************************"
-        print " Defining structured mesh at {res}x{res}".format(res=res)
+        print("************************************************************************")
+        print(" Defining structured mesh at {res}x{res}".format(res=res))
 
     hgu, hu_raster_files_reproj = \
         campaspe_mesh.build_mesh_and_set_properties(tr_model,
@@ -222,9 +227,22 @@ def main():
                                                     resolution=int(res)
                                                     )
 
+    # for tests - safe to remove once done
+    print(type(hgu), type(hu_raster_files_reproj))
+    import cPickle as pickle
+    with open('hgu_dump.pkl', 'wb') as hgu_dump:
+        pickle.dump(hgu_dump, hgu)
+
+    with open('hgu_raster_files_reproj_dump.pkl', 'wb') as rp:
+        pickled.dump(rp, hu_raster_files_reproj)
+
+    ## End for tests
+
+    raise RuntimeError("refactoring stop")
+
     if VERBOSE:
-        print "************************************************************************"
-        print " Interpolating rainfall data to grid and time steps"
+        print("************************************************************************")
+        print(" Interpolating rainfall data to grid and time steps")
 
     interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
         prepare_transient_rainfall_data_for_model(tr_model,
@@ -239,22 +257,22 @@ def main():
                                                   rain_gauges)
 
     if VERBOSE:
-        print "************************************************************************"
-        print " Creating recharge boundary "
+        print("************************************************************************")
+        print(" Creating recharge boundary ")
 
     tr_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=False)
     tr_model.boundaries.associate_zonal_array_and_dict('Rain_reduced', recharge_zone_array, rch_zone_dict)
     tr_model.boundaries.assign_boundary_array('Rain_reduced', interp_rain)
 
     if VERBOSE:
-        print "************************************************************************"
-        print " Mapping farm areas to grid"
+        print("************************************************************************")
+        print(" Mapping farm areas to grid")
 
     tr_model.map_polygon_to_grid(farms_poly, feature_name="ZoneID")
 
     if VERBOSE:
-        print "************************************************************************"
-        print " Mapping bores to grid "
+        print("************************************************************************")
+        print(" Mapping bores to grid ")
 
     tr_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 
@@ -682,7 +700,8 @@ def main():
         print("************************************************************************")
         print(" Package up groundwater model builder object")
 
-    tr_model.package_model()
+    warnings.warn("DEBUGGING - MODEL IS NOT PACKAGED!!!")
+    # tr_model.package_model()
 
     print("Packaged into {}".format(tr_model.out_data_folder_grid))
 # End main()
