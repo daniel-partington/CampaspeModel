@@ -3,7 +3,7 @@ python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "2.7"
   # - "3.6"
-install:
+before_install:
   - sudo apt-get update
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
@@ -24,12 +24,12 @@ install:
   #- conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
   - conda env create python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
   - source activate gwdev
-  #test-environment
-  - python setup.py install
-
+install:
   # Install mfnwt and mt3d-usgs
   - pip install https://github.com/modflowpy/pymake/zipball/master
 
+  #test-environment
+  - python setup.py install
 before_script:
   - source activate gwdev
   - cd CampaspeModel/tests
