@@ -7,13 +7,13 @@ import datetime
 
 import cPickle as pickle
 
-from osgeo import osr
-
 from CampaspeModel.build_common import campaspe_data, campaspe_mesh
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import \
     GDALInterface
 from HydroModelBuilder.GWModelBuilder import GWModelBuilder
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
+
+from osgeo import osr
 
 
 def build_setup(forecast_run):
