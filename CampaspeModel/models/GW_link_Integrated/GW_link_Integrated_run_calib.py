@@ -28,7 +28,7 @@ def process_line(line):
 
 
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
-        rainfall_irrigation=None, pumping=None, verbose=True, MM=None, recharge_amt=0.03, is_steady=False, cache={}):
+        rainfall_irrigation=None, pumping=None, verbose=True, MM=None, is_steady=False, cache={}):
     """
     GW Model Runner.
 
@@ -63,16 +63,9 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if not hasattr(MM, 'ext_linkage_bores') or MM.ext_linkage_bores is None:
 
         # Read in bores that relate to external models
-        model_linking = p_j(data_folder, "model_linking.csv")
-
-        # Need to check given data folder and its parent directory
-        # Dirty hack, I know :(
-        if not os.path.exists(model_linking):
-            model_linking = p_j(data_folder, "..", "model_linking.csv")
-            if not os.path.exists(model_linking):
-                raise IOError("Could not find bore linkages information (`model_linking.csv`)")
-            # End if
-        # End if
+        this_file_loc = os.path.dirname(os.path.realpath(__file__))
+        model_linking = "model_linking.csv"
+        model_linking = p_j(this_file_loc, model_linking)
 
         with open(model_linking, 'r') as f:
             lines = f.readlines()
@@ -128,37 +121,37 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # Hacky model param changes
 
     alt_k_vals = {'khutqa': 1.0,
-                  'khutb' : 0.1, #1.,
-                  'khqa'  : 20.,
-                  'khutam': 10., #0.1,
-                  'khutaf': 50., #170
-                  'khlta' : 50., #170
-                  'khbse' : 0.05}
-    
-    alt_ss_vals = {'ssutqa': 1E-5 ,
-                  'ssutb' : 1E-5,
-                  'ssqa'  : 1E-5,
-                  'ssutam': 1E-5,
-                  'ssutaf': 5E-6,
-                  'sslta' : 5E-6,
-                  'ssbse' : 1E-5}
+                  'khutb': 0.1,  # 1.,
+                  'khqa': 20.,
+                  'khutam': 10.,  # 0.1,
+                  'khutaf': 50.,  # 170
+                  'khlta': 50.,  # 170
+                  'khbse': 0.05}
+
+    alt_ss_vals = {'ssutqa': 1E-5,
+                   'ssutb': 1E-5,
+                   'ssqa': 1E-5,
+                   'ssutam': 1E-5,
+                   'ssutaf': 5E-6,
+                   'sslta': 5E-6,
+                   'ssbse': 1E-5}
 
     alt_sy_vals = {'syutqa': 0.10,
-                  'syutb' : 0.08,
-                  'syqa'  : 0.22,
-                  'syutam': 0.25,
-                  'syutaf': 0.25,
-                  'sylta' : 0.25,
-                  'sybse' : 0.0009}
+                   'syutb': 0.08,
+                   'syqa': 0.22,
+                   'syutam': 0.25,
+                   'syutaf': 0.25,
+                   'sylta': 0.25,
+                   'sybse': 0.0009}
 
-    k_factor = 1.0 #2.5
+    k_factor = 1.0  # 2.5
     if is_steady:
         kv_factor = 0.02
     else:
         kv_factor = 0.01
     # end if
-    sy_factor = 0.001 #2.5
-    ghb_k_factor = 1.0 #10.
+    sy_factor = 0.001  # 2.5
+    ghb_k_factor = 1.0  # 10.
     riv_factor = 0.03
 
 #    red_red = 0.75
@@ -175,7 +168,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         irrig_red = 1. * red_red
 
     this_model.parameters.param['mghbst']['PARVAL1'] = -10.
-    
+
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
     #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
