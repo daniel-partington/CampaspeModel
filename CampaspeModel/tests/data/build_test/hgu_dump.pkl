@@ -1,0 +1,16 @@
+(lp1
+S'utb'
+p2
+aS'utaf'
+p3
+aS'utam'
+p4
+aS'qa'
+p5
+aS'lta'
+p6
+aS'utqa'
+p7
+aS'bse'
+p8
+a.
