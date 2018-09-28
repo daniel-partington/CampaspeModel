@@ -20,18 +20,18 @@ before_install:
   # Useful for debugging any issues with conda
   - conda info -a
 
-  # Create and set conda environment
-  #- conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
-  - conda env create python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
-  - source activate gwdev
 install:
+  # Create and set conda environment
+  - conda env create python=$TRAVIS_PYTHON_VERSION -n gwdev --file dev_linux_env.yml
+  - source activate gwdev
+
   # Install mfnwt and mt3d-usgs
   - pip install https://github.com/modflowpy/pymake/zipball/master
 
   #test-environment
   - python setup.py install
 before_script:
-  - source activate gwdev
+  # - source activate gwdev
   - cd CampaspeModel/tests
 script:
   - python build_exes.py
