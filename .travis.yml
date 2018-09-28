@@ -32,7 +32,6 @@ install:
 
 before_script:
   - source activate gwdev
-  - python python_vers.py
   - cd CampaspeModel/tests
 script:
   - python build_exes.py

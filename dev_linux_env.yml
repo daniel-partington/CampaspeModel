@@ -41,6 +41,9 @@ dependencies:
   - numpy=1.13.1
   - scipy=0.19.1
   - gdal=2.2.2
+  - requests=2.18.3
+  - xlrd=1.0.0
+  - pysal=1.13.0
   - pip:
     - backports-abc==0.5
     - backports.functools-lru-cache==1.5
