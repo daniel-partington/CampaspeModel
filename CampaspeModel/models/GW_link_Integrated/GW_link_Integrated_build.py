@@ -227,19 +227,6 @@ def main():
                                                     resolution=int(res)
                                                     )
 
-    # for tests - safe to remove once done
-    print(type(hgu), type(hu_raster_files_reproj))
-    import cPickle as pickle
-    with open('hgu_dump.pkl', 'wb') as hgu_dump:
-        pickle.dump(hgu_dump, hgu)
-
-    with open('hgu_raster_files_reproj_dump.pkl', 'wb') as rp:
-        pickled.dump(rp, hu_raster_files_reproj)
-
-    ## End for tests
-
-    raise RuntimeError("refactoring stop")
-
     if VERBOSE:
         print("************************************************************************")
         print(" Interpolating rainfall data to grid and time steps")
@@ -700,8 +687,7 @@ def main():
         print("************************************************************************")
         print(" Package up groundwater model builder object")
 
-    warnings.warn("DEBUGGING - MODEL IS NOT PACKAGED!!!")
-    # tr_model.package_model()
+    tr_model.package_model()
 
     print("Packaged into {}".format(tr_model.out_data_folder_grid))
 # End main()
