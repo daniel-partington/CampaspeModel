@@ -23,15 +23,16 @@ install:
   # Create and set conda environment
   #- conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
   - conda env create python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
-  - conda activate gwdev
+  - source activate gwdev
   #test-environment
   - python setup.py install
 
   # Install mfnwt and mt3d-usgs
   - pip install https://github.com/modflowpy/pymake/zipball/master
 
-before_script: cd CampaspeModel/tests
+before_script:
+  - source activate gwdev
+  - cd CampaspeModel/tests
 script:
-  - conda activate gwdev
   - python build_exes.py
   - pytest
