@@ -32,6 +32,6 @@ install:
 
 before_script: cd CampaspeModel/tests
 script:
-  - source activate gwdev
+  - conda activate gwdev
   - python build_exes.py
   - pytest
