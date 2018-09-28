@@ -36,10 +36,10 @@ if not os.path.exists(bindir):
     if '3.' in sys.version:
         os.makedirs(bindir, exist_ok=True)
     else:
-        def _mkdir_recursive(self, path):
+        def _mkdir_recursive(path):
             sub_path = os.path.dirname(path)
             if not os.path.exists(sub_path):
-                self._mkdir_recursive(sub_path)
+                _mkdir_recursive(sub_path)
             if not os.path.exists(path):
                 os.mkdir(path)
 
