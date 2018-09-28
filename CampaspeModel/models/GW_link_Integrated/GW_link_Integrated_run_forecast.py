@@ -22,8 +22,6 @@ from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
 
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
 # other class or in here but so they are available in the run function.
-
-
 def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=None, riv_stages=None,
         rainfall_irrigation=None, pumping=None, verbose=True, MM=None, is_steady=False, cache={}):
     """
@@ -40,11 +38,11 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     :param pumping: float, daily pumping amount in m^3/day (ML/day to m^3/day => ML * 1000)
 
     :returns: tuple[object], five elements
-              xchange: exchange for each gauge by gauge ID
-              avg_gw_depth: average depth for each zone
-              ecol_depth_to_gw: average gw depth at each cell that contains an ecological bore of interest.
-              trigger_head: Policy trigger well heads
-              gw_model object
+              xchange: np.recarray, exchange for each gauge by gauge ID
+              avg_depth_to_gw: np.recarray, average depth for each zone (by Zone ID)
+              ecol_depth_to_gw: np.recarray, average gw depth at each cell that contains an ecological bore of interest.
+              trigger_heads: np.recarray, Policy trigger well heads
+              modflow_model: gw_model object
     """
     p_j = os.path.join
 
@@ -124,8 +122,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     except KeyError:
         # Get common gauges, and fill specific values
         common_gauges = list(set(campaspe_stage['gauge_id'].values).intersection(riv_stages.dtype.names))
-        common_gauges_loc = campaspe_stage.loc[campaspe_stage.gauge_id.isin(common_gauges), 'gauge_id']
-        iseg_loc = river_seg.loc[river_seg.iseg.isin(campaspe_stage.iseg), 'stage_from_gauge']
+        common_gauges_loc = campaspe_stage.loc[campaspe_stage.gauge_id.isin(common_gauges), 'gauge_id'].index
+        iseg_loc = river_seg.loc[river_seg.iseg.isin(campaspe_stage.iseg), 'stage_from_gauge'].index
 
         cache['common_gauges'] = common_gauges
         cache['common_gauges_loc'] = common_gauges_loc
@@ -133,17 +131,17 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # End try
 
     tmp = riv_stages[common_gauges][0].tolist()
-    for idx, row in enumerate(common_gauges_loc.index):
+    for idx, row in enumerate(common_gauges_loc):
         campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
     # End for
 
     tmp = sorted(campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
-    for idx, row in enumerate(iseg_loc.index):
+    for idx, row in enumerate(iseg_loc):
         river_seg.set_value(row, 'stage_from_gauge', tmp[idx])
     # End for
 
     # Convert stages to depths
-    campaspe_stage.loc[:, 'depth'] = campaspe_stage['stage'] - campaspe_stage['gauge_zero']
+    campaspe_stage.loc[:, 'depth'] = campaspe_stage.loc[:, 'stage'].values - campaspe_stage.loc[:, 'gauge_zero'].values
     river_seg.loc[:, 'depth'] = np.nan
     river_seg.loc[river_seg.index.isin(campaspe_stage.index), 'depth'] = campaspe_stage['depth']
     # interpolate depths
@@ -151,7 +149,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         'depth'].interpolate(method='values', limit_direction='both').tolist()
     river_seg.loc[:, 'depth'] = river_seg['depth'].bfill()
     # Calculate stages using bed elevation and depth
-    river_seg.loc[:, 'stage'] = river_seg['strtop'] + river_seg['depth']
+    river_seg['stage'] = river_seg['strtop'] + river_seg['depth']
 
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     simple_river = river_seg[['k', 'i', 'j', 'stage', 'multi', 'strtop']].values.tolist()
@@ -247,10 +245,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     cycle through and get the sum of pumping and then normalise it all so it sums to 1,
     then you can go through applying your pumping value such that the model pumping is as you want it to be specified.
     """
-
-    # DEBUG: REPLACEMENT
-    # wel = {key: [[b[0], b[1], b[2], b[3] * (pumping / summed_vals)] for b in a]
-    #        for key, a in pumpy.iteritems()}
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
            for key, a in normalized_well.iteritems()}
 
@@ -264,10 +258,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     MurrayGHB = []
     MurrayGHB_cells = [[x[0], x[1], x[2], x[3]] for x in model_boundaries_bc['GHB']['bc_array'][0]]
+    dx = this_model.gridHeight
     for MurrayGHB_cell in MurrayGHB_cells:
         lay, row, col = MurrayGHB_cell[:3]
         MurrayGHBstage = MurrayGHB_cell[3]
-        dx = this_model.gridHeight
         dz = mesh_0[lay][row][col] - mesh_0[lay + 1][row][col]
         MGHBconductance = dx * dz * kh[lay][row][col]  # model_params['mghbk']['PARVAL1']
         MurrayGHB += [[lay, row, col, MurrayGHBstage, MGHBconductance]]
@@ -334,24 +328,26 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
         # Clear out any gauges not required
         river_reach_cells.set_value(0, 'gauge_id', 'none')
-        river_reach_cells.loc[river_reach_cells['gauge_id'] == 'none', 'gauge_id'] = np.nan
-        river_reach_cells.loc[~river_reach_cells['gauge_id'].isin(stream_gauges), 'gauge_id'] = np.nan
+        river_reach_gauges = river_reach_cells['gauge_id']
+        river_reach_cells.loc[river_reach_gauges == 'none', 'gauge_id'] = np.nan
+        river_reach_cells.loc[~river_reach_gauges.isin(stream_gauges), 'gauge_id'] = np.nan
         river_reach_cells = river_reach_cells.bfill()
-        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_cells['gauge_id'].isin(stream_gauges),
+        river_reach_gauges = river_reach_cells['gauge_id']
+        river_reach_cells['cell'] = river_reach_cells.loc[river_reach_gauges.isin(stream_gauges),
                                                           ['k', 'i', 'j']].values.tolist()
 
         reach_cells = {}
         for gauge in stream_gauges:
-            reach_cells[gauge] = river_reach_cells.loc[river_reach_cells['gauge_id'] == gauge, 'cell'].values
+            reach_cells[gauge] = river_reach_cells.loc[river_reach_gauges == gauge, 'cell'].values
         # End for
 
         river_reach_cells = reach_cells
         cache['river_reach_cells'] = reach_cells
 
-        river_reach_ecol = river_seg.loc[:, ['gauge_id', 'k', 'j', 'i']]
+        river_reach_ecol = river_seg[['gauge_id', 'k', 'j', 'i']]
         river_reach_ecol = river_reach_ecol[river_reach_ecol['gauge_id'] != 'none']
         ecol_gauge_id = river_reach_ecol['gauge_id']
-        river_reach_ecol['cell'] = river_reach_ecol.loc[:, ['k', 'i', 'j']].values.tolist()
+        river_reach_ecol['cell'] = river_reach_ecol[['k', 'i', 'j']].values.tolist()
 
         eco_cells = {}
         for ind, ecol_bore in enumerate(ecology_bores):
@@ -470,7 +466,7 @@ def main():
     print('Copying {} to {}'.format(heads_file_loc, dst_loc))
     copyfile(heads_file_loc, dst_loc)
 
-    for i in range(2):
+    for i in range(300):
         run_params = {
             "model_folder": model_folder,
             "data_folder": data_folder,
@@ -486,10 +482,10 @@ def main():
         }
 
         swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads, modflow_model = run(**run_params)
-        print("swgw_exchanges", swgw_exchanges)
-        print("avg_depth_to_gw", avg_depth_to_gw)
-        print("ecol_depth_to_gw", ecol_depth_to_gw)
-        print("trigger_heads", trigger_heads)
+        # print("swgw_exchanges", swgw_exchanges)
+        # print("avg_depth_to_gw", avg_depth_to_gw)
+        # print("ecol_depth_to_gw", ecol_depth_to_gw)
+        # print("trigger_heads", trigger_heads)
     # end for
     return modflow_model
 
