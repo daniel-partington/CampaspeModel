@@ -23,7 +23,7 @@ install:
   # Create and set conda environment
   #- conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
   - conda env create python=$TRAVIS_PYTHON_VERSION --file dev_linux_env.yml
-  - source activate gwdev
+  - conda activate gwdev
   #test-environment
   - python setup.py install
 
