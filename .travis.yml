@@ -22,6 +22,7 @@ before_install:
 
 install:
   # Create and set conda environment
+  - source "$HOME"/miniconda/bin/activate root
   - conda env create python=$TRAVIS_PYTHON_VERSION -n gwdev --file dev_linux_env.yml
   - source activate gwdev
 
@@ -31,7 +32,6 @@ install:
   #test-environment
   - python setup.py install
 before_script:
-  # - source activate gwdev
   - cd CampaspeModel/tests
 script:
   - python build_exes.py
