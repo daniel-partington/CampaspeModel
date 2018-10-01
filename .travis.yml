@@ -25,6 +25,8 @@ install:
   - source "$HOME"/miniconda/bin/activate root
   - conda env create python=$TRAVIS_PYTHON_VERSION -n gwdev --file dev_linux_env.yml
   - source activate gwdev
+  - unset CONDA_ENV_PATH # because the older conda in miniconda sets this, confusing some tests
+  - export PATH=`echo "$PATH" | sed -e s@"$HOME"/miniconda/bin:@@g`
 
   # Install mfnwt and mt3d-usgs
   - pip install https://github.com/modflowpy/pymake/zipball/master
