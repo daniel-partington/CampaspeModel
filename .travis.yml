@@ -28,8 +28,10 @@ install:
   # Install mfnwt and mt3d-usgs
   - pip install https://github.com/modflowpy/pymake/zipball/master
 
-  #test-environment
+  # Install python package
+  - cd CampaspeModel
   - python setup.py install
+  - cd ..
 before_script:
   # - source activate gwdev
   - cd CampaspeModel/tests
