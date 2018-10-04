@@ -32,9 +32,7 @@ install:
   - pip install https://github.com/modflowpy/pymake/zipball/master
 
   # Install python package
-  - cd CampaspeModel
-  - python setup.py install
-  - cd ..
+  - python setup.py install -v
 before_script:
   - cd CampaspeModel/tests
 script:
