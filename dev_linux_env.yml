@@ -43,6 +43,7 @@ dependencies:
   - gdal=2.2.2
   - requests=2.18.3
   - xlrd=1.0.0
+  - pytest=3.5.1
   - pysal=1.13.0
   - pip:
     - backports-abc==0.5
