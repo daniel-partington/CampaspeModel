@@ -25,7 +25,6 @@ install:
   - source "$HOME"/miniconda/bin/activate root
   - conda env create python=$TRAVIS_PYTHON_VERSION -n gwdev --file dev_linux_env.yml
   - source activate gwdev
-  - python --version  # output the python in use
   - unset CONDA_ENV_PATH # because the older conda in miniconda sets this, confusing some tests
   - export PATH=`echo "$PATH" | sed -e s@"$HOME"/miniconda/bin:@@g`
 
@@ -33,7 +32,7 @@ install:
   - pip install https://github.com/modflowpy/pymake/zipball/master
 
   # Install python package
-  - python setup.py install -v
+  - python setup.py install
 before_script:
   - cd CampaspeModel/tests
 script:
