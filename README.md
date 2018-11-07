@@ -1,6 +1,6 @@
 # CampaspeModel
 
-CampaspeModel is a MODFLOW-based groundwater model generated with the help of [HydroModelBuilder](https://github.com/daniel-partington/HydroModelBuilder).
+CampaspeModel comprises a series of MODFLOW-based surface water-groundwater [models](https://github.com/daniel-partington/CampaspeModel/tree/master/CampaspeModel/models) generated with the help of [HydroModelBuilder](https://github.com/daniel-partington/HydroModelBuilder).
 It was developed for the Lower Campaspe catchment in Victoria, Australia.
 
 ## Development setup
