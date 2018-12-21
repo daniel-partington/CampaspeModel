@@ -1,7 +1,7 @@
 # CampaspeModel
 
 CampaspeModel comprises a series of MODFLOW-based surface water-groundwater [models](https://github.com/daniel-partington/CampaspeModel/tree/master/CampaspeModel/models) generated with the help of [HydroModelBuilder](https://github.com/daniel-partington/HydroModelBuilder).
-It was developed for the Lower Campaspe catchment in Victoria, Australia.
+It was developed for the Lower [Campaspe](https://www.mdba.gov.au/discover-basin/catchments/campaspe) catchment in Victoria, Australia.
 
 ## Development setup
 We use the Anaconda Python Distribution to ensure consistent runtime environments.
