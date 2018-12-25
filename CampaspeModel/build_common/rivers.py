@@ -13,6 +13,9 @@ def find_layer(elev, col_vals):
             else:
                 return index - 1
             # end if
+        else:
+            pass
+            #print "Elevation below bottom layer, error in mapping!"
         # end if
     # end for
 
@@ -689,10 +692,10 @@ def prepare_river_data_for_murray(model_builder_object,
                 method='values', limit_direction='both').tolist()
             mriver_seg[column].fillna(method='bfill', inplace=True)
     
-    values_from_gauge('stage_from_gauge', 'Mean stage (m)', interp=False)
+    values_from_gauge('stage_from_gauge', 'Mean stage (m)', interp=True)
     
     # Setup the Murray river bed level from the zero gauge data
-    values_from_gauge('bed_from_gauge', 'new_gauge', interp=False)        
+    values_from_gauge('bed_from_gauge', 'new_gauge', interp=True)        
 
     # Find the offset between the strtop from elevation data to help inform bed levels 
     # where gauge data isn't present
@@ -734,7 +737,7 @@ def prepare_river_data_for_murray(model_builder_object,
     active = []
     surface_layers = {}
     bottom_layer = []
-    
+   
     for row in mriver_seg.iterrows():
         j_mesh = int(row[1]['i'])
         i_mesh = int(row[1]['j'])
