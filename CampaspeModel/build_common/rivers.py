@@ -401,7 +401,7 @@ def create_segment_data_transient(model_builder_object,
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
     # There are three types of diversion, input to the Campaspe for which there
-    # is data.
+    # are data.
     #
     # 1. Private diversions which can be broken into three reaches:
     #       a. Eppalock to Campaspe Weir (406207 to 406203)

@@ -98,14 +98,37 @@ def forecast_names(pst_df):
     forecasts_df.loc[unique_null, 'unique_name'] = forecasts_df.loc[unique_null, 'obgnme']        
     return forecasts_df
         
-def load_pest_file_and_jacobian_into_Schur(model_folder, forecasts=None):
+def adjust_potential_by_existing(pst, pot_existing_map={'shshal':['head1', 'head3'], 'shdeep':['head5', 'head6'],
+     'st_sim':['stage'], 'fl_sim':['gflow'],
+     'c14shal':['c14'], 'c14deep':['c14'], 'rn_sim':['radon'],
+     'ec_sim':['gstrec', 'fstrec']}):    
+    
+    for pot in pot_existing_map:
+        pst.observation_data.loc[pst.observation_data['obgnme'] == pot, 'weight'] = \
+            np.array([pst.observation_data[pst.observation_data['obgnme'] == exist]['weight'].mean() for exist in pot_existing_map[pot]]).mean()
+    print pst.observation_data
+    return pst
+
+def load_pest_file_and_jacobian(model_folder, res_file=None):
     jco = os.path.join(model_folder, "pest_emu.jco")
     pst_file = jco.replace(".jco", ".pst")
-    unc_file = jco.replace(".jco", ".unc")
+    #unc_file = jco.replace(".jco", ".unc")
     unix2dos(pst_file)
     # SETUP PST OBJECT
     pst = pyemu.Pst(pst_file)             
 
+    if res_file:
+        pst.observation_data.loc[pst.observation_data['obgnme'] == 'radon', 'weight'] = 20.
+        pst.adjust_weights_resfile(resfile=os.path.join(model_folder, res_file))
+        pst = adjust_potential_by_existing(pst)
+        
+    return jco, pst
+        
+def load_pest_file_and_jacobian_into_Schur(model_folder, forecasts=None, res_file=None, pst_obj=None):         
+    
+    if not pst_obj:
+        jco, pst = load_pest_file_and_jacobian(model_folder, res_file=res_file)
+        
     if forecasts:
         # force weights of forecasts to 0
         pst.observation_data.loc[pst.observation_data.index.isin(forecasts), 'weight'] = 0.0
@@ -122,7 +145,7 @@ def perc_red(df, mode):
            lambda x:(1 - x / df.loc["base", :]) * 100., axis=1)             
     elif mode == 'subtract':
         df_perc = df[~df.index.isin(['base', 'nrf_m'])].apply(
-           lambda x:((x - df.loc["base", :]) / df.loc["base", :]) * 100., axis=1)             
+           lambda x:(x - df.loc["base", :]) / df.loc["base", :] * 100., axis=1)             
     else:
         print "Mode not recognised, try 'add' or 'subtract'"
 
@@ -308,6 +331,20 @@ def process_combos(la, combo_obs_dict, obs_groups_name, reset_col_names_by_obgnm
        .apply(lambda x:(1 - x / df_worth_add_combo_unc.loc["base", :]) * 100., axis=1)
     df_unc_perc_add_combo = df_unc_perc_add_combo[df_unc_perc_add_combo.index != 'base']
     return df_worth_add_combo, df_worth_add_combo_unc, df_unc_perc_add_combo
+
+def process_combos_remove(la, combo_obs_dict, obs_groups_name, reset_col_names_by_obgnme=True):    
+    df_worth_remove_combo = la.get_removed_obs_importance(obslist_dict=combo_obs_dict)
+    if reset_col_names_by_obgnme:
+        forecasts_df = forecast_names(la.pst.observation_data)
+        df_worth_remove_combo.columns = [forecasts_df.loc[x, 'unique_name'] for x in df_worth_remove_combo.columns]
+    # end if
+    df_worth_remove_combo = df_worth_remove_combo.reindex([
+                   "base"] + obs_groups_name)
+    df_worth_remove_combo_unc = df_worth_remove_combo.apply(np.sqrt)
+    df_unc_perc_remove_combo = df_worth_remove_combo_unc[~df_worth_remove_combo_unc.index.isin(['nrf_m'])] \
+       .apply(lambda x:((x - df_worth_remove_combo_unc.loc["base", :]) / df_worth_remove_combo_unc.loc["base", :]) * 100., axis=1)
+    df_unc_perc_remove_combo = df_unc_perc_remove_combo[df_unc_perc_remove_combo.index != 'base']
+    return df_worth_remove_combo, df_worth_remove_combo_unc, df_unc_perc_remove_combo
     
 def plot_combos(obs_interest):
     plt.figure()
@@ -766,7 +803,7 @@ def mega_plot_river_predunc_red_month_axes(select_months, df, pst_df, names,
     for index, select_month in enumerate(select_months):
         month_num = 32 - 11 + select_month
         exchange = sfr_df[sfr_df['time'] == month_num].reset_index(
-                    range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen'] * sfr_seg['width2']).tolist()
+                    range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen']).tolist() # * sfr_seg['width2']).tolist()
         c = np.array(sfr_df[sfr_df['time'] == month_num].reset_index(
                     range(sfr_df.shape[0]))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
         if index == 0:
@@ -848,7 +885,7 @@ def mega_plot_river_predunc_red_month_axes(select_months, df, pst_df, names,
         ax = axes[1]
         month_num = 32 - 11 + select_month
         exchange = sfr_df[sfr_df['time'] == month_num].reset_index(
-                    range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen'] * sfr_seg['width2']).tolist()
+                    range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen']).tolist() # * sfr_seg['width2']
         c = np.array(sfr_df[sfr_df['time'] == month_num].reset_index(
                     range(sfr_df.shape[0]))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
 #        max_val = np.max(c)
@@ -863,7 +900,7 @@ def mega_plot_river_predunc_red_month_axes(select_months, df, pst_df, names,
         ax.axhline(0.0, linestyle='--', color='grey', alpha=0.8, linewidth=1)
 
         sfr_df.loc[:, 'Cumulative Length (km)'] = sfr_df['Cumulative Length'] / 1000.
-        sfr_df['Qaquifer_adj'] = sfr_df['Qaquifer'] / (sfr_df['rchlen'] * sfr_df['width'])
+        sfr_df['Qaquifer_adj'] = sfr_df['Qaquifer'] / (sfr_df['rchlen']) # * sfr_df['width'])
         sfr_df_mean = sfr_df.groupby('Cumulative Length').mean()
         #for t in sfr_df['time'].unique()[10:]:
         #    df_t = sfr_df[sfr_df['time'] == t]
@@ -875,7 +912,7 @@ def mega_plot_river_predunc_red_month_axes(select_months, df, pst_df, names,
         ax.axvline(73.4, linestyle='-', color='black', alpha=0.3, linewidth=1.0)
         ax.set_xlabel('Distance from lake Eppalock (km)')
         ax.set_xlim((0, 143))
-        ax.set_ylabel('Exchange (m/d)')
+        ax.set_ylabel('Exchange (m$^2$/d)')
         #ax.text(0.8, 0.8, 'Losing', color='red', #horizontalalignment='center',
         #     transform=ax.transAxes)
         #ax.text(0.8, 0.1, 'Gaining', color='blue', #horizontalalignment='center',
@@ -907,7 +944,7 @@ def plot_SWGW_exchange(sfr_df, ax=None, show_gauges=False, fontsize=8,
                        alpha=0.5):
     
     sfr_df.loc[:, 'Cumulative Length (km)'] = sfr_df['Cumulative Length'] / 1000.
-    sfr_df['Qaquifer_adj'] = sfr_df['Qaquifer'] / (sfr_df['rchlen'] * sfr_df['width'])
+    sfr_df['Qaquifer_adj'] = sfr_df['Qaquifer'] / (sfr_df['rchlen'])# * sfr_df['width'])
     sfr_df_mean = sfr_df.groupby('Cumulative Length').mean()
     if not ax:
         if colour_dict is None:
@@ -938,7 +975,7 @@ def plot_SWGW_exchange(sfr_df, ax=None, show_gauges=False, fontsize=8,
     #ax2.axvline(74.4, color='black')
     ax.plot(sfr_df_mean['Cumulative Length (km)'], sfr_df_mean['Qaquifer_adj'], color='black', linestyle='-', alpha=1.0)
     ax.set_xlim(0, 141)    
-    ax.set_ylabel('SW-GW exchange [m/d]', fontsize=fontsize)
+    ax.set_ylabel('SW-GW exchange [m$^2$/d]', fontsize=fontsize)
     ax.set_xlabel('Distance from Lake Eppalock (km)', fontsize=fontsize)
     ax.tick_params(labelsize=fontsize)#ax2.set_xlim(0, 140)    
     if show_gauges:
@@ -1406,18 +1443,18 @@ if __name__ == '__main__':
     p_j = os.path.join
 
     model_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST1000\HPC_Feb2018"
-    save_folder = p_j(model_folder, r"original")
+    save_folder = p_j(model_folder, r"adjust")
     observations_folder = r"C:\Workspace\part0075\MDB modelling\testbox\PEST1000\master\model_02_transient_flow"
     pst_file = "pest_emu.pst"
     os.chdir(model_folder)    
-    
+
     # To recalculate for the spatio analysis
     force_recalc = False
-    
+
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
     # end if
-    
+
     obs_colour_map={'head':'#1b9e77',
                     'stage':'#d95f02',
                     'flow':'#7570b3',
@@ -1431,9 +1468,9 @@ if __name__ == '__main__':
                     'radon':'o',
                     'c14':'*',
                     'EC':'P'}
-                    
+
     # Some useful bits from the simulation outputs
-    
+
     field_sampling = [datetime.datetime(2016,03,31),
                   datetime.datetime(2016,12,31),
                   datetime.datetime(2017,04,30)]
@@ -1469,6 +1506,7 @@ if __name__ == '__main__':
     qual_codes_to_ignore = [8, 9, 21, 100, 101, 120, 149, 150, 151, 152,
                                 153, 154, 155, 156, 160, 161, 165, 180, 190,
                                 200, 201, 237, 250, 254, 255]
+
     Eppalock_inflow = Eppalock_inflow[~Eppalock_inflow['Qual'].isin(qual_codes_to_ignore)]
 
     flow_high_quantile = 0.8
@@ -1481,7 +1519,7 @@ if __name__ == '__main__':
     Eppalock_inflow_monthly.loc[(Eppalock_inflow_monthly['Mean'] < q_lower).tolist(), 'flow_group'] = 'low'
     Eppalock_inflow_monthly.loc[(Eppalock_inflow_monthly['Mean'] > q_upper).tolist(), 'flow_group'] = 'high'
     Eppalock_inflow_monthly.loc[pd.isnull(Eppalock_inflow_monthly['flow_group']), 'flow_group'] = 'regular'
-                                
+
     flow_type_colours = {'low':'orangered', 'high':'dodgerblue', 'regular':'mediumseagreen'}                                
     #flow_type_colours = {'low':'#a1dab4', 'high':'#2c7fb8', 'regular':'#41b6c4'}                                
     Eppalock_inflow_monthly.loc[:, 'colour'] = Eppalock_inflow_monthly.apply(lambda x: flow_type_colours[x['flow_group']], axis=1)
@@ -1575,7 +1613,7 @@ if __name__ == '__main__':
         'kutb': [],
         'klta': [],
         'kbse': [],
-                  }           
+                  }
     #--------------------------------------------------------------------------
     #--------------------------------------------------------------------------
     #--------------------------------------------------------------------------
@@ -1588,11 +1626,12 @@ if __name__ == '__main__':
     pyEMU time ...
     '''    
     
-    la = load_pest_file_and_jacobian_into_Schur(model_folder)
+    la = load_pest_file_and_jacobian_into_Schur(model_folder, res_file='pest.rei.11')
+    #la2 = load_pest_file_and_jacobian_into_Schur(model_folder, res_file='pest.rei.11')
     forecasts_df = forecast_names(la.pst.observation_data)
     forecasts_df.loc[:, 'var'] = [la.posterior_forecast[row] for row in forecasts_df.index]
     forecasts_df.loc[:, 'unc'] = forecasts_df['var'].apply(np.sqrt)
-
+    
     # Adjustment of weights based on PEST run:
     
 #    observation_data = la.pst.observation_data        
@@ -1625,6 +1664,7 @@ if __name__ == '__main__':
     potential_data_ground = ['shshal', 'shdeep', 'c14shal', 'c14deep']
 
     df_worth, df_perc, df_worth_added, df_perc_add = compare_adding_and_subtraction_of_obs_groups(la)
+
     #plot_add_sub_comp(df_worth, df_perc, df_worth_added, df_perc_add)
 
     #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+
@@ -1637,21 +1677,85 @@ if __name__ == '__main__':
                        "c14", 
                        "radon", 
                        "ec",
-                       "all" 
+                       "all", 
+                       "less_h",
+                       "less_s",
+                       "less_f",
+                       "less_c14",
+                       "less_radon",
+                       "less_ec"
                        ]
     
     obs_groups_al = [
                   ['head1', 'head3', 'head5', 'head6'], 
-                  ['stage', 'fdepth'],
-                  ['gflow', 'fflow'], 
+                  ['stage'], #, 'fdepth'],
+                  ['gflow'], #, 'fflow'], 
                   ['c14'], 
                   ['radon'], 
-                  ['gstrec', 'fstrec'], 
-                  ['head1', 'head3', 'head5', 'head6', 'stage', 'fdepth', 'gflow', 'fflow', 'c14', 'radon', 'gstrec', 'fstrec']]
+                  ['gstrec'], #, 'fstrec'], 
+                  ['head1', 'head3', 'head5', 'head6', 'stage', 'gflow', 'c14', 'radon', 'gstrec'],
+                  ['stage', 'gflow', 'c14', 'radon', 'gstrec'],
+                  ['head1', 'head3', 'head5', 'head6', 'gflow', 'c14', 'radon', 'gstrec'],
+                  ['head1', 'head3', 'head5', 'head6', 'stage', 'c14', 'radon', 'gstrec'],
+                  ['head1', 'head3', 'head5', 'head6', 'stage', 'gflow', 'radon', 'gstrec'],
+                  ['head1', 'head3', 'head5', 'head6', 'stage', 'gflow', 'c14', 'gstrec'],
+                  ['head1', 'head3', 'head5', 'head6', 'stage', 'gflow', 'c14', 'radon']] # 'fdepth', 'fflow', , 'fstrec'
 
     combo_obs_dict_al = create_combos(la, obs_groups_name_al, obs_groups_al)
 
     df_worth_add_combo_al, df_worth_add_combo_unc_al, df_unc_perc_add_combo_al = process_combos(la, combo_obs_dict_al, obs_groups_name_al)
+
+    df_unc_perc_add_combo_al = df_unc_perc_add_combo_al.reindex([
+                       "h", 
+                       "less_h",
+                       "s",
+                       "less_s",
+                       "f", 
+                       "less_f",
+                       "c14", 
+                       "less_c14",
+                       "radon", 
+                       "less_radon",
+                       "ec",
+                       "less_ec",
+                       "all", 
+                       ])
+    
+    fig = plt.figure(figsize=(5, 3.5))
+    ax = fig.add_subplot(111)
+
+    box_vals = []
+    for i in ["h", "s", "f", "c14", "radon", "ec"]: 
+        box_vals += [df_unc_perc_add_combo_al.loc[i, :].tolist()]
+    arxe = ax.boxplot(box_vals, positions=list(np.array(range(1, 7, 1)) - 0.2), widths=0.4, patch_artist=True)
+    custom_boxplot(arxe, boxcol='silver', boxfillcol='silver', lw=1, 
+                   whiskcol='silver', capcol='silver', mediancol='black')
+
+#    box_vals = []
+#    for i in ["all"]: 
+#        box_vals += [df_unc_perc_add_combo_al.loc[i, :].tolist()]
+#    arxe = ax.boxplot(box_vals, positions=[7], widths=0.4, patch_artist=True)
+#    custom_boxplot(arxe, boxcol='black', boxfillcol='lightgrey', lw=1, 
+#                   whiskcol='black', capcol='black', mediancol='white')
+
+    box_vals = []
+    for i in ["less_h", "less_s", "less_f", "less_c14", "less_radon", "less_ec"]:
+        box_vals += [df_unc_perc_add_combo_al.loc[i, :].tolist()]
+    arxe = ax.boxplot(box_vals, positions=list(np.array(range(1, 7, 1)) + 0.2), widths=0.4, patch_artist=True)
+    custom_boxplot(arxe, boxcol='teal', boxfillcol='teal', lw=1, 
+                   whiskcol='teal', capcol='teal', mediancol='black')
+
+    [df_unc_perc_add_combo_al.loc[i, :].tolist()]
+    
+    ax.set_ylim(0, 100) 
+    ax.set_xlim(0.4, 7.3) 
+    ax.set_xticks(range(1,8,1))
+    ax.set_yticklabels([0, 20, 40, 60, 80, 100], fontsize=10)
+    ax.set_xticklabels(["Head", "Stage", "Flow", "$^{14}$C", "$^{222}$Rn", "EC", "All"], fontsize=10)
+    ax.set_ylabel("% change in predictive uncertainty\n for SW-GW exchange", fontsize=10)
+    fig.subplots_adjust(bottom=0.08, left=0.18, right=0.95, top=0.92, hspace=0.45)
+    plt.savefig(os.path.join(save_folder, "With_or_without_data_type.png"), dpi=300)
+    
     ob_interest_al = 'nrf_a'
     #box_plot_for_the_punters(630., df_worth_add_combo_unc_al[df_worth_add_combo_unc_al.index != 'base'][ob_interest_al] * 365. / 1000000.)
 
@@ -1688,8 +1792,7 @@ if __name__ == '__main__':
     df_worth_add_combo, df_worth_add_combo_unc, df_unc_perc_add_combo = process_combos(la, combo_obs_dict, obs_groups_name)
     ob_interest = 'nrf_a'
     #box_plot_for_the_punters(630., df_worth_add_combo_unc[df_worth_add_combo_unc.index != 'base'][ob_interest] * 365. / 1000000.)
-
-
+    
     #fig = plt.figure(figsize=(4.92,3))
     #ticklabels_c = ("Head", "+ Stage", "+ Flow", "Hydraulic \n+ $^{14}$C",
     #                "Hydraulic \n+ $^{222}$Rn", "Hydraulic \n+ EC", "All data")
@@ -1730,7 +1833,7 @@ if __name__ == '__main__':
     #df_unc_perc_add_combo['nrf_a']
     #df_unc_perc_add_combo_al.transpose().plot(kind='box')
 
-    # Combined plot of individual and cumualtive 
+    # Combined plot of individual and cumulative 
     def plot_boxplot_points(df, ax, annual_color, pred_categories, 
                             pred_flow_types, pred_colours, pred_exchange,
                             marker_dict_predtype, markerfill_dict_predtype, alpha,
@@ -1821,7 +1924,6 @@ if __name__ == '__main__':
                     ax.scatter(x=x_cat_ind4, y=y_cat_ind4, marker='*', 
                             s=10, linewidths=0.7, c='blue', alpha=alpha, 
                             zorder=2)   
-                
 
     def combined_alone_and_combo_boxplots_for_select_preds(df_select_al, df_select, identifier, 
                                                        pred_categories,
@@ -2139,6 +2241,7 @@ if __name__ == '__main__':
     #
     ###########################################################################
     red_fac = 0.7
+    col_to_use = 'Qaquifer_lin'
     fig = plt.figure(figsize=(9., 8 * red_fac))  
     gs = gridspec.GridSpec(2, 3,
                        width_ratios=[0.85, 3, 0.1],
@@ -2150,21 +2253,21 @@ if __name__ == '__main__':
     plot_stream_reaches(m, ax1, x_offset=8000, c2=['teal', 'black'])
 
     heat = pd.DataFrame(columns=["r{}".format(x) for x in range(1, reaches + 1)] + ['nrf'], index=['Annual'] + months)
-    heat.loc['Annual', 'nrf'] = sfr_df_reaches_relevant.groupby(by='time').mean()['Qaquifer_lin2'].mean()
+    heat.loc['Annual', 'nrf'] = sfr_df_reaches_relevant.groupby(by='time').mean()[col_to_use].mean()
     for i in range(reaches):
         heat.loc['Annual', "r{}".format(i + 1)] = \
-             sfr_df_reaches_relevant[sfr_df_reaches_relevant['reach_dw'] == i]['Qaquifer_lin2'].mean()
+             sfr_df_reaches_relevant[sfr_df_reaches_relevant['reach_dw'] == i][col_to_use].mean()
     # end for 
     for i, m2 in enumerate(months):
         heat.loc[m2, 'nrf'] = \
-             sfr_df_reaches_relevant[sfr_df_reaches_relevant['time'] == 21 + i]['Qaquifer_lin2'].mean()
+             sfr_df_reaches_relevant[sfr_df_reaches_relevant['time'] == 21 + i][col_to_use].mean()
     # end for
     for i in range(reaches):
         for j, m2 in enumerate(months):
             sfr_df_reaches_relevant_reach = \
                  sfr_df_reaches_relevant[sfr_df_reaches_relevant['reach_dw'] == i]
             heat.loc[m2, "r{}".format(i + 1)] = \
-                 sfr_df_reaches_relevant_reach[sfr_df_reaches_relevant_reach['time'] == 21 + j]['Qaquifer_lin2'].mean()
+                 sfr_df_reaches_relevant_reach[sfr_df_reaches_relevant_reach['time'] == 21 + j][col_to_use].mean()
         # end for
     # end for
     heat = heat.astype(np.float64)
@@ -2187,7 +2290,11 @@ if __name__ == '__main__':
     cb1 = mpl.colorbar.ColorbarBase(ax3, cmap='seismic',
                                     norm=norm,
                                     orientation='vertical')
-    cb1.set_label('[m/d]')   
+    if col_to_use == 'Qaquifer_lin2':
+        cb1.set_label('[m/d]')   
+    if col_to_use == 'Qaquifer_lin':
+        cb1.set_label('[m$^2$/d]')   
+
     cb1.outline.set_visible(False)
     ax4 = plt.subplot(gs[4])
     
@@ -2234,205 +2341,6 @@ if __name__ == '__main__':
                        linewidth=2,
                        bbox_to_anchor=(1.0, 1),
                        alpha=0.5)
-
-    
-    #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+
-    # ANALYSE ALL COMBOS IN THE CONTEXT OF COST
-    
-    # Let's look at ALL combos for DATA additions
-
-    obs_groups_types = ['head', 'stage', 
-                        'flow', 'c14', 'radon', 
-                        'strec'] 
-    
-    obs_groups_types_map = {'head': ['head1', 'head3', 'head5', 'head6'], #, 'shshal', 'shdeep'], 
-                            'stage': ['stage'], #, 'st_sim'], 
-                            'flow': ['gflow'],#, 'fl_sim'], 
-                            'c14': ['c14'], #, 'c14shal', 'c14deep'], 
-                            'radon': ['radon'],#, 'rn_sim'], 
-                            'strec': ['gstrec']}#, 'ec_sim']}
-    
-    obs_groups_types_abbrev_map = {'head': 'h', 
-                                    'stage': 's', 
-                                    'flow': 'f', 
-                                    'c14': 'c', 
-                                    'radon': 'r', 
-                                    'strec': 'e'}
-    
-    obs_combos_df = all_combos(la, obs_groups_types, obs_groups_types_map, obs_groups_types_abbrev_map) 
-    
-    obs_costs = {'base':0,
-                 'h':100,
-                 'sh':100,
-                 'dh':100,
-                 'f':100,
-                 's':40,
-                 'e':10,
-                 'r':170,
-                 'c':577
-                 }
-    
-    obs_costs_unc = {'base':0,
-                     'h':60,
-                     'sh':60,
-                     'dh':60,
-                     'f':80,
-                     's':30,
-                     'e':5,
-                     'r':50,
-                     'c':200
-                     }
-    
-    obs_map =   {'h':'Head',
-                 'f':'Flow',
-                 's':'Stage',
-                 'e':'EC',
-                 'r':'$^{222}$Rn',
-                 'c':'$^{14}$C'
-                 }
-                 
-    combo_df = obs_combos_df
-    combo_df_percred = perc_red_unc(combo_df, 'add')
-    combo_df = combo_df.apply(np.sqrt)
-    combo_df = combo_df[combo_df.index != 'base']
-    combo_df.loc[:, 'cost'] = combo_df.apply(get_cost, axis=1)
-    combo_df.loc[:, 'cost_unc'] = combo_df.apply(get_cost_unc, axis=1)
-
-    combo_df_percred.loc[:, 'cost'] = combo_df.apply(get_cost, axis=1)
-    combo_df_percred.loc[:, 'cost_unc'] = combo_df.apply(get_cost_unc, axis=1)
-    
-    combo_df_lite = combo_df
-    combo_cost_unc_plot(combo_df_lite, 'nrf_a')
-
-    combo_df_lite_percred = combo_df_percred
-    combo_cost_unc_plot(combo_df_lite_percred, 'nrf_a')
-    
-    # Let's look at clustering the combos by uncertainty and cost using
-    # unsupervised machine learning via K-means clustering
-    clusters = 12
-    combo_df_pred, combo_df_grouped = cluster_combos_kmeans(combo_df, obs_map, clusters=clusters, normalise=False)
-    scatter_unc_cost(combo_df_pred, combo_df_grouped, clusters=clusters, method='sklearn', 
-                     title="", xax_title="Annual whole of river SW-GW exchange uncertainty [m$^3$/d]")
-#    clusters = 20
-#    combo_df_pred_percred, combo_df_grouped_percred = cluster_combos_kmeans(combo_df_percred, obs_map, clusters=clusters, normalise=True)
-#    scatter_unc_cost(combo_df_pred_percred, combo_df_grouped_percred, 
-#                     clusters=clusters, method='sklearn',
-#                     title="", append_text='perc', xlim=(90.0, 65.0), 
-#                     ylim=(0,500),
-#                     xax_title="SW-GW exchange uncertainty reduction [%]")
-    
-    #combo_df_pred2, combo_df_grouped2 = cluster_combos_dbscan(combo_df, eps=5000, min_samples=2)
-    #scatter_unc_cost(combo_df_pred2, combo_df_grouped2, method='DBSCAN')
-
-#    #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+
-#    # ANALYSE ALL COMBOS IN THE CONTEXT OF COST
-#    
-#    # Let's look at ALL combos for DATA additions
-#
-#    obs_groups_types_p = ['head', 'stage', 
-#                        'flow', 'c14', 'radon', 
-#                        'strec'] 
-#    
-#    obs_groups_types_map_p = {'head': ['head1', 'head3', 'head5', 'head6', 'shshal', 'shdeep'], 
-#                            'stage': ['stage', 'st_sim'], 
-#                            'flow': ['gflow', 'fl_sim'], 
-#                            'c14': ['c14','c14shal', 'c14deep'], 
-#                            'radon': ['radon', 'rn_sim'], 
-#                            'strec': ['gstrec', 'ec_sim']}
-#    
-#    obs_groups_types_abbrev_map_p = {'head': 'h', 
-#                                    'stage': 's', 
-#                                    'flow': 'f', 
-#                                    'c14': 'c', 
-#                                    'radon': 'r', 
-#                                    'strec': 'e'}
-#    
-#    obs_combos_df_p = all_combos(la, obs_groups_types_p, obs_groups_types_map_p, obs_groups_types_abbrev_map_p) 
-#        
-#    obs_map_p = {'h':'Head',
-#                 'f':'Flow',
-#                 's':'Stage',
-#                 'e':'EC',
-#                 'r':'$^{222}$Rn',
-#                 'c':'$^{14}$C'
-#                 }
-#                 
-#    combo_df_p = obs_combos_df_p
-#    combo_df_p = combo_df_p[combo_df_p.index != 'base']
-#    combo_df_p = combo_df_p.apply(np.sqrt)
-#    combo_df_p.loc[:, 'cost'] = combo_df_p.apply(get_cost, axis=1)
-#    combo_df_p.loc[:, 'cost_unc'] = combo_df_p.apply(get_cost_unc, axis=1)
-#    
-#    combo_df_lite_p = combo_df_p
-#    combo_cost_unc_plot(combo_df_lite_p, 'nrf_a',
-#                        fname='Bar_unc_vs_cost_{}_potential',
-#                        ax_text='h=head \ns=stage \nf=flow \ne=ec \nr=radon \nc=$^{14}$C')
-#    
-#    # Let's look at clustering the combos by uncertainty and cost using
-#    # unsupervised machine learning via K-means clustering
-#    clusters = 10
-#    combo_df_pred_p, combo_df_grouped_p = cluster_combos_kmeans(combo_df_p, obs_map_p, clusters=clusters, normalise=False)
-#    scatter_unc_cost(combo_df_pred_p, combo_df_grouped_p, clusters=clusters, method='sklearn',
-#                     title="Data worth (potential data) for SW-GW exchange in the Campaspe River",
-#                     append_text="_potential", xlim=(2500, 24000))
-#
-#    #combo_df_pred2, combo_df_grouped2 = cluster_combos_dbscan(combo_df, eps=5000, min_samples=2)
-#    #scatter_unc_cost(combo_df_pred2, combo_df_grouped2, method='DBSCAN')    
-#
-#    #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+
-#    # ANALYSE ALL COMBOS IN THE CONTEXT OF COST
-#    
-#    # Let's look at ALL combos for DATA additions
-#
-#    obs_groups_types_h = ['shallow head', 'deep head', 'stage', 
-#                        'flow', 'c14', 'radon', 
-#                        'strec'] 
-#    
-#    obs_groups_types_map_h = {'shallow head': ['head1', 'head3'], 
-#                            'deep head':  ['head5', 'head6'], 
-#                            'stage': ['stage'], 
-#                            'flow': ['gflow'], 
-#                            'c14': ['c14'], 
-#                            'radon': ['radon'], 
-#                            'strec': ['gstrec']}
-#    
-#    obs_groups_types_abbrev_map_h = {'shallow head': 'sh', 
-#                                    'deep head': 'dh',
-#                                    'stage': 's', 
-#                                    'flow': 'f', 
-#                                    'c14': 'c', 
-#                                    'radon': 'r', 
-#                                    'strec': 'e'}
-#    
-#    obs_combos_df_h = all_combos(la, obs_groups_types_h, obs_groups_types_map_h, obs_groups_types_abbrev_map_h) 
-#    
-#    obs_map_h = {'sh':'Shallow Head',
-#                 'dh':'Deep Head',
-#                 'f':'Flow',
-#                 's':'Stage',
-#                 'e':'EC',
-#                 'r':'$^{222}$Rn',
-#                 'c':'$^{14}$C'
-#                 }
-#                 
-#    combo_df_h = obs_combos_df_h
-#    combo_df_h = combo_df_h[combo_df_h.index != 'base']
-#    combo_df_h = combo_df_h.apply(np.sqrt)
-#    combo_df_h.loc[:, 'cost'] = combo_df_h.apply(get_cost, axis=1)
-#    combo_df_h.loc[:, 'cost_unc'] = combo_df_h.apply(get_cost_unc, axis=1)
-#    
-#    combo_df_lite_h = combo_df_h
-#    combo_cost_unc_plot(combo_df_lite_h, 'nrf_a',
-#                        fname='Bar_unc_vs_cost_{}_head_split',
-#                        ax_text='sh=shallow head \ndh=deep head \ns=stage \nf=flow \ne=ec \nr=radon \nc=$^{14}$C')
-#    
-#    # Let's look at clustering the combos by uncertainty and cost using
-#    # unsupervised machine learning via K-means clustering
-#    clusters = 14
-#    combo_df_pred_h, combo_df_grouped_h = cluster_combos_kmeans(combo_df_h, obs_map_h, clusters=clusters, normalise=True)
-#    scatter_unc_cost(combo_df_pred_h, combo_df_grouped_h, clusters=clusters, method='sklearn',
-#                     title="Data worth (existing data) for SW-GW exchange in the Campaspe River",
-#                     append_text="_head_split", xlim=(5000, 25000))
 
     #_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+
     # Potential Observations
@@ -2609,7 +2517,7 @@ if __name__ == '__main__':
                                  'h_s_f_c14_diff': 'Hydraulic + $^{14}$C',
                                  'h_s_f_radon_diff': 'Hydraulic + $^{222}$Rn',
                                  'h_s_f_stream_ec_diff': 'Hydraulic + EC'}
-                                 
+
     #df_worth_add_combo_unc_filter2 = df_unc_perc_add_combo2[month_and_annual] 
     #df_worth_add_combo_unc_filter2 = df_worth_add_combo_unc_filter2[df_worth_add_combo_unc_filter2.index != 'base']
     #df_worth_add_combo_unc_filter2 = df_worth_add_combo_unc_filter2.loc[[col for col in df_worth_add_combo_unc_filter2.index if 'new' in col], :]    
@@ -2643,8 +2551,7 @@ if __name__ == '__main__':
                                       title_prefix='Improvement in reduction from existing to potential: ',
                                       cbar_label='[% difference]'
                                       )
-    
-    
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
@@ -2668,19 +2575,19 @@ if __name__ == '__main__':
         pst_df[pst_df['obgnme'].isin(
             potential_data_stream)].shape[0] * 3.5 / 3600.))
 
-    if os.path.exists('All_potential_data_stream.csv') and not force_recalc:
-        stream_pot_obs = pd.read_csv('All_potential_data_stream.csv', index_col=0)
+    if os.path.exists(os.path.join(save_folder, 'All_potential_data_stream.csv')) and not force_recalc:
+        stream_pot_obs = pd.read_csv(os.path.join(save_folder, 'All_potential_data_stream.csv'), index_col=0)
     else:
         stream_pot_obs = la.get_added_obs_importance(
             {ob:[ob] for ob in pst_df[pst_df['obgnme'].isin(potential_data_stream)].index.tolist()})
-        stream_pot_obs.to_csv('All_potential_data_stream.csv')
-    
+        stream_pot_obs.to_csv(os.path.join(save_folder, 'All_potential_data_stream.csv'))
+
     stream_pot_obs_unc = stream_pot_obs[~stream_pot_obs.index.isin(['base'])].apply(
         lambda x:(1 - x / stream_pot_obs.loc["base", :]) * 100., axis=1)
 
     river_seg = pd.read_csv('river_top.csv')
     riv_pp_df = pd.read_csv('river_pp.csv')
-    
+
     #for stream_ob_type in potential_data_stream:
     #    mega_plot_river_predunc_red(stream_pot_obs_unc, pst_df, stream_ob_type, 'ob3454', v_bounds=(0, 25))
 
@@ -2693,7 +2600,7 @@ if __name__ == '__main__':
     pd.DataFrame.cumsum(sfr_orig)['rchlen'].tolist()
     sfr_orig.loc[:, 'Cumulative Length'] = pd.DataFrame.cumsum(sfr_orig)['rchlen']
     sfr_orig.loc[:, 'Cumulative Length km'] = pd.DataFrame.cumsum(sfr_orig)['rchlen'] / 1000.0
-    
+
     sfr_df.loc[:, 'x'] = [xul + col * delc for col in sfr_df['column']]
     sfr_df.loc[:, 'y'] = [yul - row * delr for row in sfr_df['row']]
     sfr_df.loc[:, 'Qaquifer_norm'] = \
@@ -2713,7 +2620,7 @@ if __name__ == '__main__':
             eoo_loc_used = eoo_loc[eoo_loc.index.isin([int(x) for x in eoo_ts['name'].unique()])]    
         except:
             eoo_loc_used = eoo_loc[eoo_loc.index.isin(eoo_ts['name'].unique())]    
-        eoo_loc_used = eoo_loc_used.sort_values('seg_loc')
+            eoo_loc_used = eoo_loc_used.sort_values('seg_loc')
         eoo_loc_used.loc[:, 'Cumulative Length km'] = \
             sfr_orig[sfr_orig['iseg'].isin(eoo_loc_used['seg_loc'])]['Cumulative Length km'].tolist()
         stream_ob_dic[stream_ob_type] = eoo_loc_used
@@ -2733,7 +2640,7 @@ if __name__ == '__main__':
                     'c14':'#e6ab02',
                     'fstrec':'#66a61e',
                     'gstrec':'#66a61e'}
-                    
+
     obs_marker_map={'head':'^',
                     'stage':'o',
                     'gflow':'o',
@@ -2766,7 +2673,7 @@ if __name__ == '__main__':
                    s=obs_size_map[key] * 0.5, lw=obs_lw_map[key])  
     ax.set_ylim(-0.5, 3.5)
     ax.set_xlim(0., 141)
-    ax.set_ylabel('Exisiting data')
+    ax.set_ylabel('Existing data')
     ax.set_yticks([k for k in range(4)])
     ax.set_yticklabels(['Stage', 'Flow', '$^{222}$Rn', 'EC'], minor=False, rotation=0)
     ax.set_xticklabels('')
@@ -2778,20 +2685,20 @@ if __name__ == '__main__':
 #        mega_plot_river_predunc_red_month(month, stream_pot_obs_unc, pst_df, 
 #                                          potential_data_stream, 'ob3454', 
 #                                          v_bounds=(0,25))
-    
+
     #select_months = [4, 5, 11] 
     select_months = [1, 4, 5] 
     mega_plot_river_predunc_red_month_axes(select_months, stream_pot_obs_unc, pst_df, 
                                            potential_data_stream, 'ob3454', sfr_df)    
-   
-    if os.path.exists('All_potential_data_ground.csv') and not force_recalc:
-        ground_pot_obs = pd.read_csv('All_potential_data_ground.csv', index_col=0)
+
+    if os.path.exists(os.path.join(save_folder, 'All_potential_data_ground.csv')) and not force_recalc:
+        ground_pot_obs = pd.read_csv(os.path.join(save_folder, 'All_potential_data_ground.csv'), index_col=0)
     else:
         ground_pot_obs = la.get_added_obs_importance(
             {ob:[ob] for ob in pst_df[pst_df['obgnme'].isin(potential_data_ground)].index.tolist()})
-        ground_pot_obs.to_csv('All_potential_data_ground.csv')
+        ground_pot_obs.to_csv(os.path.join(save_folder, 'All_potential_data_ground.csv'))
     # end if
-    
+
     ground_pot_obs_unc = ground_pot_obs[~ground_pot_obs.index.isin(['base'])].apply(
         lambda x:(1 - x / ground_pot_obs.loc["base", :]) * 100., axis=1)
 
@@ -2805,7 +2712,7 @@ if __name__ == '__main__':
     eho_deep_loc = eho_loc[eho_loc.index.isin(eho_ts_deep_bores)]
 
     observations.obs_group.keys()
-                           
+
     existing_c14_observations = observations.obs_group['C14']
     eco = existing_c14_observations
     eco_ts = eco['time_series']
@@ -2814,7 +2721,7 @@ if __name__ == '__main__':
     eco_ts_deep_bores = eco_ts[eco_ts['zone'].isin(['C145', 'C146'])]['name'].unique()
     eco_shal_loc = eco_loc[eco_loc.index.isin(eco_ts_shal_bores)]
     eco_deep_loc = eco_loc[eco_loc.index.isin(eco_ts_deep_bores)]
-                           
+
 
     shallow_xyz_dict = observations.obs_group['shshal']['locations']
     deep_xyz_dict = observations.obs_group['shdeep']['locations']
@@ -2894,16 +2801,15 @@ if __name__ == '__main__':
         fig.subplots_adjust(bottom=0.01, left=0.1, right=0.83, top=1.00, hspace=0.40, wspace=0.1)
         plt.savefig(p_j(save_folder, 'Potential_head_shallow_and_deep.png'), dpi=300)
 
-
 #    for date_of_interest in shallow_obs_ts['datetime'].unique():#[0]
 #        dfs = [shallow_obs_ts[shallow_obs_ts['datetime'] == date_of_interest],
 #               deep_obs_ts[deep_obs_ts['datetime'] == date_of_interest]]
 #        plot_ground_pot_obs_predunc(zone2D_info, 'Head', dfs, hgus, vlim=[0, 50])
-        
+
     #
     # C14 potential observations:
     #
-        
+
     hgus = [[0, 2], [4, 5]]
     #date_of_interest = '2017-05-31'
 
@@ -2924,7 +2830,7 @@ if __name__ == '__main__':
     c14_shallow_obs_ts['y_m'] = [yul - c14_shallow_xyz_dict[ob][1] * delr for ob in c14_shallow_obs_ts['name']]
     c14_deep_obs_ts['x_m'] = [xul + c14_deep_xyz_dict[ob][2] * delc for ob in c14_deep_obs_ts['name']]
     c14_deep_obs_ts['y_m'] = [yul - c14_deep_xyz_dict[ob][1] * delr for ob in c14_deep_obs_ts['name']]  
-        
+
     hgus = [[0, 2], [4, 5]]
     #date_of_interest = '2017-05-31'
     for date_of_interest in c14_shallow_obs_ts['datetime'].unique():
@@ -2964,8 +2870,8 @@ if __name__ == '__main__':
     sfr_df_pot_geo = geopandas.GeoDataFrame(sfr_df_pot, geometry='geometry')                        
     sfr_df_pot_geo.crs = {'init': 'epsg:28355'}                        
     sfr_df_pot_geo.to_file('stream_pot_locs.shp', driver='ESRI Shapefile')
-    
-    
+
+
     shallow_obs_pot = shallow_obs_ts.groupby(by='name').mean()        
     shallow_obs_pot.loc[:, 'geometry'] = shallow_obs_pot.apply(lambda x: Point(x.x_m, x.y_m), axis=1)
     shallow_obs_pot_geo = geopandas.GeoDataFrame(shallow_obs_pot, geometry='geometry')                        
@@ -2983,7 +2889,65 @@ if __name__ == '__main__':
 
     # next most important obs
 
-    #existing_obs_groups = ['head1', 'head3', 'head5', 'head6', 'stage', 'fdepth', 'gflow', 'fflow', 'c14', 'radon', 'gstrec', 'fstrec']
-    #next_most = la.next_most_important_added_obs(
-    #    forecast=pst_df[pst_df['obgnme'] == 'nrf_a']['obsnme'].tolist()[0], 
-    #    base_obslist=pst_df[pst_df['obgnme'].isin(existing_obs_groups)]['obsnme'].tolist())
+    obs_groups_name_pot = [
+                       "new_head_shallow",
+                       "new_head_deep",
+                       "new_stage",
+                       "new_flow", 
+                       "new_c14", 
+                       "new_radon", 
+                       "new_ec",
+                       ]
+                       
+    obs_groups_pot = [
+                  ['shshal'],
+                  ['shdeep'], 
+                  ['st_sim'],
+                  ['fl_sim'],
+                  ['c14shal', 'c14deep'], 
+                  ['rn_sim'], 
+                  ['ec_sim']]
+
+    combo_obs_dict_pot = create_combos(la, obs_groups_name_pot, obs_groups_pot)
+    
+    existing_obs_groups = ['head1', 'head3', 'head5', 'head6', 'stage', 'fdepth', 'gflow', 'fflow', 'c14', 'radon', 'gstrec', 'fstrec']
+    
+    if os.path.exists(os.path.join(save_folder, 'next_most_pot.csv')) and not force_recalc:
+        next_most = pd.read_csv(os.path.join(save_folder, 'next_most_pot.csv'), index_col=0)
+    else:
+        print("Calculating next most important obs to add")
+        next_most = la.next_most_important_added_obs(
+            forecast=pst_df[pst_df['obgnme'] == 'nrf_a']['obsnme'].tolist()[0], 
+            base_obslist=pst_df[pst_df['obgnme'].isin(existing_obs_groups)]['obsnme'].tolist(),
+            obslist_dict=combo_obs_dict_pot, niter=7)
+        next_most.to_csv(os.path.join(save_folder, 'next_most_pot.csv'))
+    # end if
+
+    potential_data_mod = [i for i in potential_data if i not in ['st_sim', 'c14shal', 'c14deep']]
+    pot_all_list = all_obs(potential_data_mod, la.pst.observation_data)
+    len(pot_all_list)
+    pot_all_dict = {x:x for x in pot_all_list} 
+    
+    if os.path.exists(os.path.join(save_folder, 'next_most_pot_all.csv')) and not force_recalc:
+        next_most2 = pd.read_csv(os.path.join(save_folder, 'next_most_pot_all.csv'), index_col=0)
+    else:
+        print("Calculating next most important obs to add")
+        next_most2 = la.next_most_important_added_obs(
+            forecast=pst_df[pst_df['obgnme'] == 'nrf_a']['obsnme'].tolist()[0], 
+            base_obslist=pst_df[pst_df['obgnme'].isin(existing_obs_groups)]['obsnme'].tolist(),
+            obslist_dict=pot_all_dict, niter=5)
+        next_most2.to_csv(os.path.join(save_folder, 'next_most_pot_all.csv'))
+    # end if
+
+    sfr_orig.loc[:, 'x_m'] = [xul + ob * delc for ob in sfr_orig['j']]
+    sfr_orig.loc[:, 'y_m'] = [yul - ob * delr for ob in sfr_orig['i']]
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, aspect='equal')
+    sfr_orig[['x_m', 'y_m']].plot(kind='scatter', x='x_m', y='y_m', ax=ax, )
+
+    for ob in next_most2.index:
+        data_type = la.pst.observation_data.loc[ob, 'obgnme']
+        seg = int(observations.obs_group['rn_sim']['time_series'][observations.obs_group['rn_sim']['time_series']['obs_map'] == ob]['name'].tolist()[0].replace(data_type, ''))
+        time = observations.obs_group['rn_sim']['time_series'][observations.obs_group['rn_sim']['time_series']['obs_map'] == ob]['interval'].tolist()[0]
+        ax.scatter(sfr_orig[sfr_orig['iseg'] == seg]['x_m'].tolist()[0], sfr_orig[sfr_orig['iseg'] == seg]['y_m'].tolist()[0], c='red')         

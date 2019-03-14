@@ -710,7 +710,7 @@ tr_model.observations.set_as_observations('radon',
                                           FieldData_info, 
                                           domain='stream', 
                                           obs_type='Radon', 
-                                          units='Bq/l', 
+                                          units='mBq/l', 
                                           weights=1.0, 
                                           real=True)
 
