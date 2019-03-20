@@ -118,3 +118,5 @@ testbox/integrated/data/structured_model_grid_1000m/
 testbox/integrated/data/structured_model_grid_5000m/
 
 \.pytest_cache/
+
+\.DS_Store
