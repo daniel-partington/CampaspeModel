@@ -18,7 +18,7 @@ dependencies:
   - libpng=1.6.34
   - matplotlib=2.1.2
   - openssl=1.0.2n
-  - more-itertools=4.1.0
+  - more-itertools=3.2.0
   - pandas=0.20.3
   - pip=9.0.1
   - pyparsing=2.2.0
@@ -43,7 +43,6 @@ dependencies:
   - gdal=2.2.2
   - requests=2.18.3
   - xlrd=1.0.0
-  - pytest=3.5.1
   - pysal=1.13.0
   - pip:
     - backports-abc==0.5

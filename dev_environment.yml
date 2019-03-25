@@ -17,7 +17,7 @@ dependencies:
 - jsmin=2.2.1
 - libpng=1.6.34
 - matplotlib=2.1.2
-- more-itertools=4.1.0
+- more-itertools=3.2.0
 - openssl=1.0.2n
 - pandas=0.20.3
 - pip=9.0.1
@@ -45,7 +45,6 @@ dependencies:
 - numpy=1.13.1
 - scipy=0.19.1
 - gdal=2.2.3
-- pytest=3.5.1
 - pip:
   - backports-abc==0.5
   - backports.functools-lru-cache==1.5
