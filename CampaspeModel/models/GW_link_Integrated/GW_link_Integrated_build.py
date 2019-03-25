@@ -178,10 +178,10 @@ def main():
     #@@@ CONSTRUCTION OF TIME PERIODS FOR MODEL @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-    start_time_interest = datetime.date(2000, 01, 01)
+    start_time_interest = datetime.date(2000, 1, 1)
 
     if forecast_run:
-        start, end = datetime.date(2014, 01, 01), datetime.date(2015, 01, 01)
+        start, end = datetime.date(2014, 1, 1), datetime.date(2015, 1, 1)
         frequencies = ['A']
         date_index = pd.date_range(start=start, end=end, freq=frequencies[0])
         date_group = [start, end]
@@ -198,7 +198,7 @@ def main():
         # 2000 - 2015 Monthly
         frequencies = ['A', 'M']
 
-        start, end = datetime.date(1980, 01, 01), datetime.date(2015, 01, 01)
+        start, end = datetime.date(1980, 1, 1), datetime.date(2015, 1, 1)
         date_index_start = pd.date_range(start=start, end=start_time_interest, freq=frequencies[0])
         date_index = date_index_start[:-1].append(pd.date_range(start=start_time_interest, end=end, freq=frequencies[1]))
         date_group = [start, start_time_interest, end]
