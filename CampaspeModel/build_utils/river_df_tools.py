@@ -107,6 +107,8 @@ def merge_collocated_stream_reaches(river_segment, max_length=3000.):
             rchlen_temp = river_seg_temp['rchlen']
             rchlen_sum = rchlen_temp.sum()
             rchlen_weights = rchlen_temp / rchlen_sum
+
+            # Is this is the same as `merging_reaches()` defined above?
             def weighted(col):
                 return (col * rchlen_weights).sum()
 

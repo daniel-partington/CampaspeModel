@@ -1,5 +1,6 @@
 import os
 
+import logging
 import numpy as np
 import pandas as pd
 
@@ -280,12 +281,22 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         print "************************************************************************"
         print "Load in the river shapefiles"
 
-    custom_data['Campaspe_river_poly_file'] = os.path.join(mbo.data_folder, "Waterways", "Campaspe_Riv.shp")
+    waterway_dir = os.path.join(mbo.data_folder, "Waterways")
+    custom_data['Campaspe_river_poly_file'] = os.path.join(
+        waterway_dir, "Campaspe_Riv.shp")
     custom_data['Campaspe_river_poly'] = mbo.read_poly(
-        "Campaspe_Riv.shp", path=os.path.join(mbo.data_folder, "Waterways"))
-    custom_data['Murray_river_poly_file'] = os.path.join(mbo.data_folder, "Waterways", "River_Murray.shp")
+        "Campaspe_Riv.shp", path=waterway_dir)
+    custom_data['Murray_river_poly_file'] = os.path.join(
+        waterway_dir, "River_Murray.shp")
     custom_data['Murray_river_poly'] = mbo.read_poly(
-        "River_Murray.shp", path=os.path.join(mbo.data_folder, "Waterways"))
+        "River_Murray.shp", path=waterway_dir)
+
+    # custom_data['Axe_creek_poly_file'] = os.path.join(waterway_dir, "Axe_creek.shp")
+    # custom_data['Axe_creek_poly'] = mbo.read_poly(
+    #     "Axe_creek.shp", path=waterway_dir)
+    # custom_data['MtPleasant_creek_poly_file'] = os.path.join(waterway_dir, "MtPleasant_creek.shp")
+    # custom_data['MtPleasant_creek_poly'] = mbo.read_poly(
+    #     "MtPleasant_creek.shp", path=waterway_dir)
 
     # This is disgusting, but works for now ... needs cleaning up through first testing
     # if raster is in the right projection and if not returning the name of the new
