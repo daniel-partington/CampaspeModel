@@ -3,16 +3,16 @@
     "environment": {
       "ti7004": {
         "grid_resolution": "5000m",
-        "model_folder": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/structured_model_grid_",
-        "data_folder": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/",
+        "model_folder": "/short/lq27/common/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/structured_model_grid_",
+        "data_folder": "/short/lq27/common/CampaspeProject/groundwater_scratch/devbox/integrated/data/forecast/",
         "param_file": "",
         "working_dir": "",
-        "mf_exe_folder": "/short/ws39/ti7004/CampaspeProject/CampaspeModel/CampaspeModel/mfnwt",
+        "mf_exe_folder": "/short/lq27/common/CampaspeProject/CampaspeModel/CampaspeModel/mfnwt",
         "model_build": {
-          "input_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
-          "data_build": "/short/ws39/ti7004/CampaspeProject/groundwater_scratch/data_build",
-          "campaspe_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
-          "temp_data": "/short/ws39/ti7004/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data"
+          "input_data": "/short/lq27/common/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "/short/lq27/common/CampaspeProject/groundwater_scratch/data_build",
+          "campaspe_data": "/short/lq27/common/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "/short/lq27/common/CampaspeProject/campaspeim_data/Groundwater/2017-08-21/GW_data"
         }
       },
       "fses\\takuyai": {
@@ -29,18 +29,18 @@
           "temp_data": "C:/UserData/takuyai/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data"
         }
       },
-      "taku-clevolap\\takuya": {
+      "nv01-t\\takuy": {
         "grid_resolution": "5000m",
-        "model_folder": "D:/windows_utils/ownCloud/CampaspeModel/testbox/integrated/data/structured_model_grid_",
-        "data_folder": "D:/windows_utils/ownCloud/CampaspeModel/testbox/integrated/data",
+        "model_folder": "C:/development/campaspe/groundwater/devbox/integrated/data/structured_model_grid_",
+        "data_folder": "C:/development/campaspe/groundwater/devbox/integrated/data",
         "param_file": "",
         "working_dir": "",
-        "mf_exe_folder": "D:/windows_utils/ownCloud/CampaspeModel/MODFLOW_NWT_64.exe",
+        "mf_exe_folder": "C:/programs/ownCloud/CampaspeModel/MODFLOW_NWT_64.exe",
         "model_build": {
-          "input_data": "D:/windows_utils/ownCloud/CampaspeModel/testbox/integrated/model_build/input_data",
-          "data_build": "D:/development/campaspe/groundwater/data_build",
-          "campaspe_data": "D:/development/campaspe/GW_data/Campaspe_data",
-          "temp_data": "D:/development/campaspe/GW_data/"
+          "input_data": "C:/programs/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/input_data",
+          "data_build": "C:/development/campaspe/groundwater/data_build",
+          "campaspe_data": "C:/programs/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data/Campaspe_data",
+          "temp_data": "C:/programs/ownCloud/campaspeim_data/Groundwater/2017-08-21/GW_data"
         }
       },
       "uds\\u5121114": {
