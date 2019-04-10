@@ -258,7 +258,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
                 print(" Trying last head solution as initial condition")
 
             filename = os.path.join(data_folder, '01_steady_state.hds')
-            head = modflow_model.getFinalHeads(str(filename))
+            head = modflow_model.get_final_heads(str(filename))
             modflow_model.strt = head
         else:
             if verbose:
@@ -303,7 +303,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     
             if i > 0:
                 filename = os.path.join(data_folder, 'init{}'.format(rech_steps[i-1])) + '.hds'
-                head = modflow_model.getFinalHeads(str(filename))
+                head = modflow_model.get_final_heads(str(filename))
                 modflow_model.strt = head
 
             modflow_model.nper = 1  # This is the number of stress periods which is set to 1 here
@@ -344,7 +344,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
                 modflow_model.steady = True # This is to tell FloPy this is a transient model
 
                 filename = os.path.join(data_folder, 'init{}.hds'.format(rech_steps[i]))
-                head = modflow_model.getFinalHeads(str(filename))
+                head = modflow_model.get_final_heads(str(filename))
                 modflow_model.strt = head
 
                 for converge_criterion in [1E-4]:
@@ -359,7 +359,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
                         #end if
                         break
                     filename = os.path.join(modflow_model.data_folder, modflow_model.name + '.hds')
-                    head = modflow_model.getFinalHeads(str(filename))
+                    head = modflow_model.get_final_heads(str(filename))
                     modflow_model.strt = head
 
                 if converge:
