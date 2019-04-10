@@ -288,6 +288,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
     headobj = bf.HeadFile(os.path.join(path, fname + '.hds'))
     times = headobj.get_times()        
     head = headobj.get_data(totim=times[-1])
+    headobj.close()
     
     m.initial_conditions.set_as_initial_condition("Head", head)
     
@@ -396,6 +397,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                     if head == None:
                         headobj = modflow_model.importHeads()
                         head = headobj.get_alldata()
+                        headobj.close()
                 elif obs_type in stream_options:
                     try:
                         sfr_df = modflow_model.sfr_df

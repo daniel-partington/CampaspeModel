@@ -341,6 +341,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
             times = headobj.get_times()
             head = headobj.get_data(totim=times[-1])
             this_model.initial_conditions.set_as_initial_condition("Head", head)
+            headobj.close()
         except IndexError:
             raise IndexError(
                 "Corrupted MODFLOW hds file - check, replace, or clear {}".format(

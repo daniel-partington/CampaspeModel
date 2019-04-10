@@ -275,6 +275,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     headobj = bf.HeadFile(os.path.join(path, fname + '.hds'))
     times = headobj.get_times()        
     head = headobj.get_data(totim=times[-1])
+    headobj.close()
     
     m.initial_conditions.set_as_initial_condition("Head", head)
     

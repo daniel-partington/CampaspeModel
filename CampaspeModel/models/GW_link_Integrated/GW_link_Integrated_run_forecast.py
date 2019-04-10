@@ -278,6 +278,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
         times = headobj.get_times()
         head = headobj.get_data(totim=times[-1])
+        headobj.close()
         this_model.initial_conditions.set_as_initial_condition("Head", head)
     except IndexError:
         raise IndexError(
