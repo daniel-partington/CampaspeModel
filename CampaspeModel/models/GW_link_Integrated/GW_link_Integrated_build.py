@@ -156,16 +156,18 @@ def main():
         # End for
     # End with
 
-    try:
-        # assert ecology_bores == ['62599', '111274', 'WRK059861'], "Ecology bore IDs incorrect!"
-        assert ecology_bores == ['62599', '47249', '79329'], "Ecology bore IDs incorrect!"
-        assert policy_bores == ['62589', '79324'], "Policy bore IDs incorrect!"
-        assert stream_gauges == ['406201', '406202', '406265'], "Stream gauge IDs incorrect!"
-    except AssertionError as e:
-        print(e)
-        print("Config error occurred, check the model_linking.csv file")
-        raise RuntimeError("Config error occurred, check the model_linking.csv file")
-    # End try
+    print("""
+    Attempting to match the following bores/gauges
+    Ecology: {}
+    Policy: {}
+    Stream: {}
+    If the above indicated bore/gauges are incorrect, modify the model_linking.csv file in:
+    {}
+
+    If the location/data for the indicated bores is found not to be appropriate, the closest 
+    'best' bore will be used instead.
+    """.format(ecology_bores, policy_bores, stream_gauges, data_folder))
+    print("="*30)
 
     if VERBOSE:
         print('########################################################################')
