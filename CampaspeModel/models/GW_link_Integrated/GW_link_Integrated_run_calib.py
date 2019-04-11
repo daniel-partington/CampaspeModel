@@ -337,11 +337,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if not is_steady:
         fname = 'model_{}'.format(name)
         try:
-            headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
-            times = headobj.get_times()
-            head = headobj.get_data(totim=times[-1])
+            head = flopyInterface.get_previous_conditions(
+                        p_j(data_folder, fname, name + '.hds')
+                    )
             this_model.initial_conditions.set_as_initial_condition("Head", head)
-            headobj.close()
         except IndexError:
             raise IndexError(
                 "Corrupted MODFLOW hds file - check, replace, or clear {}".format(

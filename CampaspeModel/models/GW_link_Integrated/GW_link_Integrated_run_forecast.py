@@ -275,10 +275,10 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     fname = 'model_{}'.format(name)
     try:
-        headobj = bf.HeadFile(p_j(data_folder, fname, name + '.hds'))
-        times = headobj.get_times()
-        head = headobj.get_data(totim=times[-1])
-        headobj.close()
+        head = flopyInterface.get_previous_conditions(
+            p_j(data_folder, fname, name + '.hds')
+        )
+
         this_model.initial_conditions.set_as_initial_condition("Head", head)
     except IndexError:
         raise IndexError(
@@ -391,7 +391,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     gauges. Instead the simulated head in the cell with the stream gauge is
     used which represents the average head over the 5 km x 5 km cell.
     """
-    heads = modflow_model.getHeads()
+    heads = modflow_model.get_heads()
     for ind, ecol_bore in enumerate(ecology_bores):
         _i, _h, _j = river_reach_ecol[stream_gauges[ind]]
         ecol_depth_to_gw[ecol_bore] = mesh_0[_i, _h, _j] - heads[_i, _h, _j]

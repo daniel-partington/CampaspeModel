@@ -285,11 +285,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
 
     path=os.path.join(data_folder,"model_01_steady_state")
     fname="01_steady_state"
-    headobj = bf.HeadFile(os.path.join(path, fname + '.hds'))
-    times = headobj.get_times()        
-    head = headobj.get_data(totim=times[-1])
-    headobj.close()
-    
+    head = flopyInterface.get_previous_conditions(os.path.join(path, fname))
     m.initial_conditions.set_as_initial_condition("Head", head)
     
     if verbose:
@@ -395,9 +391,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                 if obs_type in head_options:
                     # Check if model outputs have already been imported and if not import
                     if head == None:
-                        headobj = modflow_model.importHeads()
+                        headobj = modflow_model.headobj
                         head = headobj.get_alldata()
-                        headobj.close()
                 elif obs_type in stream_options:
                     try:
                         sfr_df = modflow_model.sfr_df

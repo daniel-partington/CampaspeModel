@@ -272,10 +272,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     path=os.path.join(data_folder)
     fname="01_steady_state"
-    headobj = bf.HeadFile(os.path.join(path, fname + '.hds'))
-    times = headobj.get_times()        
-    head = headobj.get_data(totim=times[-1])
-    headobj.close()
+    head = flopyInterface.get_previous_conditions(os.path.join(path, fname+'.hds'))
     
     m.initial_conditions.set_as_initial_condition("Head", head)
     
