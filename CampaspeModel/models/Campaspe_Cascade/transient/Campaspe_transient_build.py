@@ -13,8 +13,9 @@ from CampaspeModel.build_common import campaspe_data
 from CampaspeModel.build_common import campaspe_mesh
 from CampaspeModel.build_utils.multifrequency_resampling import resample_to_model_data_index 
 from CampaspeModel.build_utils.multifrequency_resampling import resample_obs_time_series_to_model_data_index
+from CampaspeModel.build_utils.viz_tools import obs_raw_resample_plots
 from CampaspeModel.build_common.rainfall_recharge import prepare_transient_rainfall_data_for_model 
-from CampaspeModel.build_common.groundwater_boundary import prepare_ghb_boundary_from_Murray_data
+from CampaspeModel.build_common.groundwater_boundary import prepare_ghb_boundary_from_murray_data
 from CampaspeModel.build_common import rivers
 from CampaspeModel.build_common.pumping import prepare_pumping_data_for_model
 from CampaspeModel.build_common.channels import prepare_channel_data_for_model
@@ -45,12 +46,14 @@ tr_model = GWModelBuilder(name="02_transient_flow",
 # tr_model.time = 'd'
 
 Campaspe_data_folder = r"C:\Workspace\part0075\MDB modelling\Campaspe_data"
-hu_raster_path = r"C:\Workspace\part0075\MDB modelling\ESRI_GRID_raw\ESRI_GRID"
+hu_raster_path = r"C:\Workspace\part0075\MDB modelling\Campaspe_data\ESRI_GRID_raw\ESRI_GRID"
 
 custom_data = \
     campaspe_data.process_custom_scripts_and_spatial_data(tr_model, 
                                                           Campaspe_data_folder,
-                                                          verbose=True)
+                                                          verbose=True,
+                                                          #model_boundary_file="Camp_catch_5b.shp"
+                                                          )
 HGU_props = custom_data['HGU_props']
 rain_gauges = custom_data['rain_gauges']
 long_term_historic_weather = custom_data['long_term_historic_weather'] 
@@ -84,9 +87,12 @@ print '## Data to consider '
 print '########################################################################'
 print '########################################################################'
 
-use_field_flow = True
-use_field_depth = True
-use_field_ec = True
+use_field_flow = False
+use_field_depth = False
+use_field_ec = False
+
+plot_obs = True
+other_plotting_to_be_tidied = False
 
 #******************************************************************************
 #******************************************************************************
@@ -107,7 +113,7 @@ start_irrigation = datetime.date(1881, 01, 01)
 start_pumping = datetime.date(1966, 01, 01)
 start_time_interest = datetime.date(2015, 01, 01)
 
-end = datetime.date(2017, 05, 31)
+end = datetime.date(2018, 03, 31)
 
 end_post_clearance = datetime.date(1880, 12, 31)
 before_pumping = datetime.date(1965, 12, 31)
@@ -140,8 +146,91 @@ HGU, hu_raster_files_reproj = campaspe_mesh.build_mesh_and_set_properties(tr_mod
                                                   hu_raster_path,
                                                   HGU_props,
                                                   resolution=1000,
-                                                  create_basement=False)
+                                                  create_basement=False
+                                                  )
 
+#from mpl_toolkits.mplot3d import Axes3D
+#from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
+#
+#def plot_cube(cube_definition, ax, colour):
+#    cube_definition_array = [
+#        np.array(list(item))
+#        for item in cube_definition
+#    ]
+#
+#    points = []
+#    points += cube_definition_array
+#    vectors = [
+#        cube_definition_array[1] - cube_definition_array[0],
+#        cube_definition_array[2] - cube_definition_array[0],
+#        cube_definition_array[3] - cube_definition_array[0]
+#    ]
+#
+#    points += [cube_definition_array[0] + vectors[0] + vectors[1]]
+#    points += [cube_definition_array[0] + vectors[0] + vectors[2]]
+#    points += [cube_definition_array[0] + vectors[1] + vectors[2]]
+#    points += [cube_definition_array[0] + vectors[0] + vectors[1] + vectors[2]]
+#
+#    points = np.array(points)
+#
+#    edges = [
+#        [points[0], points[3], points[5], points[1]],
+#        [points[1], points[5], points[7], points[4]],
+#        [points[4], points[2], points[6], points[7]],
+#        [points[2], points[6], points[3], points[0]],
+#        [points[0], points[2], points[4], points[1]],
+#        [points[3], points[6], points[7], points[5]]
+#    ]
+#
+#    faces = Poly3DCollection(edges, linewidths=0.1, edgecolors='grey')
+#    faces.set_facecolor(colour)
+#
+#    ax.add_collection3d(faces)
+#
+#    # Plot the points themselves to force the scaling of the axes
+#    #ax.scatter(points[:,0], points[:,1], points[:,2], s=0)
+#
+#
+#fig = plt.figure()
+#ax = fig.add_subplot(111, projection='3d')
+#    
+#dx = 1000
+#z_exaggerate = 10
+#active_layers = [1, 2, 3, 4, 5, 6]
+#xmin, xmax, ymin, ymax = tr_model.model_boundary[0:4]
+#
+#colours = {1:'r', 2:'g', 3:'blue', 4:'orange', 5:'purple', 6:'teal'}
+#
+#for lay in range(tr_model.model_mesh3D[1].shape[0]):
+#    for row in range(tr_model.model_mesh3D[1].shape[1]):
+#        for col in range(tr_model.model_mesh3D[1].shape[2]):
+#            if tr_model.model_mesh3D[1][lay][row][col] in active_layers:
+#                # bottom SW, bottom SE, bottom NW, top SW 
+#                cube_definition = [(xmin + col * dx      ,  ymin + row * dx      , z_exaggerate * tr_model.model_mesh3D[0][lay + 1][row][col]), 
+#                                   (xmin + col * dx      ,  ymin + (row + 1) * dx, z_exaggerate * tr_model.model_mesh3D[0][lay + 1][row][col]), 
+#                                   (xmin + (col + 1) * dx,  ymin + row * dx      , z_exaggerate * tr_model.model_mesh3D[0][lay + 1][row][col]), 
+#                                   (xmin + col * dx      ,  ymin + row * dx      , z_exaggerate * tr_model.model_mesh3D[0][lay][row][col])]
+#                plot_cube(cube_definition, ax, colours[tr_model.model_mesh3D[1][lay][row][col]])
+#
+#                
+#                
+#ax.set_aspect('equal')    
+#ax.set_xlim(xmin, xmax)            
+#ax.set_xlabel('Easting')
+#ax.set_ylim(ymin, ymax)            
+#ax.set_ylabel('Northing')
+#
+#ax.set_zlim(z_exaggerate * np.min(tr_model.model_mesh3D[0]), z_exaggerate * np.max(tr_model.model_mesh3D[0]))            
+#zlabels = ax.get_zticklabels()
+#new_zlabels = []
+#for z in zlabels:
+#    if z.get_text() == u'':
+#        continue    
+#    print z.get_text()
+#    new_zlabels += [float(z.get_text().replace(u'\u2212', '-')) / float(z_exaggerate)]
+#ax.set_zticklabels(new_zlabels)
+#ax.set_zlabel('Elevation (mAHD)')
+            
 print "************************************************************************"
 print " Interpolating rainfall data to grid and time steps"
 
@@ -157,7 +246,7 @@ interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
                                               end,
                                               rain_gauges)    
 
-    
+
 print "************************************************************************"
 print " Creating recharge boundary "
 
@@ -243,7 +332,7 @@ for bore in bores_obs_time_series['name'].unique():
 bores_obs_time_series = bores_obs_time_series[~bores_obs_time_series.index.isin(bores_obs_cull)]
 
 # Now to resample the time series to get the mean heads within a time interval
-bores_obs_time_series = resample_obs_time_series_to_model_data_index(
+bores_obs_time_series_resampled = resample_obs_time_series_to_model_data_index(
                             bores_obs_time_series, 
                             date_index, 
                             frequencies, 
@@ -251,7 +340,7 @@ bores_obs_time_series = resample_obs_time_series_to_model_data_index(
                             start,
                             end,
                             fill='none')
-                               
+
 # For the weigts of observations we need to specify them as 1/sigma, where sigma is the standard deviation of measurement error
 tr_model.observations.set_as_observations('head', 
                                           bores_obs_time_series, 
@@ -413,13 +502,15 @@ print " locations downstream of Lake Eppalock"
 
 
 Campaspe_flow_sites_list = Campaspe['Site Id'].tolist()
- 
+Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 'Min value']].max(axis=1) 
+
 # Vic Government stream gauges:
 stage_time_series = pd.DataFrame()
 for key in river_stage_data[0].keys():
-    # Ignore 406207 Lake Eppalock    
+    # Ignore 406207 Lake Eppalock as the stage in the reservoir is not
+    # accounted for in the model, only the outflow from the reservoir
     if key == 406207:
-        continue
+        pass#continue
     elif key not in Campaspe_flow_sites_list:
         continue
     # end if
@@ -428,12 +519,13 @@ for key in river_stage_data[0].keys():
     site_ts['datetime'] = site_ts.index
     site_ts.index = range(site_ts.shape[0])
     site_ts.rename(columns={'Mean':'value'}, inplace=True)
-    site_ts['value'] = site_ts['value'] - Campaspe.loc[Campaspe.index == key, 'Gauge Zero (Ahd)'].tolist()[0]
-    #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    # NO FILTERING ON "Qual" AT THIS TIME SO BAD DATA ARE POSSIBLE!!!
+    #if Campaspe.loc[Campaspe.index == key, 'Gauge Zero (Ahd)'].tolist()[0] > 0:
+    if Campaspe.loc[Campaspe.index == key, 'new_gauge'].tolist()[0] > 0:
+        #site_ts['value'] = site_ts['value'] - Campaspe.loc[Campaspe.index == key, 'Gauge Zero (Ahd)'].tolist()[0]
+        site_ts['value'] = site_ts['value'] - Campaspe.loc[Campaspe.index == key, 'new_gauge'].tolist()[0]
     site_ts = site_ts[['name', 'value', 'datetime']]
     stage_time_series = pd.concat([stage_time_series, site_ts])
-    
+
 # Now to resample the time series to get the mean stage within a time interval
 stage_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   stage_time_series, 
@@ -443,7 +535,7 @@ stage_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   start, 
                                   end,
                                   fill='none')
-    
+
 tr_model.observations.set_as_observations('stage', 
                                           stage_time_series_resampled, 
                                           Campaspe_info, 
@@ -567,6 +659,7 @@ ec_time_series_resampled = resample_obs_time_series_to_model_data_index(
                                   end,
                                   fill='none')
 
+
 tr_model.observations.set_as_observations('gstrec', 
                                           ec_time_series_resampled, 
                                           Campaspe_info, 
@@ -617,18 +710,16 @@ tr_model.observations.set_as_observations('radon',
                                           FieldData_info, 
                                           domain='stream', 
                                           obs_type='Radon', 
-                                          units='Bq/l', 
+                                          units='mBq/l', 
                                           weights=1.0, 
                                           real=True)
 
-   
-   
 print "************************************************************************"
 print " Creating Campaspe river simulated exchange observations for data worth analysis"
    
-fy_start = end - datetime.timedelta(days=365)
-fy_end = end 
 Years = 1
+fy_start = end - datetime.timedelta(days=365 * Years)
+fy_end = end 
 
 def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, \
                                      obs_name, obs_type):
@@ -657,7 +748,7 @@ def create_obs_for_sw_gw_interaction(entries, name, start, end, freq, riv_segs, 
 # Create river spatial groups: Whole of river, reach by gauge, reach by segment
 entries = np.array([1, 4, 12]) * Years
 names = ['a_swgw', 's_swgw', 'm_swgw']
-swgw_exch_obs_freqs = ['A-MAY', '3M', 'M']
+swgw_exch_obs_freqs = ['A-{}'.format(end.strftime('%b').upper()), '3M', 'M']
 obs_names_whole = ['nrf_a', 'nrf_s', 'nrf_m']
 obs_types = ['swgw_a', 'swgw_s', 'swgw_m']
 
@@ -685,6 +776,8 @@ river_seg['reach'].fillna(method='ffill', inplace=True)
 river_seg['reach'].fillna(method='bfill', inplace=True)
 river_seg['reach'].astype(int, inplace=True)
 river_segs_reach = [river_seg['iseg'][river_seg['reach'] == x].tolist() for x in reach_no]
+
+tr_model.river_mapping['Campaspe'] = river_seg
 
 obs_names_seg = ['srf_a', 'srf_s', 'srf_m']
 river_segs_seg = [x for x in river_seg['iseg']]
@@ -798,7 +891,9 @@ def _zone_array2layers(zone_array, plots=False):
     '''
     Function to generate 2D masked layer arrays for each zone
     '''
-    zones = [x + 1 for x in range(len(np.unique(zone_array)) - 1)]
+    #zones = [x + 1 for x in range(len(np.unique(zone_array)) - 1)]
+    zones = np.unique(zone_array).astype(int).tolist()
+    zones.remove(-1)
     layers = zone_array.shape[0]
     zone_mask2D = {}
     zone_top2D = {}
@@ -807,19 +902,19 @@ def _zone_array2layers(zone_array, plots=False):
         zone_mask = np.ma.masked_array(zone_array, 
                                        zone_array == zone).mask
     
-        zone_mask2D[index] = np.full_like(zone_mask[0], False, dtype=bool)
-        zone_top2D[index] = np.full_like(zone_mask[0], 0, dtype=int)
+        zone_mask2D[zone] = np.full_like(zone_mask[0], False, dtype=bool)
+        zone_top2D[zone] = np.full_like(zone_mask[0], 0, dtype=int)
         for layer in range(layers):
-            zone_mask2D[index] |= zone_mask[layer] 
+            zone_mask2D[zone] |= zone_mask[layer] 
     
         for layer in range(layers, 0, -1):
-            zone_top2D[index][zone_mask[layer - 1]] = layer - 1
+            zone_top2D[zone][zone_mask[layer - 1]] = layer - 1
 
     if plots:
         import matplotlib.pyplot as plt
         for index, zone in enumerate(zones):
             plt.figure()
-            plt.imshow(np.ma.masked_array(zone_top2D[index], ~zone_mask2D[index]), interpolation='none')
+            plt.imshow(np.ma.masked_array(zone_top2D[zone], ~zone_mask2D[zone]), interpolation='none')
 
     return zone_mask2D, zone_top2D
 
@@ -910,7 +1005,7 @@ def porous_potential_obs(zone2D_info, sim_type_obs_hgu, hgus, fy_start, fy_end, 
             c_dw = [i[0] for i in sim_locs]
             plt.scatter(x_dw, y_dw, c='black') #, c=c_dw, cmap='viridis')
 
-hgus = [[0, 2], [4, 5]]
+hgus = [[1, 3], [5, 6]]
 # Get the zonal array in 2D masks for where they are active along with the highest
 # cell number corresponding to layer for each row col pair
 zone2D_info = _zone_array2layers(tr_model.model_mesh3D[1])
@@ -918,75 +1013,18 @@ zone2D_info = _zone_array2layers(tr_model.model_mesh3D[1])
 # Create obs for potential head observations        
 sim_heads_obs_hgu = ['shshal', 'shdeep']
 plot_titles = ['Shallow', 'Deep']
-porous_potential_obs(zone2D_info, sim_heads_obs_hgu, hgus, fy_start, fy_end, 'M', 'mAHD', 'porous', skip=6, plots=True, plot_titles=plot_titles)
+porous_potential_obs(zone2D_info, sim_heads_obs_hgu, hgus, fy_start, fy_end, 
+                     'M', 'mAHD', 'porous', skip=6, plots=True, plot_titles=plot_titles)
 # Create obs for potential C14 observations        
 sim_c14_obs_hgu = ['c14shal', 'c14deep']
-porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 'pmc', 'porous', skip=6)
+porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M', 
+                     'pmc', 'porous', skip=6)
 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-nrow = tr_model.model_mesh3D[0].shape[1]
-ncol = tr_model.model_mesh3D[0].shape[2]
-delr = tr_model.gridHeight
-delc = tr_model.gridWidth
-top = tr_model.model_mesh3D[0][0]
-#botm = self.model_data.model_mesh3D[0][1:]
-xul = tr_model.model_boundary[0]
-yul = tr_model.model_boundary[3]
-
-x = np.linspace(xul, xul + ncol * delc, ncol)
-y = np.linspace(yul - nrow * delr, yul, nrow)
-X, Y = np.meshgrid(x, y)
-#Z = np.sqrt(X**2 + Y**2)/5
-#Z = (Z - Z.min()) / (Z.max() - Z.min())
-#plt.imshow(zone2D_info[0][6], interpolation='none', cmap=cmap_grey_white)
-import matplotlib.pyplot as plt
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][6]))
-
-# These are the "Tableau 20" colors as RGB.    
-import matplotlib.pyplot as plt
-colors_2 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
-             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
-             (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
-             (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
-             (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]    
-  
-# Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
-for i in range(len(colors_2)):    
-    r, g, b = colors_2[i]    
-    colors_2[i] = (r / 255., g / 255., b / 255.)    
-    
-flatten = lambda l: [item for sublist in l for item in sublist]
-from matplotlib import colors
-cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
-
-fig = plt.figure(figsize=(3.5,7))
-ax = fig.add_subplot(1,1,1, aspect='equal')
-ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][6]), cmap=cmap_grey_white)
-for index, reach in enumerate(river_segs_reach[:]):
-    reach_river = river_seg[river_seg['iseg'].isin(reach)]
-    points = [x for x in reach_river['amalg_riv_points_collection']]
-    points = flatten(points)
-    x_points = [x[0] for x in points]
-    y_points = [y[1] for y in points]    
-    plt.plot(x_points, y_points, color=colors_2[index], label=str(index + 1))
-    
-Campaspe_info.plot(kind='scatter', x='Easting', y='Northing', ax=ax)#, label='Site Id')    
-start_ax, end_ax = ax.get_xlim()
-start_ax = start_ax // 1000 * 1000 + 1000
-end_ax = end_ax // 1000 * 1000 - 1000
-ax.xaxis.set_ticks(np.arange(start_ax, end_ax, 20000.))
-ax.xaxis.get_major_formatter().set_powerlimits((0, 1))
-plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='Reach Number')
-ax.set_xlim(xul, xul + ncol * delc)
-ax.set_ylim(yul - nrow * delr, yul)
-plt.tight_layout()
-plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST1000\HPC_Feb2018\river_reaches.png")
 
 print "************************************************************************"
 print " Creating Campaspe river boundary"
@@ -1019,7 +1057,7 @@ print " Mapping Murray River to grid"
 
 riv, mriver_seg_ghb = \
     rivers.prepare_river_data_for_murray(tr_model, surface_raster_high_res_GSA,
-                                         r"C:\Workspace\part0075\MDB modelling\test_model.shp", #Murray_river_poly_file,
+                                         Murray_river_poly_file,#r"C:\Workspace\part0075\MDB modelling\test_model.shp"
                                          Campaspe_relevant,
                                          river_stage_data,
                                          river_seg) 
@@ -1135,7 +1173,7 @@ tr_model.parameters.create_model_parameter('hz_rt', value=1.)
 tr_model.parameters.parameter_options('hz_rt', 
                                       PARTRANS='log', 
                                       PARCHGLIM='factor', 
-                                      PARLBND=0.05, 
+                                      PARLBND=0.05,
                                       PARUBND=5., 
                                       PARGP='radon', 
                                       SCALE=1, 
@@ -1200,50 +1238,130 @@ print " Package up groundwater model builder object"
 
 tr_model.package_model()
 
+if plot_obs:
+    # Some plotting of obs and resampling
+    bore_ref = tr_model.observations.obs_group['head']['time_series']
+    obs_raw_resample_plots(bore_ref[bore_ref['active'] == True], bores_obs_time_series_resampled,
+                           'GW Head', '[mAHD]', save_location=tr_model.model_data_folder,
+                           inset=True, locations=bore_points3D, model_object=tr_model)
+    
+    obs_raw_resample_plots(stage_time_series, stage_time_series_resampled, 'Stream depth',
+                           '[m]', save_location=tr_model.model_data_folder, inset=True, locations=Campaspe_info, model_object=tr_model)
+    
+    obs_raw_resample_plots(discharge_time_series, discharge_time_series_resampled,
+                           'Discharge', '[m$^3$/d]', save_location=tr_model.model_data_folder,
+                           inset=True, locations=Campaspe_info, model_object=tr_model)        
+    
+    obs_raw_resample_plots(ec_time_series, ec_time_series_resampled,
+                           'EC', '[$\mu$S/cm]', save_location=tr_model.model_data_folder,
+                           inset=True, locations=Campaspe_info, model_object=tr_model)        
 
-###############################################################################
-
-# Create shapefiles for the observations used in the model:
-
-import geopandas
-from shapely.geometry import Point
-
-for key in tr_model.observations.obs_group:
-    if tr_model.observations.obs_group[key]['real']:
-        print("###### {} #####".format(key))
-        df_ts_names = tr_model.observations.obs_group[key]['time_series']['name'].unique()
-        df = tr_model.observations.obs_group[key]['locations'][['Easting', 'Northing']].copy()
-        df = df[df.index.isin(df_ts_names)]
-        # combine lat and lon column to a shapely Point() object
-        df['geometry'] = df.apply(lambda x: Point((float(x.Easting), float(x.Northing))), axis=1)
-        df = geopandas.GeoDataFrame(df, geometry='geometry')
-        df.crs= Proj_CS.ExportToProj4()
-        df.to_file(os.path.join(tr_model.out_data_folder_grid, '{}_observations.shp'.format(key)), driver='ESRI Shapefile')
-
-###############################################################################
-import matplotlib.pyplot as plt
-from matplotlib import colors
-
-riv_pp_df = river_seg[river_seg['iseg'].isin(river_segs_seg_pp)][['iseg', 'i', 'j', 'k', 'Cumulative Length', 'strtop']]
-
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-river_seg.plot(x='Cumulative Length', y='strtop', ax=ax, color='black')
-riv_pp_df.plot(kind='scatter', x='Cumulative Length', y='strtop', ax=ax, c='black', facecolor='black')
-ax.set_xlabel('Chainage (m)')
-ax.set_ylabel('Elevation (mAHD)')
-ax.legend(['River bed', 'Pilot points'])
-
-river_seg[['Cumulative Length', 'strtop']].to_csv(r'C:/Workspace/part0075/MDB modelling/testbox/PEST1000/HPC_Feb2018/river_top.csv')
-riv_pp_df.to_csv(r'C:/Workspace/part0075/MDB modelling/testbox/PEST1000/HPC_Feb2018/river_pp.csv')
-
-#ax = fig.add_subplot(1, 2, 2)
-#ax = fig.add_subplot(1, 1, 1)
-#riv_pp_df[['i', 'j']].plot(kind='scatter', x='j', y='i', c='black', facecolor='black', s=5.5, ax=ax)
-#cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
-#plt.imshow(tr_model.model_mesh3D[1][6], interpolation='none', cmap=cmap_grey_white)
-#plt.axis('off')
-tr_model.boundaries.bc.keys()
-tr_model.boundaries.bc['Rainfall'].keys()
-zarr = tr_model.boundaries.bc['Rain_reduced']['zonal_array']
-plt.imshow(np.ma.masked_where(tr_model.model_mesh3D[1][0] == -1, zarr), interpolation='none', vmin=100, cmap='prism')
+if other_plotting_to_be_tidied:
+    ###############################################################################
+        
+    nrow = tr_model.model_mesh3D[0].shape[1]
+    ncol = tr_model.model_mesh3D[0].shape[2]
+    delr = tr_model.gridHeight
+    delc = tr_model.gridWidth
+    top = tr_model.model_mesh3D[0][0]
+    #botm = self.model_data.model_mesh3D[0][1:]
+    xul = tr_model.model_boundary[0]
+    yul = tr_model.model_boundary[3]
+    
+    xls = np.linspace(xul, xul + ncol * delc, ncol)
+    yls = np.linspace(yul - nrow * delr, yul, nrow)
+    X, Y = np.meshgrid(xls, yls)
+    #Z = np.sqrt(X**2 + Y**2)/5
+    #Z = (Z - Z.min()) / (Z.max() - Z.min())
+    #plt.imshow(zone2D_info[0][6], interpolation='none', cmap=cmap_grey_white)
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    lay = zone2D_info[0].keys()[-1]
+    ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][lay]))
+    
+    # These are the "Tableau 20" colors as RGB.    
+    import matplotlib.pyplot as plt
+    colors_2 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
+                 (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
+                 (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
+                 (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
+                 (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]    
+      
+    # Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
+    for i in range(len(colors_2)):    
+        r, g, b = colors_2[i]    
+        colors_2[i] = (r / 255., g / 255., b / 255.)    
+        
+    flatten = lambda l: [item for sublist in l for item in sublist]
+    from matplotlib import colors
+    cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
+    
+    fig = plt.figure(figsize=(3.5,7))
+    ax = fig.add_subplot(1,1,1, aspect='equal')
+    ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][lay]), cmap=cmap_grey_white)
+    for index, reach in enumerate(river_segs_reach[:]):
+        reach_river = river_seg[river_seg['iseg'].isin(reach)]
+        points = [x_ for x_ in reach_river['amalg_riv_points_collection']]
+        points = flatten(points)
+        x_points = [x[0] for x in points]
+        y_points = [y[1] for y in points]    
+        plt.plot(x_points, y_points, color=colors_2[index], label=str(index + 1))
+        
+    Campaspe_info.plot(kind='scatter', x='Easting', y='Northing', ax=ax)#, label='Site Id')    
+    start_ax, end_ax = ax.get_xlim()
+    start_ax = start_ax // 1000 * 1000 + 1000
+    end_ax = end_ax // 1000 * 1000 - 1000
+    ax.xaxis.set_ticks(np.arange(start_ax, end_ax, 20000.))
+    ax.xaxis.get_major_formatter().set_powerlimits((0, 1))
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='Reach Number')
+    ax.set_xlim(xul, xul + ncol * delc)
+    ax.set_ylim(yul - nrow * delr, yul)
+    plt.tight_layout()
+    plt.savefig(r"C:\Workspace\part0075\MDB modelling\testbox\PEST1000\HPC_Feb2018\river_reaches.png")    
+    
+    
+    # Create shapefiles for the observations used in the model:
+    
+    import geopandas
+    from shapely.geometry import Point
+    
+    for key in tr_model.observations.obs_group:
+        if tr_model.observations.obs_group[key]['real']:
+            print("###### {} #####".format(key))
+            df_ts_names = tr_model.observations.obs_group[key]['time_series']['name'].unique()
+            df = tr_model.observations.obs_group[key]['locations'][['Easting', 'Northing']].copy()
+            df = df[df.index.isin(df_ts_names)]
+            # combine lat and lon column to a shapely Point() object
+            df['geometry'] = df.apply(lambda x: Point((float(x.Easting), float(x.Northing))), axis=1)
+            df = geopandas.GeoDataFrame(df, geometry='geometry')
+            df.crs= Proj_CS.ExportToProj4()
+            df.to_file(os.path.join(tr_model.out_data_folder_grid, '{}_observations.shp'.format(key)), driver='ESRI Shapefile')
+    
+    ###############################################################################
+    import matplotlib.pyplot as plt
+    from matplotlib import colors
+    
+    riv_pp_df = river_seg[river_seg['iseg'].isin(river_segs_seg_pp)][['iseg', 'i', 'j', 'k', 'Cumulative Length', 'strtop']]
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    river_seg.plot(x='Cumulative Length', y='strtop', ax=ax, color='black')
+    riv_pp_df.plot(kind='scatter', x='Cumulative Length', y='strtop', ax=ax, c='black', facecolor='black')
+    ax.set_xlabel('Chainage (m)')
+    ax.set_ylabel('Elevation (mAHD)')
+    ax.legend(['River bed', 'Pilot points'])
+    
+    river_seg[['Cumulative Length', 'strtop']].to_csv(r'C:/Workspace/part0075/MDB modelling/testbox/PEST1000/HPC_Feb2018/river_top.csv')
+    riv_pp_df.to_csv(r'C:/Workspace/part0075/MDB modelling/testbox/PEST1000/HPC_Feb2018/river_pp.csv')
+    
+    #ax = fig.add_subplot(1, 2, 2)
+    #ax = fig.add_subplot(1, 1, 1)
+    #riv_pp_df[['i', 'j']].plot(kind='scatter', x='j', y='i', c='black', facecolor='black', s=5.5, ax=ax)
+    #cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
+    #plt.imshow(tr_model.model_mesh3D[1][6], interpolation='none', cmap=cmap_grey_white)
+    #plt.axis('off')
+    tr_model.boundaries.bc.keys()
+    tr_model.boundaries.bc['Rainfall'].keys()
+    zarr = tr_model.boundaries.bc['Rain_reduced']['zonal_array']
+    plt.imshow(np.ma.masked_where(tr_model.model_mesh3D[1][0] == -1, zarr), interpolation='none', vmin=100, cmap='prism')

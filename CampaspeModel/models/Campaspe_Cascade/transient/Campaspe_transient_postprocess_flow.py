@@ -4,6 +4,7 @@ sys.path.append('C:\Workspace\part0075\GIT_REPOS')
 
 import numpy as np
 import flopy.utils.binaryfile as bf
+import pandas as pd
 
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
@@ -53,7 +54,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     
     from flopy.utils import sfroutputfile
-    sfr = sfroutputfile.SfrFile(os.path.join(modflow_model.data_folder, modflow_model.sfr.file_name[0] + '.out'))
+    sfr = sfroutputfile.SfrFile(os.path.join(os.path.join(data_folder,"model_02_transient_flow"), modflow_model.sfr.file_name[0] + '.out'))
     
     date_index = m.model_time.t['dateindex']
     sfr_df = sfr.get_dataframe()
@@ -74,15 +75,15 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     known_points = m.pilot_points['Campaspe'].points
     
     # Hyporheic zone depth         
-    hz_depth_vals = [m.parameters.param['hz_dpth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
+    hz_depth_vals = [m.parameters.param['hzdpth{}'.format(x)]['PARVAL1'] for x in range(num_reaches)] 
     R_depth_HZ = np.interp(sfr_info['Cumulative Length'].tolist(), known_points, hz_depth_vals)
 
     df_size = sfr_info.shape[0]
     t_steps = sfr_df['time'].max() + 1
     # Hyporheic zone porosity
-    sfr_df.loc[:, 'HZ_poro'] = [m.parameters.param['hz_poro']['PARVAL1']] * df_size * t_steps
+    sfr_df.loc[:, 'HZ_poro'] = [m.parameters.param['hzporo']['PARVAL1']] * df_size * t_steps
     # Hyporheic zone production of radon
-    sfr_df.loc[:, 'HZ_Prod_Rate'] = [m.parameters.param['hz_prod']['PARVAL1']] * df_size * t_steps
+    sfr_df.loc[:, 'HZ_Prod_Rate'] = [m.parameters.param['hzprod']['PARVAL1']] * df_size * t_steps
     # Hyporheic zone residence time
     sfr_df.loc[:, 'HZ_RTime'] = [m.parameters.param['hz_rt']['PARVAL1']] * df_size * t_steps
     # Depth of the hyporheic zone
@@ -90,7 +91,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     # Gas transfer velocity
     sfr_df.loc[:, 'GTV'] = [m.parameters.param['gtv']['PARVAL1']] * df_size * t_steps
     # Groundwater radon concentration
-    sfr_df.loc[:, 'GW_Rn_conc'] = [m.parameters.param['gw_conc']['PARVAL1']] * df_size * t_steps
+    sfr_df.loc[:, 'GW_Rn_conc'] = [m.parameters.param['gwconc']['PARVAL1']] * df_size * t_steps
     # Groundwater EC
     sfr_df.loc[:, 'GW_EC'] = [10.] * df_size * t_steps # ARBITRARY!!!!
     # EC of the inflowing tributary water if present
@@ -107,30 +108,60 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    fig2 = plt.figure()
-    ax2 = fig2.add_subplot(111)
+    fig2 = plt.figure(figsize=(12, 12))
+    plt.subplots_adjust(hspace = 0.1)
     field_sampling = [datetime.datetime(2016,03,31),
                       datetime.datetime(2016,12,31),
                       datetime.datetime(2017,04,30)]
+    n_subplots = len(field_sampling)
+    counter = 0
+
+    import brewer2mpl
+    bmap = brewer2mpl.get_map('Set1', 'Qualitative', 5)
+    palette = bmap.mpl_colors
+    handles = []
+    labels = ['03-04 / 2016', '12 / 2016', '05 / 2017', '01 / 2018']
     for i in range(0,33): #sfr_df['time'].max()):
         if date_index[i] in field_sampling:    
+            counter += 1
             df = sfr_df[sfr_df['time'] == i]
             #df.to_csv(r"C:\Workspace\part0075\badRn.csv")
             Ini_cond = (df.iloc[0]['Qin'], 0., 300.)
             df.loc[:, 'Flow'], df.loc[:, 'Rn'], df.loc[:, 'EC'] = modflow_model.Calculate_Rn_from_SFR_with_simple_model(df, Ini_cond)
-            df['Qaquifer_adj'] = df['Qaquifer'] / (df['dx'] * df['width'])
+            df['Qaquifer_adj'] = -df['Qaquifer'] / (df['dx'])# * df['width'])
+            df['Cumulative Length km'] = df['Cumulative Length'] / 1000.
             df_list += [df[['Cumulative Length', 'Flow', 'Rn', 'EC']]]
-            df.plot(x='Cumulative Length', y='Rn', style='-', ax=ax, label=date_index[i].date())  
-            df.plot(x='Cumulative Length', style='o',  y=['Flow', 'Qin'], ax=ax2, label=date_index[i].date())  
-            df[df['Qaquifer_adj'] != 0.].plot(x='Cumulative Length', style='o',  y=['Qaquifer_adj'], ax=ax2, secondary_y=True, label=date_index[i].date())  
-            
+            df.plot(x='Cumulative Length', y='Rn', style='-', ax=ax, label=date_index[i].date())
+            ax2 = fig2.add_subplot(n_subplots, 1, counter)
+            #df.plot(x='Cumulative Length', style='o',  y=['Flow', 'Qin'], ax=ax2, label=date_index[i].date())
+            #print(df[df['Qaquifer_adj'] != 0.]['Qaquifer_adj'])#.rolling(4).mean())
+                        
+            df[df['Qaquifer_adj'] != 0.].rolling(3).mean().dropna().plot(x='Cumulative Length km', y='Qaquifer_adj', style='-', ax=ax2, color=palette[counter - 1])#, label=date_index[i].date())  
+            ax2.set_ylabel("SW-GW fluxes (m$^3$/day/m)")
+            ax2.set_xticks(np.arange(0,160,20))
+            ax2.set_xticklabels([])
+            ax2.set_ylim(-3., 3.)
+            ax2.set_xlabel('')
+            ax2.axhline(0., color='black', linestyle='--')
+            ax2.axvline(73.4, color='black', linestyle='-', lw=2.)
+    
             #df.plot(x='Cumulative Length', secondary_y=True, style='o',  y=['Flow', 'Qaquifer'], ax=ax)  
             #ax.set_title("Radon (mBq/L)")
             #ax.set_ylim(0, 0.2)
     ax.set_ylabel("Radon (mBq/L)")
+    ax2.set_xticklabels(np.arange(0,160,20))
+    ax2.set_xlabel('Distance from lake Eppalock (km)')
     ax.set_xlabel("River chainage (m)")
+    fig2.tight_layout(rect=[0.02,0.05,1,0.99])
+    
+    import matplotlib.patches as mpatches
 
-
+    for Camp in labels:
+        handles.append(mpatches.Patch(color=palette[labels.index(Camp)], alpha = 0.5))
+    fig2.legend(handles = handles, labels = labels,  ncol = 4, 
+                         prop = {'size': 12}, frameon = True, numpoints=1,
+                         loc = 'center', bbox_to_anchor=(0.52, 0.02))
+    
 #    import matplotlib.animation
 #    
 #    x = df_list
@@ -184,9 +215,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 #    
 #    plt.show()
 
-    
     return sfr_df
-    return modflow_model, plots
+    #return modflow_model, plots
 
 if __name__ == "__main__":
 

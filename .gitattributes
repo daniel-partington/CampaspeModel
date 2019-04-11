@@ -1,0 +1,7 @@
+Eppalock_inflow.csv filter=lfs diff=lfs merge=lfs -text
+mesh_stuff.pkl filter=lfs diff=lfs merge=lfs -text
+observations.pkl filter=lfs diff=lfs merge=lfs -text
+*.jco filter=lfs diff=lfs merge=lfs -text
+*.pst filter=lfs diff=lfs merge=lfs -text
+pest.par.11 filter=lfs diff=lfs merge=lfs -text
+pest.rei.11 filter=lfs diff=lfs merge=lfs -text
