@@ -7,6 +7,7 @@ head at trigger bores.
 import copy
 import cPickle as pickle
 import os
+from os.path import join as p_j
 import sys
 import warnings
 
@@ -44,8 +45,6 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
               trigger_heads: np.recarray, Policy trigger well heads
               modflow_model: gw_model object
     """
-    p_j = os.path.join
-
     if MM is None:
         MM = GWModelManager()
         MM.load_GW_model(p_j(model_folder, "GW_link_Integrated_packaged.pkl"))
@@ -418,6 +417,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         # NOTE: This returns the head in mAHD
         trigger_heads[trigger_bore] = modflow_model.getObservation(trigger_bore, 0, 'policy_bores')[0]
     # End for
+
+    modflow_model.cleanup()
 
     # TODO: Check that all of the wells listed were mapped to the model mesh and
     # are available for inspection

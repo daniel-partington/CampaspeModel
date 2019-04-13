@@ -167,7 +167,7 @@ def main():
     If the location/data for the indicated bores is found not to be appropriate, the closest 
     'best' bore will be used instead.
     """.format(ecology_bores, policy_bores, stream_gauges, data_folder))
-    print("="*30)
+    print("=" * 30)
 
     if VERBOSE:
         print('########################################################################')
