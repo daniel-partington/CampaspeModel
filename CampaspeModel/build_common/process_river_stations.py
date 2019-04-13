@@ -50,10 +50,10 @@ def get_flow(path=None, start_date=None, end_date=None, summary=False, sites=Non
         relevant_data['Site Name'] += [relevant_site_details['Site Name'].values[0]]
         relevant_data['Easting'] += [float(relevant_site_details['Easting'])]
         relevant_data['Northing'] += [float(relevant_site_details['Northing'])]
-        relevant_data['Mean flow (m3/s)'] += [flow_file_df['Mean'].mean() * 1000. / 86400]
-        relevant_data['Max flow (m3/s)'] += [flow_file_df['Mean'].max() * 1000. / 86400]
-        relevant_data['Min flow (m3/s)'] += [flow_file_df['Mean'].min() * 1000. / 86400]
-        relevant_data['5th percentile flow (m3/s)'] += [flow_file_df['Mean'].quantile(q=0.05) * 1000. / 86400]
+        relevant_data['Mean flow (m3/s)'] += [flow_file_df['Mean'].mean() * 1000. / 86400.]
+        relevant_data['Max flow (m3/s)'] += [flow_file_df['Mean'].max() * 1000. / 86400.]
+        relevant_data['Min flow (m3/s)'] += [flow_file_df['Mean'].min() * 1000. / 86400.]
+        relevant_data['5th percentile flow (m3/s)'] += [flow_file_df['Mean'].quantile(q=0.05) * 1000. / 86400.]
 
         processed_river_sites_ts[flow_stations[index]] = flow_file_df
     # end for
