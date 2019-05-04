@@ -54,7 +54,6 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
         zones = len(zone_map.keys())
         p.output_directory = os.path.join(data_folder, prop_folder)
         p.update_pilot_points_files_by_zones(zones, points_values_dict)
-        time.sleep(3)
         p.run_pyfac2real_by_zones(zones) 
         #p.save_mesh3D_array(filename=os.path.join(data_folder, prop_array_fname))
         return p.val_array
