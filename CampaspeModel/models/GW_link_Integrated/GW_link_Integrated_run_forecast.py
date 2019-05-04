@@ -131,12 +131,14 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
     tmp = riv_stages[common_gauges][0].tolist()
     for idx, row in enumerate(common_gauges_loc):
-        campaspe_stage.set_value(row, 'stage_from_gauge', tmp[idx])
+        # set_value(row, 'stage_from_gauge', tmp[idx])
+        campaspe_stage.at[row, 'stage_from_gauge'] = tmp[idx]
     # End for
 
     tmp = sorted(campaspe_stage['stage_from_gauge'].values.tolist(), reverse=True)
     for idx, row in enumerate(iseg_loc):
-        river_seg.set_value(row, 'stage_from_gauge', tmp[idx])
+        # river_seg.set_value(row, 'stage_from_gauge', tmp[idx])
+        river_seg.at[row, 'stage_from_gauge'] = tmp[idx]
     # End for
 
     # Convert stages to depths
@@ -327,7 +329,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
         river_reach_cells = river_seg[['gauge_id', 'k', 'j', 'i', 'amalg_riv_points']]
         # Clear out any gauges not required
-        river_reach_cells.set_value(0, 'gauge_id', 'none')
+        # river_reach_cells.set_value(0, 'gauge_id', 'none')
+        river_reach_cells.at[0, 'gauge_id'] = 'none'
         river_reach_gauges = river_reach_cells['gauge_id']
         river_reach_cells.loc[river_reach_gauges == 'none', 'gauge_id'] = np.nan
         river_reach_cells.loc[~river_reach_gauges.isin(stream_gauges), 'gauge_id'] = np.nan
