@@ -90,8 +90,8 @@ def merge_collocated_stream_reaches(river_segment, max_length=3000.):
                             merge_row += [ind]
 
         merge_row_consec = []
-        for k, g in groupby(enumerate(merge_row), lambda (i, x):i - x):
-            merge_row_consec.append(map(itemgetter(1), g))
+        for k, g in groupby(enumerate(merge_row), lambda i_x:i_x[0] - i_x[1]):
+            merge_row_consec.append(list(map(itemgetter(1), g)))
 
         for merge_group in merge_row_consec:
             index_list = river_seg2.index.tolist()
@@ -128,7 +128,7 @@ def merge_collocated_stream_reaches(river_segment, max_length=3000.):
 
             river_seg2.drop(merge_group[1:], inplace=True)
 
-        river_seg2.index = range(river_seg2.shape[0])
+        river_seg2.index = list(range(river_seg2.shape[0]))
 
     return river_seg2
 
@@ -158,8 +158,8 @@ def merge_very_short_stream_reaches(river_segment, min_length=500.):
                     merge_row_too_short += [ind]
 
     merge_row_too_short_consec = []
-    for k, g in groupby(enumerate(merge_row_too_short), lambda (i,x):i-x):
-        merge_row_too_short_consec.append(map(itemgetter(1), g))
+    for k, g in groupby(enumerate(merge_row_too_short), lambda i_x1:i_x1[0]-i_x1[1]):
+        merge_row_too_short_consec.append(list(map(itemgetter(1), g)))
 
     for merge_group in merge_row_too_short_consec:
         index_list = river_seg2.index.tolist()

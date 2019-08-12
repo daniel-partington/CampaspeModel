@@ -84,9 +84,9 @@ if __name__ == '__main__':
 
     # Some useful bits from the simulation outputs
 
-    field_sampling = [datetime.datetime(2016,03,31),
+    field_sampling = [datetime.datetime(2016,0o3,31),
                   datetime.datetime(2016,12,31),
-                  datetime.datetime(2017,04,30)]
+                  datetime.datetime(2017,0o4,30)]
 
     m, data_folder = get_model(config_path=r"C:/Workspace/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/config")
     date_index = m.model_time.t['dateindex']
@@ -298,7 +298,7 @@ if __name__ == '__main__':
     box_vals = []
     for i in ["h", "s", "f", "c14", "radon", "ec"]: 
         box_vals += [df_unc_perc_add_combo_al.loc[i, :].tolist()]
-    arxe = ax.boxplot(box_vals, positions=list(np.array(range(1, 7, 1))), widths=0.4, patch_artist=True)
+    arxe = ax.boxplot(box_vals, positions=list(np.array(list(range(1, 7, 1)))), widths=0.4, patch_artist=True)
     custom_boxplot(arxe, boxcol='silver', boxfillcol='silver', lw=1, 
                    whiskcol='silver', capcol='silver', mediancol='black')
 
@@ -315,7 +315,7 @@ if __name__ == '__main__':
     ax.text(6.5, 89, "All observations", fontsize=10, color='r', verticalalignment='center', fontweight='bold')
 
     # Plot markers for annual exchange reduncs
-    ax.plot(range(1, 7, 1), df_unc_perc_add_combo_al.loc[["h", "s", "f", "c14", "radon", "ec"]]['nrf_a'].tolist(), 
+    ax.plot(list(range(1, 7, 1)), df_unc_perc_add_combo_al.loc[["h", "s", "f", "c14", "radon", "ec"]]['nrf_a'].tolist(), 
             linewidth=0, marker='o', color='teal')
     
     all_lst = np.array(df_unc_perc_add_combo_al.loc['all', :].tolist())
@@ -334,7 +334,7 @@ if __name__ == '__main__':
     ax.tick_params(direction='out', top=False, right=False)
     ax.set_ylim(0, 100) 
     ax.set_xlim(0.4, 6.4) 
-    ax.set_xticks(range(1,7,1))
+    ax.set_xticks(list(range(1,7,1)))
     ax.set_yticklabels([0, 20, 40, 60, 80, 100], fontsize=10)
     ax.set_xticklabels(["Head", "Stage", "Flow", "$^{14}$C", "$^{222}$Rn", "EC"], fontsize=10)
     ax.set_ylabel("% change in predictive uncertainty\n for SW-GW exchange", fontsize=10)
@@ -345,11 +345,11 @@ if __name__ == '__main__':
     box_vals = []
     for i in ["less_h", "less_s", "less_f", "less_c14", "less_radon", "less_ec"]: 
         box_vals += [df_unc_perc_add_combo_al.loc["all", :] - df_unc_perc_add_combo_al.loc[i, :]]
-    arxe = ax.boxplot(box_vals, positions=list(np.array(range(1, 7, 1))), widths=0.4, patch_artist=True)
+    arxe = ax.boxplot(box_vals, positions=list(np.array(list(range(1, 7, 1)))), widths=0.4, patch_artist=True)
     custom_boxplot(arxe, boxcol='silver', boxfillcol='silver', lw=1, 
                    whiskcol='silver', capcol='silver', mediancol='black')
 
-    ax.plot(range(1, 7, 1), [df_unc_perc_add_combo_al.loc["all", 'nrf_a'] - x for x in df_unc_perc_add_combo_al.loc[["less_h", "less_s", "less_f", "less_c14", "less_radon", "less_ec"]]['nrf_a'].tolist()], 
+    ax.plot(list(range(1, 7, 1)), [df_unc_perc_add_combo_al.loc["all", 'nrf_a'] - x for x in df_unc_perc_add_combo_al.loc[["less_h", "less_s", "less_f", "less_c14", "less_radon", "less_ec"]]['nrf_a'].tolist()], 
             linewidth=0, marker='o', color='teal')
     
     
@@ -381,7 +381,7 @@ if __name__ == '__main__':
     ax.tick_params(direction='out', top=False, right=False)
     ax.set_ylim(0, 20) 
     ax.set_xlim(0.4, 6.4) 
-    ax.set_xticks(range(1,7,1))
+    ax.set_xticks(list(range(1,7,1)))
     ax.yaxis.set_tick_params(labelsize=10)
     #ax.set_yticklabels([0, 20, 40, 60, 80, 100], fontsize=10)
     ax.set_xticklabels(["Head", "Stage", "Flow", "$^{14}$C", "$^{222}$Rn", "EC"], fontsize=10)
@@ -639,7 +639,7 @@ if __name__ == '__main__':
     months = rows_name2[1:]
     reaches = 11
 
-    pred_exchange = pd.DataFrame(index= ["rrf_m{}_{}".format(x, y) for x, y in zip(range(reaches), range(12))] +\
+    pred_exchange = pd.DataFrame(index= ["rrf_m{}_{}".format(x, y) for x, y in zip(list(range(reaches)), list(range(12)))] +\
                                           ["rrf_a{}".format(x) for x in range(reaches)] +\
                                           ['nrf_m_{}'.format(x) for x in range(12)] +\
                                           ['nrf_a'] , columns=['Exchange'])
@@ -736,7 +736,7 @@ if __name__ == '__main__':
     df_worth_add_combo_unc_filter_al = df_worth_add_combo_unc_al[month_and_annual] 
     df_worth_add_combo_unc_filter_al = df_worth_add_combo_unc_filter_al[df_worth_add_combo_unc_filter_al.index != 'base']
     df_worth_add_combo_unc_filter_al = df_worth_add_combo_unc_filter_al.loc[novel_data_sets_al, :]
-    df_worth_add_combo_unc_filter_al.index = [novel_data_set_to_alias_al[x] for x in df_worth_add_combo_unc_filter_al.index if x in novel_data_set_to_alias_al.keys()]
+    df_worth_add_combo_unc_filter_al.index = [novel_data_set_to_alias_al[x] for x in df_worth_add_combo_unc_filter_al.index if x in list(novel_data_set_to_alias_al.keys())]
     df_perc_add_combo_unc_filter_al = df_unc_perc_add_combo_al[month_and_annual] 
     df_perc_add_combo_unc_filter_al = df_unc_perc_add_combo_al.loc[novel_data_sets_al, :] 
     df_perc_add_combo_unc_filter_al.index = [novel_data_set_to_alias_al[x] for x in df_perc_add_combo_unc_filter_al.index]
@@ -871,7 +871,7 @@ if __name__ == '__main__':
     #ax.set_xticks([x + width/2 for x in ind])
     comp_ticklabels = ("Head", "Stage", "Flow", "$^{14}$C",
                         "$^{222}$Rn", "EC", "All data")
-    ax.set_xticks(range(0, 7))
+    ax.set_xticks(list(range(0, 7)))
     ax.tick_params(axis='y', labelsize=10)
     ax.set_xticklabels(comp_ticklabels, rotation=45, size=10)
     ax.tick_params(direction='out', top=False, right=False)
@@ -1049,9 +1049,9 @@ if __name__ == '__main__':
     xul = model_boundary[0]
     yul = model_boundary[3]
 
-    print("Estimate for all stream potential obs: {:.2f} hrs".format(
+    print(("Estimate for all stream potential obs: {:.2f} hrs".format(
         pst_df[pst_df['obgnme'].isin(
-            potential_data_stream)].shape[0] * 3.5 / 3600.))
+            potential_data_stream)].shape[0] * 3.5 / 3600.)))
 
     if os.path.exists(os.path.join(save_folder, 'All_potential_data_stream.csv')) and not force_recalc:
         stream_pot_obs = pd.read_csv(os.path.join(save_folder, 'All_potential_data_stream.csv'), index_col=0)
@@ -1098,7 +1098,7 @@ if __name__ == '__main__':
     sfr_df.loc[:, 'y'] = [yul - row * delr for row in sfr_df['row']]
     sfr_df.loc[:, 'Qaquifer_norm'] = \
     sfr_df[sfr_df['time'] == 32].reset_index(
-        range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen'] * sfr_seg['width2'])
+        list(range(sfr_df.shape[0])))['Qaquifer'] / (sfr_orig['rchlen'] * sfr_seg['width2'])
 
     stream_ob_types = ['stage', 'gflow', 'radon', 'gstrec']
     stream_ob_dic = {}
@@ -1218,7 +1218,7 @@ if __name__ == '__main__':
     eho_shal_loc = eho_loc[eho_loc.index.isin(eho_ts_shal_bores)]
     eho_deep_loc = eho_loc[eho_loc.index.isin(eho_ts_deep_bores)]
 
-    observations.obs_group.keys()
+    list(observations.obs_group.keys())
 
     existing_c14_observations = observations.obs_group['C14']
     eco = existing_c14_observations

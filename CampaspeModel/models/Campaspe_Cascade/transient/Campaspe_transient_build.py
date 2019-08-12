@@ -81,11 +81,11 @@ FieldData = custom_data['FieldData']
 bore_data_info = custom_data['bore_data_info']
 bore_data_levels = custom_data['bore_data_levels']
 
-print '########################################################################'
-print '########################################################################'
-print '## Data to consider '
-print '########################################################################'
-print '########################################################################'
+print('########################################################################')
+print('########################################################################')
+print('## Data to consider ')
+print('########################################################################')
+print('########################################################################')
 
 use_field_flow = False
 use_field_depth = False
@@ -99,21 +99,21 @@ other_plotting_to_be_tidied = False
 #******************************************************************************
 #******************************************************************************
 
-print '########################################################################'
-print '########################################################################'
-print '## Model specific building '
-print '########################################################################'
-print '########################################################################'
+print('########################################################################')
+print('########################################################################')
+print('## Model specific building ')
+print('########################################################################')
+print('########################################################################')
 
-print "************************************************************************"
-print " Defining temporal aspects of the model"
+print("************************************************************************")
+print(" Defining temporal aspects of the model")
 
-start = datetime.date(1840, 01, 01)
-start_irrigation = datetime.date(1881, 01, 01)
-start_pumping = datetime.date(1966, 01, 01)
-start_time_interest = datetime.date(2015, 01, 01)
+start = datetime.date(1840, 0o1, 0o1)
+start_irrigation = datetime.date(1881, 0o1, 0o1)
+start_pumping = datetime.date(1966, 0o1, 0o1)
+start_time_interest = datetime.date(2015, 0o1, 0o1)
 
-end = datetime.date(2018, 03, 31)
+end = datetime.date(2018, 0o3, 31)
 
 end_post_clearance = datetime.date(1880, 12, 31)
 before_pumping = datetime.date(1965, 12, 31)
@@ -231,8 +231,8 @@ HGU, hu_raster_files_reproj = campaspe_mesh.build_mesh_and_set_properties(tr_mod
 #ax.set_zticklabels(new_zlabels)
 #ax.set_zlabel('Elevation (mAHD)')
             
-print "************************************************************************"
-print " Interpolating rainfall data to grid and time steps"
+print("************************************************************************")
+print(" Interpolating rainfall data to grid and time steps")
 
 interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
     prepare_transient_rainfall_data_for_model(tr_model,
@@ -247,15 +247,15 @@ interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
                                               rain_gauges)    
 
 
-print "************************************************************************"
-print " Creating recharge boundary "
+print("************************************************************************")
+print(" Creating recharge boundary ")
 
 tr_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=False)
 tr_model.boundaries.associate_zonal_array_and_dict('Rain_reduced', recharge_zone_array, rch_zone_dict)
 tr_model.boundaries.assign_boundary_array('Rain_reduced', interp_rain)
 
-print "************************************************************************"
-print " Mapping bores to grid "
+print("************************************************************************")
+print(" Mapping bores to grid ")
 
 tr_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 
@@ -280,9 +280,9 @@ for bores in tr_model.points_mapped["NGIS_Bores_clipped.shp"]:
             continue
         bores_more_filter += [bore]        
 
-print('Bores above the surface: {}'.format(len(bores_above_surface)))
-print('Bores below top of bedrock: {}'.format(len(bores_below_top_of_bedrock)))
-print('Final bores within aquifers: {}'.format(len(bores_more_filter)))
+print(('Bores above the surface: {}'.format(len(bores_above_surface))))
+print(('Bores below top of bedrock: {}'.format(len(bores_below_top_of_bedrock))))
+print(('Final bores within aquifers: {}'.format(len(bores_more_filter))))
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
@@ -361,8 +361,8 @@ for i in range(len(hu_raster_files_reproj)/2):
 
 tr_model.initial_conditions.set_as_initial_condition("Head", initial_heads_tr) #interp_heads[hu_raster_files[0]])
 
-print "************************************************************************"
-print "Create observation wells for C14"
+print("************************************************************************")
+print("Create observation wells for C14")
 
 tr_model.map_points_to_grid(C14_points, feature_id='Bore_id')
 
@@ -384,7 +384,7 @@ for C14wells in tr_model.points_mapped['C14_clipped.shp']:
             well_depth = df_C14.loc[df_C14[df_C14['Bore_id'] == int(well)].index.tolist()[0], 'avg_screen(m)']
             #well_depth = df_C14.loc[df_C14['Bore_id'] == int(well), 'avg_screen(m)']
         except:
-            print 'Well was excluded due to lack of information: ', int(well)            
+            print('Well was excluded due to lack of information: ', int(well))            
             continue
         
         well_depth = tr_model.model_mesh3D[0][0][row][col] - well_depth
@@ -433,8 +433,8 @@ tr_model.observations.set_as_observations('C14',
                                           units='pMC', \
                                           weights=1.0 / 5.0)
 
-print "************************************************************************"
-print " Mapping pumping wells to grid "
+print("************************************************************************")
+print(" Mapping pumping wells to grid ")
 
 wel = prepare_pumping_data_for_model(tr_model,
                                    pumps_points,
@@ -446,14 +446,14 @@ wel = prepare_pumping_data_for_model(tr_model,
                                    frequencies,
                                    date_group)
                 
-print "************************************************************************"
-print " Creating pumping boundary "
+print("************************************************************************")
+print(" Creating pumping boundary ")
 
 tr_model.boundaries.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
 tr_model.boundaries.assign_boundary_array('licenced_wells', wel)
 
-print "************************************************************************"
-print " Mapping Campaspe river to grid"
+print("************************************************************************")
+print(" Mapping Campaspe river to grid")
 
 num_reaches = 80    
 river_seg, reach_df, reach_data, known_points = \
@@ -496,9 +496,9 @@ FieldData_info.loc[:, 'seg_loc'] = river_field_seg
 
 Camp_riv_cells = [x for x in zip(river_seg['i'], river_seg['j'])]
                       
-print "************************************************************************"
-print " Creating Campaspe river observations for stage and discharge at "
-print " locations downstream of Lake Eppalock"
+print("************************************************************************")
+print(" Creating Campaspe river observations for stage and discharge at ")
+print(" locations downstream of Lake Eppalock")
 
 
 Campaspe_flow_sites_list = Campaspe['Site Id'].tolist()
@@ -506,7 +506,7 @@ Campaspe['new_gauge'] = Campaspe[['Gauge Zero (Ahd)', 'Cease to flow level', 'Mi
 
 # Vic Government stream gauges:
 stage_time_series = pd.DataFrame()
-for key in river_stage_data[0].keys():
+for key in list(river_stage_data[0].keys()):
     # Ignore 406207 Lake Eppalock as the stage in the reservoir is not
     # accounted for in the model, only the outflow from the reservoir
     if key == 406207:
@@ -517,7 +517,7 @@ for key in river_stage_data[0].keys():
     site_ts = river_stage_data[0][key].copy()
     site_ts.loc[:, 'name'] = key
     site_ts['datetime'] = site_ts.index
-    site_ts.index = range(site_ts.shape[0])
+    site_ts.index = list(range(site_ts.shape[0]))
     site_ts.rename(columns={'Mean':'value'}, inplace=True)
     #if Campaspe.loc[Campaspe.index == key, 'Gauge Zero (Ahd)'].tolist()[0] > 0:
     if Campaspe.loc[Campaspe.index == key, 'new_gauge'].tolist()[0] > 0:
@@ -546,7 +546,7 @@ tr_model.observations.set_as_observations('stage',
                                           real=True)
 
 discharge_time_series = pd.DataFrame()
-for key in river_flow_data.keys():
+for key in list(river_flow_data.keys()):
     # Ignore 406207 Lake Eppalock    
     if key == 406207:
         continue
@@ -557,7 +557,7 @@ for key in river_flow_data.keys():
     site_ts = river_flow_data[key].copy()
     site_ts.loc[:, 'name'] = key
     site_ts['datetime'] = site_ts.index
-    site_ts.index = range(site_ts.shape[0])
+    site_ts.index = list(range(site_ts.shape[0]))
     site_ts.rename(columns={'Mean':'value'}, inplace=True)
     #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     # NO FILTERING ON "Qual" AT THIS TIME SO BAD DATA ARE POSSIBLE!!!
@@ -588,7 +588,7 @@ if use_field_flow:
     # Field data for stage and discharge
     field_discharge_time_series = FieldData[['Name', 'Flows_Field']]
     field_discharge_time_series.loc[:, 'datetime'] = field_discharge_time_series.index
-    field_discharge_time_series.index = range(field_discharge_time_series.shape[0])
+    field_discharge_time_series.index = list(range(field_discharge_time_series.shape[0]))
     field_discharge_time_series.rename(columns={'Name':'name', 'Flows_Field': 'value'}, inplace=True)
     field_discharge_time_series = field_discharge_time_series.dropna()
     # Ignore tributaries for now ...
@@ -610,7 +610,7 @@ if use_field_depth:
     
     field_stage_time_series = FieldData[['Name', 'Depth_Field']]
     field_stage_time_series.loc[:, 'datetime'] = field_stage_time_series.index
-    field_stage_time_series.index = range(field_stage_time_series.shape[0])
+    field_stage_time_series.index = list(range(field_stage_time_series.shape[0]))
     field_stage_time_series.rename(columns={'Name':'name', 'Depth_Field': 'value'}, inplace=True)
     field_stage_time_series = field_stage_time_series.dropna()
     # Ignore tributaries for now ...
@@ -627,12 +627,12 @@ if use_field_depth:
                                               weights=1.0, 
                                               real=True)
 
-print "************************************************************************"
-print " Creating Campaspe river observations for EC at "
-print " locations downstream of Lake Eppalock"
+print("************************************************************************")
+print(" Creating Campaspe river observations for EC at ")
+print(" locations downstream of Lake Eppalock")
 ec_time_series = pd.DataFrame()
 EC_input_site = 406207
-for key in river_ec_data.keys():
+for key in list(river_ec_data.keys()):
     # Ignore 406219 Lake Eppalock    
     if key == EC_input_site:
         continue
@@ -642,7 +642,7 @@ for key in river_ec_data.keys():
     site_ts = river_ec_data[key].copy()
     site_ts.loc[:, 'name'] = key
     site_ts['datetime'] = site_ts.index
-    site_ts.index = range(site_ts.shape[0])
+    site_ts.index = list(range(site_ts.shape[0]))
     site_ts.rename(columns={'Mean':'value'}, inplace=True)
     #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     # NO FILTERING ON "Qual" AT THIS TIME SO BAD DATA ARE POSSIBLE!!!
@@ -672,7 +672,7 @@ tr_model.observations.set_as_observations('gstrec',
 if use_field_ec:
     field_ec_time_series = FieldData[['Name', 'EC_Field']]
     field_ec_time_series.loc[:, 'datetime'] = field_ec_time_series.index
-    field_ec_time_series.index = range(field_ec_time_series.shape[0])
+    field_ec_time_series.index = list(range(field_ec_time_series.shape[0]))
     field_ec_time_series.rename(columns={'Name':'name', 'EC_Field': 'value'}, inplace=True)
     field_ec_time_series = field_ec_time_series.dropna()
     # Ignore tributaries for now ...
@@ -690,13 +690,13 @@ if use_field_ec:
                                               real=True)
 
 
-print "************************************************************************"
-print " Creating Campaspe river observations for Radon at "
-print " locations downstream of Lake Eppalock"
+print("************************************************************************")
+print(" Creating Campaspe river observations for Radon at ")
+print(" locations downstream of Lake Eppalock")
 
 radon_time_series = FieldData[['Name', 'Radon']]
 radon_time_series.loc[:, 'datetime'] = radon_time_series.index
-radon_time_series.index = range(radon_time_series.shape[0])
+radon_time_series.index = list(range(radon_time_series.shape[0]))
 radon_time_series.rename(columns={'Name':'name', 'Radon': 'value'}, inplace=True)
 radon_time_series = radon_time_series.dropna()
 # Ignore tributaries for now ...
@@ -714,8 +714,8 @@ tr_model.observations.set_as_observations('radon',
                                           weights=1.0, 
                                           real=True)
 
-print "************************************************************************"
-print " Creating Campaspe river simulated exchange observations for data worth analysis"
+print("************************************************************************")
+print(" Creating Campaspe river simulated exchange observations for data worth analysis")
    
 Years = 1
 fy_start = end - datetime.timedelta(days=365 * Years)
@@ -769,7 +769,7 @@ for i in range(3):
 obs_names_g2g_reach = ['rrf_a', 'rrf_s', 'rrf_m']
 # Create reaches based on locations of gauging stations:
 gauge_locations = np.sort(Campaspe_info['seg_loc'].unique())
-reach_no = range(len(gauge_locations))
+reach_no = list(range(len(gauge_locations)))
 river_seg['reach'] = np.nan    
 river_seg.loc[river_seg['iseg'].isin(gauge_locations), 'reach'] = reach_no         
 river_seg['reach'].fillna(method='ffill', inplace=True)
@@ -884,7 +884,7 @@ def filter_to_highest_cells(array):
     filt = create_cell_filter(cache)
     sorted_list = sorted(array, key=lambda x: (x[0], x[1], x[2]))
 
-    return np.asarray(filter(filt, sorted_list))
+    return np.asarray(list(filter(filt, sorted_list)))
 # End filter_to_highest_cells()
 
 def _zone_array2layers(zone_array, plots=False):
@@ -1026,8 +1026,8 @@ porous_potential_obs(zone2D_info, sim_c14_obs_hgu, hgus, fy_start, fy_end, 'M',
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-print "************************************************************************"
-print " Creating Campaspe river boundary"
+print("************************************************************************")
+print(" Creating Campaspe river boundary")
 
 tr_model.boundaries.create_model_boundary_condition('Campaspe River', 
                                                     'river_flow', 
@@ -1052,8 +1052,8 @@ tr_model.boundaries.assign_boundary_array('Eppalock_EC',
                                           Eppalock_EC_ts_resampled)
 
 
-print "************************************************************************"
-print " Mapping Murray River to grid"
+print("************************************************************************")
+print(" Mapping Murray River to grid")
 
 riv, mriver_seg_ghb = \
     rivers.prepare_river_data_for_murray(tr_model, surface_raster_high_res_GSA,
@@ -1062,54 +1062,54 @@ riv, mriver_seg_ghb = \
                                          river_stage_data,
                                          river_seg) 
 
-print "************************************************************************"
-print " Creating Murray River boundary"
+print("************************************************************************")
+print(" Creating Murray River boundary")
 
 tr_model.boundaries.create_model_boundary_condition('Murray River', 'river', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Murray River', riv)
 
-print "************************************************************************"
-print " Setting up Murray River GHB boundary"
+print("************************************************************************")
+print(" Setting up Murray River GHB boundary")
 
 ghb = prepare_ghb_boundary_from_murray_data(tr_model,
                                             mriver_seg_ghb)
 
-print "************************************************************************"
-print " Creating GHB boundary"
+print("************************************************************************")
+print(" Creating GHB boundary")
 
 tr_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
 tr_model.boundaries.assign_boundary_array('GHB', ghb)
 
-print "************************************************************************"
-print " Mapping Drains to grid"
+print("************************************************************************")
+print(" Mapping Drains to grid")
 
 drain = prepare_drain_data_for_model(tr_model,
                                  Camp_riv_cells,
                                  start_irrigation,
                                  date_index)
 
-print "************************************************************************"
-print " Creating Drains boundary"
+print("************************************************************************")
+print(" Creating Drains boundary")
 
 tr_model.boundaries.create_model_boundary_condition('Drain', 'drain', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Drain', drain)
 
-print "************************************************************************"
-print " Mapping Channels to grid"
+print("************************************************************************")
+print(" Mapping Channels to grid")
 
 #channel = prepare_channel_data_for_model(tr_model,
 #                                   start_irrigation,
 #                                   date_index,
 #                                   Camp_riv_cells)
 
-print "************************************************************************"
-print " Creating Channel boundary"
+print("************************************************************************")
+print(" Creating Channel boundary")
 
 #tr_model.boundaries.create_model_boundary_condition('Channel', 'channel', bc_static=True)
 #tr_model.boundaries.assign_boundary_array('Channel', channel)
 
-print "************************************************************************"
-print " Creating parameters for transport "
+print("************************************************************************")
+print(" Creating parameters for transport ")
 
 # General parameters for transport
 for unit in HGU:
@@ -1226,15 +1226,15 @@ tr_model.parameters.parameter_options_set('hzdpth',
                                           OFFSET=0)
 
 
-print "************************************************************************"
-print " Collate observations"
+print("************************************************************************")
+print(" Collate observations")
 #
 tr_model.map_obs_loc2mesh3D(method='nearest', ignore=[-1, 7])
 tr_model.map_obs2model_times()
 tr_model.observations.collate_observations()
 
-print "************************************************************************"
-print " Package up groundwater model builder object"
+print("************************************************************************")
+print(" Package up groundwater model builder object")
 
 tr_model.package_model()
 
@@ -1277,7 +1277,7 @@ if other_plotting_to_be_tidied:
     import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    lay = zone2D_info[0].keys()[-1]
+    lay = list(zone2D_info[0].keys())[-1]
     ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][lay]))
     
     # These are the "Tableau 20" colors as RGB.    
@@ -1328,7 +1328,7 @@ if other_plotting_to_be_tidied:
     
     for key in tr_model.observations.obs_group:
         if tr_model.observations.obs_group[key]['real']:
-            print("###### {} #####".format(key))
+            print(("###### {} #####".format(key)))
             df_ts_names = tr_model.observations.obs_group[key]['time_series']['name'].unique()
             df = tr_model.observations.obs_group[key]['locations'][['Easting', 'Northing']].copy()
             df = df[df.index.isin(df_ts_names)]
@@ -1361,7 +1361,7 @@ if other_plotting_to_be_tidied:
     #cmap_grey_white = colors.ListedColormap(['white', 'lightgrey'])
     #plt.imshow(tr_model.model_mesh3D[1][6], interpolation='none', cmap=cmap_grey_white)
     #plt.axis('off')
-    tr_model.boundaries.bc.keys()
-    tr_model.boundaries.bc['Rainfall'].keys()
+    list(tr_model.boundaries.bc.keys())
+    list(tr_model.boundaries.bc['Rainfall'].keys())
     zarr = tr_model.boundaries.bc['Rain_reduced']['zonal_array']
     plt.imshow(np.ma.masked_where(tr_model.model_mesh3D[1][0] == -1, zarr), interpolation='none', vmin=100, cmap='prism')

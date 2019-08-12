@@ -63,7 +63,7 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
             resample = df[(df.index >= pd_dt(p_start))] \
                           .resample(frequency, label=label).mean()
             
-        if debug: print resample.index
+        if debug: print(resample.index)
         if index < len_frequencies - 1:
             if label == 'left':
                 df_resamples += [resample.iloc[1:]]
@@ -83,7 +83,7 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
             if np.all(np.in1d(df_concat.index, date_index[:-1])): #np.array_equal(df_concat.index, date_index):
                 print("Successful match of date indices for model and resampled df")
             else:
-                print("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index))
+                print(("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index)))
                 import sys        
                 sys.exit("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index))        
             # end if
@@ -91,7 +91,7 @@ def resample_to_model_data_index(df, date_index, frequencies, date_group, \
             if np.all(np.in1d(df_concat.index, date_index)): #np.array_equal(df_concat.index, date_index):
                 print("Successful match of date indices for model and resampled df")
             else:
-                print("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index))
+                print(("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index)))
                 import sys        
                 sys.exit("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(df_concat.index, date_index))        
             # end if
@@ -132,7 +132,7 @@ def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
         df_obs_name.loc[:, 'datetime'] = df_obs_name.index
         # Restore the name column
         df_obs_name.loc[:,'name'] = obs_name                    
-        df_obs_name.index = range(count, count + df_obs_name.shape[0])
+        df_obs_name.index = list(range(count, count + df_obs_name.shape[0]))
         count += df_obs_name.shape[0] + 1
         obs_by_name_temp += [df_obs_name]
 
@@ -144,7 +144,7 @@ def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
         if np.all(np.in1d(test_index, date_index[:-1])): #np.array_equal(df_concat.index, date_index):
             print("Successful match of date indices for model and resampled df")
         else:
-            print("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index))
+            print(("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index)))
             import sys        
             sys.exit("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index))        
         # end if
@@ -152,7 +152,7 @@ def resample_obs_time_series_to_model_data_index(df_obs, date_index, \
         if np.all(np.in1d(test_index, date_index)):
             print("Successful match of date indices for model and resampled df")
         else:
-            print("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index))
+            print(("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index)))
             import sys        
             sys.exit("*** Failed match of some date indices for model and resampled df \n {0} \n {1}".format(test_index, date_index))        
         # end if

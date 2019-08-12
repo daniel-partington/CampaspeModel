@@ -25,7 +25,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
 
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
@@ -34,8 +34,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
         MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
 
     if verbose:
-        print "************************************************************************"
-        print " Instantiate MODFLOW model "
+        print("************************************************************************")
+        print(" Instantiate MODFLOW model ")
 
     ###########################################################################
     ###########################################################################
@@ -46,8 +46,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
     modflow_model.buildMODFLOW(transport=True, write=False, verbose=False)
 
     if verbose:
-        print "************************************************************************"
-        print " Set initial conc from ss solution "
+        print("************************************************************************")
+        print(" Set initial conc from ss solution ")
 
     species = ['C14'] 
 
@@ -85,8 +85,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
 
     for specimen in species:
         if verbose:
-            print "************************************************************************"
-            print " Instantiate MT3D model "
+            print("************************************************************************")
+            print(" Instantiate MT3D model ")
             
         mt = flopy.mt3d.Mt3dms(modelname=modflow_model.name + \
                                         '_transport_{}'.format(specimen),
@@ -97,8 +97,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                                exe_name=mt_exe_folder)
         
         if verbose:
-            print "************************************************************************"
-            print " Setup MT3D packages "
+            print("************************************************************************")
+            print(" Setup MT3D packages ")
     
         if verbose:
             print("Add the BTN package to the model")
@@ -161,13 +161,13 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
             bc_array = bc_boundary['bc_array']
     
             if bc_type == 'recharge':
-                for key in bc_array.keys():
+                for key in list(bc_array.keys()):
                     crch[key] = np.ones_like(bc_array[key])               
                     crch[key] = crch[key] * rech_conc_dict[specimen]
                     crch[key][ibound[0]==0] = 0.0
                 
             if bc_type == 'wells':
-                for key in bc_array.keys():
+                for key in list(bc_array.keys()):
                     for well in bc_array[key]:
                         ssm_data[key].append((well[0], well[1], well[2], 
                                               0.0, itype['WEL']))
@@ -179,7 +179,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                                                   0.0, itype['WEL']))
     
             if bc_type == 'drain':
-                for key in bc_array.keys():
+                for key in list(bc_array.keys()):
                     for drain in bc_array[key]:
                         ssm_data[key].append((drain[0], drain[1], drain[2], 
                                               0.0, itype['DRN']))
@@ -191,7 +191,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                                                   0.0, itype['DRN']))
     
             if bc_type == 'general head':
-                for key in bc_array.keys():
+                for key in list(bc_array.keys()):
                     for ghb in bc_array[key]:
                         ssm_data[key].append((ghb[0], ghb[1], ghb[2], 
                                               ghb_conc_dict[specimen], itype['GHB']))
@@ -224,13 +224,13 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                 bc_type = bc_boundary['bc_type']
                 bc_array = bc_boundary['bc_array']
                 if bc_type == 'river':
-                    time_key = bc_array.keys()[0]
+                    time_key = list(bc_array.keys())[0]
                     river[0] += bc_array[time_key]
                 if bc_type == 'channel':
-                    time_key = bc_array.keys()[0]
+                    time_key = list(bc_array.keys())[0]
                     river[0] += bc_array[time_key]
             
-            for key in river.keys():
+            for key in list(river.keys()):
                 for riv in river[key]:
                     ssm_data[key].append((riv[0], riv[1], riv[2], 
                                           riv_conc_dict[specimen], itype['RIV'])) 
@@ -297,7 +297,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                                filenames=gage_output)
 
         ssm_data_temp = {}
-        for key in ssm_data.keys():
+        for key in list(ssm_data.keys()):
             if len(ssm_data[key]) > 0:
                 ssm_data_temp[key] = ssm_data[key]
             #end if
@@ -335,7 +335,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
             obs_group = mf_model.model_data.observations.obs_group
         
             # Write observation to file
-            for obs_set in model_data.observations.obs_group.keys():
+            for obs_set in list(model_data.observations.obs_group.keys()):
                 obs_type = obs_group[obs_set]['obs_type']
                 # Import the required model outputs for processing
                 if obs_type not in ['ec_sim', 'c14shal', 'c14deep']:

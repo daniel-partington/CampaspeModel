@@ -145,18 +145,18 @@ def main():
         for line in lines:
             if line.split(':')[0] == 'Ecology':
                 ecology_bores = process_line(line)
-                print('Ecology: {}'.format(ecology_bores))
+                print(('Ecology: {}'.format(ecology_bores)))
             elif line.split(':')[0] == 'Policy':
                 policy_bores = process_line(line)
-                print('Policy: {}'.format(policy_bores))
+                print(('Policy: {}'.format(policy_bores)))
             elif line.split(':')[0] == 'SW_stream_gauges':
                 stream_gauges = process_line(line)
-                print('SW: {}'.format(stream_gauges))
+                print(('SW: {}'.format(stream_gauges)))
             # End if
         # End for
     # End with
 
-    print("""
+    print(("""
     Attempting to match the following bores/gauges
     Ecology: {}
     Policy: {}
@@ -166,8 +166,8 @@ def main():
 
     If the location/data for the indicated bores is found not to be appropriate, the closest 
     'best' bore will be used instead.
-    """.format(ecology_bores, policy_bores, stream_gauges, data_folder))
-    print("=" * 30)
+    """.format(ecology_bores, policy_bores, stream_gauges, data_folder)))
+    print(("=" * 30))
 
     if VERBOSE:
         print('########################################################################')
@@ -220,7 +220,7 @@ def main():
     # shapefile GDAL object
     if VERBOSE:
         print("************************************************************************")
-        print(" Defining structured mesh at {res}x{res}".format(res=res))
+        print((" Defining structured mesh at {res}x{res}".format(res=res)))
 
     hgu, hu_raster_files_reproj = \
         campaspe_mesh.build_mesh_and_set_properties(tr_model,
@@ -341,23 +341,23 @@ def main():
             except Exception as e:
                 if bore in policy_bores:
                     print(e)
-                    print('Policy bore not in info: ', bore)
+                    print(('Policy bore not in info: ', bore))
                 continue
             # End try
 
             if bore_depth > mesh3D_0[0][row][col]:
                 bores_above_surface += [bore]
                 if bore in policy_bores:
-                    print('Policy bore above surf: ', bore)
+                    print(('Policy bore above surf: ', bore))
                 continue
             if bore_depth > mesh3D_0[1][row][col]:
                 bores_in_top_layer += [bore]
             if bore_depth <= mesh3D_0[-2][row][col]:
                 bores_below_top_of_bedrock += [bore]
                 if bore in policy_bores:
-                    print('Policy bore in bedrock: {}'.format(bore))
-                    print('Bore depth is at: {}'.format(bore_depth))
-                    print('Bedrock top is at: {}'.format(mesh3D_0[-2][row][col]))
+                    print(('Policy bore in bedrock: {}'.format(bore)))
+                    print(('Bore depth is at: {}'.format(bore_depth)))
+                    print(('Bedrock top is at: {}'.format(mesh3D_0[-2][row][col])))
                     print('Using above cell in Deep Lead for head by redefining bore_depth')
                     final_bores.set_value(final_bores[final_bores['HydroCode'] == bore].index,
                                           'depth', mesh3D_0[-2][row][col] + 1.0)
@@ -369,9 +369,9 @@ def main():
                 bores_more_filter_policy += [bore]
             bores_more_filter += [bore]
 
-    print('Bores above the surface: {}'.format(len(bores_above_surface)))
-    print('Bores below top of bedrock: {}'.format(len(bores_below_top_of_bedrock)))
-    print('Final bores within aquifers: {}'.format(len(bores_more_filter)))
+    print(('Bores above the surface: {}'.format(len(bores_above_surface))))
+    print(('Bores below top of bedrock: {}'.format(len(bores_below_top_of_bedrock))))
+    print(('Final bores within aquifers: {}'.format(len(bores_more_filter))))
 
     final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
     bore_points = [[final_bores.loc[x, "Easting"], final_bores.loc[x, "Northing"]] for x in final_bores.index]
@@ -601,10 +601,10 @@ def main():
     obs_active_bores = bores_obs_time_series[bores_obs_time_series['zone'] != 'null']['name']
     obs_active_bores = obs_active_bores[obs_active_bores.isin(bores_in_top_layer)].tolist()
     obs_filter_bores = bore_points_3d[bore_points_3d.index.isin(obs_active_bores)]
-    obs_bores_list = zip(obs_filter_bores['Easting'], obs_filter_bores['Northing'])
+    obs_bores_list = list(zip(obs_filter_bores['Easting'], obs_filter_bores['Northing']))
 
     stream_active = campaspe[campaspe.index.isin([int(x) for x in stream_gauges])]
-    stream_gauges_list = zip(stream_active['Easting'], stream_active['Northing'])
+    stream_gauges_list = list(zip(stream_active['Easting'], stream_active['Northing']))
 
     closest_bores_active = tr_model.find_closest_points_between_two_lists(obs_bores_list, stream_gauges_list)
 
@@ -691,7 +691,7 @@ def main():
 
     tr_model.package_model()
 
-    print("Packaged into {}".format(tr_model.out_data_folder_grid))
+    print(("Packaged into {}".format(tr_model.out_data_folder_grid)))
 # End main()
 
 if __name__ == '__main__':

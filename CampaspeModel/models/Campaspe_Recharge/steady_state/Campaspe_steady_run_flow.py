@@ -16,7 +16,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "03_recharge_flow_packaged.pkl"))
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
@@ -25,8 +25,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     #    m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
-        print "************************************************************************"
-        print " Updating HGU parameters "
+        print("************************************************************************")
+        print(" Updating HGU parameters ")
     
            # This needs to be automatically generated with the map_raster2mesh routine ...
     zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
@@ -51,7 +51,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     def update_pilot_points(zone_map, Zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
         points_values_dict = create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m)
         p = m.pilot_points[par_name]
-        zones = len(zone_map.keys())
+        zones = len(list(zone_map.keys()))
         p.output_directory = os.path.join(data_folder, prop_folder)
         p.update_pilot_points_files_by_zones(zones, points_values_dict)
         p.run_pyfac2real_by_zones(zones) 
@@ -62,7 +62,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
                              m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
-    print("Erroneous pilot cells: {}".format(len(Kh[Kh > 10000.])))
+    print(("Erroneous pilot cells: {}".format(len(Kh[Kh > 10000.]))))
     Kh[Kh > 10000.] = 25.
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
@@ -83,8 +83,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     m.properties.update_model_properties('SS', SS)
     
     if verbose:
-        print "************************************************************************"
-        print " Updating river parameters "
+        print("************************************************************************")
+        print(" Updating river parameters ")
     
 #    reach_df = m.mf_sfr_df['Campaspe'].reach_df 
 #    segment_data = m.mf_sfr_df['Campaspe'].seg_df
@@ -128,14 +128,14 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 #    seg_dict = segment_data1    
 
     if verbose:
-        print "************************************************************************"
-        print " Updating Campaspe river boundary"
+        print("************************************************************************")
+        print(" Updating Campaspe river boundary")
     
 #    m.boundaries.update_boundary_array('Campaspe River', [reach_data, seg_dict])
     
     if verbose:
-        print "************************************************************************"
-        print " Updating Murray River boundary"
+        print("************************************************************************")
+        print(" Updating Murray River boundary")
     
 #    mriver_seg = m.river_mapping['Murray']
 #    mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
@@ -151,13 +151,13 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 #    m.boundaries.update_boundary_array('Murray River', riv)
     
     if verbose:
-        print "************************************************************************"
-        print " Updating recharge boundary "
+        print("************************************************************************")
+        print(" Updating recharge boundary ")
 
     # Adjust rainfall to recharge using zoned rainfall reduction parameters
     # Need to make copies of all rainfall arrays
     interp_rain = m.boundaries.bc['Rainfall']['bc_array']
-    for key in interp_rain.keys():
+    for key in list(interp_rain.keys()):
         interp_rain[key] = np.copy(np.zeros_like(interp_rain[key]))
 
     recharge_zone_array = m.boundaries.bc['Rain_reduced']['zonal_array']
@@ -187,7 +187,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     zone_coverage = {}
     def update_recharge(rech_dict):
-        for key in interp_rain.keys():
+        for key in list(interp_rain.keys()):
             for key2 in rech_dict:
                 zone_coverage[key2] = len(recharge_zone_array[(recharge_zone_array == float(key2)) & (m.model_mesh3D[1][0] != -1)])
                 interp_rain[key][recharge_zone_array == float(key2)] = \
@@ -203,8 +203,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     m.boundaries.update_boundary_array('Rain_reduced', rch)
 
     if verbose:
-        print "************************************************************************"
-        print " Updating Murray River GHB boundary"
+        print("************************************************************************")
+        print(" Updating Murray River GHB boundary")
     
 #    MurrayGHB = []
 #
@@ -223,14 +223,14 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 #    ghb[0] = MurrayGHB
 
     if verbose:
-        print "************************************************************************"
-        print " Updating GHB boundary"
+        print("************************************************************************")
+        print(" Updating GHB boundary")
 
 #    m.boundaries.update_boundary_array('GHB', ghb)
 
     if verbose:
-        print "************************************************************************"
-        print " Updating Drains boundary"
+        print("************************************************************************")
+        print(" Updating Drains boundary")
     
 #    mapped_drains = m.polyline_mapped['Drain_Clip_model.shp']
 #    
@@ -253,21 +253,21 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
 #    m.boundaries.assign_boundary_array('Drain', drain)
     
     if verbose:
-        print "************************************************************************"
-        print " Updating Channels boundary"
+        print("************************************************************************")
+        print(" Updating Channels boundary")
 
     if verbose:
-        print "************************************************************************"
-        print " Updating pumping boundary"
+        print("************************************************************************")
+        print(" Updating pumping boundary")
 
     if verbose:
-        print "************************************************************************"
-        print " Check for boundary condition updating"
+        print("************************************************************************")
+        print(" Check for boundary condition updating")
         m.generate_update_report()
     
     if verbose:
-        print "************************************************************************"
-        print " Set initial head "
+        print("************************************************************************")
+        print(" Set initial head ")
 
     path=os.path.join(data_folder)
     fname="01_steady_state"
@@ -276,8 +276,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     m.initial_conditions.set_as_initial_condition("Head", head)
     
     if verbose:
-        print "************************************************************************"
-        print " Build and run MODFLOW model "
+        print("************************************************************************")
+        print(" Build and run MODFLOW model ")
     
     ###########################################################################
     ###########################################################################
@@ -307,8 +307,8 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     rech_all = wat_bal_df.loc['RECHARGE_pos']['Flux m^3/d']
     rech_cells = len(rch[0][(rch[0] > 0) & (m.model_mesh3D[1][0] != -1)]) 
     rech_area = rech_cells * 1000 * 1000
-    for key in zone_coverage.keys():
-        print(key, zone_coverage[key] / float(rech_cells) * 100)
+    for key in list(zone_coverage.keys()):
+        print((key, zone_coverage[key] / float(rech_cells) * 100))
         
     rech = rech_all / rech_area * 1000 * 365.
     #print("Recharge = {} mm/yr".format(rech))

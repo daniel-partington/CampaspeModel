@@ -5,7 +5,12 @@ head at trigger bores.
 """
 
 import copy
-import cPickle as pickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
+    
 import os
 from os.path import join as p_j
 import sys
@@ -14,11 +19,14 @@ import warnings
 import flopy.utils.binaryfile as bf
 import numpy as np
 
-from common_run_funcs import *
+from .common_run_funcs import *
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 # Configuration Loader
 from HydroModelBuilder.Utilities.Config.ConfigLoader import ConfigLoader
+
+if sys.version_info[0] < 3:
+    range = xrange
 
 
 # TODO: Set the stream gauges, ecology bores, policy bores at the start in some
@@ -109,7 +117,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
 
-    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
+    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)]
     river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
     river_seg['stage_from_gauge'] = river_seg['stage']
     campaspe_stage = river_seg.loc[river_seg['gauge_id'] != 'none', :]
@@ -157,15 +165,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Campaspe River', {0: simple_river})
 
     if verbose:
-        print "************************************************************************"
-        print " Updating HGU parameters "
+        print("************************************************************************")
+        print(" Updating HGU parameters ")
 
     # This needs to be automatically generated with the map_raster2mesh routine ...
     # zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
 
     if verbose:
-        print "************************************************************************"
-        print " Updating Murray River boundary"
+        print("************************************************************************")
+        print(" Updating Murray River boundary")
 
     # Updating Murray River
     mriver_seg = this_model.river_mapping['Murray']
@@ -176,15 +184,15 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Murray River', {0: msimple_river})
 
     if verbose:
-        print "************************************************************************"
-        print " Updating recharge boundary "
+        print("************************************************************************")
+        print(" Updating recharge boundary ")
 
     # Adjust rainfall to recharge using zoned rainfall reduction parameters
     # Need to make copies of all rainfall arrays
     if rainfall_irrigation is not None:
         interp_rain = model_boundaries_bc['Rainfall']['bc_array']
 
-        for key in interp_rain.keys():
+        for key in list(interp_rain.keys()):
             if key > 0:
                 interp_rain[key] = np.copy(interp_rain[key])
             else:
@@ -196,24 +204,24 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         warnings.warn("Rainfall+Irrigation input ignored by GW model")
         interp_rain = model_boundaries_bc['Rainfall']['bc_array']
 
-        for key in interp_rain.keys():
+        for key in list(interp_rain.keys()):
             interp_rain[key] = np.copy(interp_rain[key])
     # End if
 
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
-    rch_zones = len(rch_zone_dict.keys())
+    rch_zones = len(list(rch_zone_dict.keys()))
 
     par_rech_vals = [model_params['rchred{}'.format(i)]['PARLBND']  # ['PARVAL1']
-                     for i in xrange(rch_zones - 1)]
+                     for i in range(rch_zones - 1)]
 
     rch = update_recharge(par_rech_vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1)
 
     model_boundaries.update_boundary_array('Rain_reduced', rch)
 
     if verbose:
-        print "************************************************************************"
-        print " Updating pumping boundary "
+        print("************************************************************************")
+        print(" Updating pumping boundary ")
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
 
@@ -226,11 +234,11 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
         PUMPING_VAL_POS = 3  # zero-based index
         # sum the 4th item in the list of lists
-        summed_vals = {key: sum(zip(*vals)[PUMPING_VAL_POS]) for key, vals in well_boundary.iteritems()}
+        summed_vals = {key: sum(zip(*vals)[PUMPING_VAL_POS]) for key, vals in well_boundary.items()}
         summed_vals = float(sum(summed_vals.values()))
 
         normalized_well = {key: [[b[0], b[1], b[2], b[3] / summed_vals] for b in a]
-                           for key, a in well_boundary.iteritems()}
+                           for key, a in well_boundary.items()}
 
         # cache['summed_pump'] = summed_vals
         cache['normalized_pumpy'] = normalized_well
@@ -247,13 +255,13 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     then you can go through applying your pumping value such that the model pumping is as you want it to be specified.
     """
     wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a]
-           for key, a in normalized_well.iteritems()}
+           for key, a in normalized_well.items()}
 
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
     if verbose:
-        print "************************************************************************"
-        print " Updating GHB boundary "
+        print("************************************************************************")
+        print(" Updating GHB boundary ")
 
     kh = this_model.properties.properties['Kh']
 
@@ -271,8 +279,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
 
     if verbose:
-        print "************************************************************************"
-        print " Updating heads boundary "
+        print("************************************************************************")
+        print(" Updating heads boundary ")
 
     fname = 'model_{}'.format(name)
     try:
@@ -292,14 +300,22 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     # End try
 
     # Currently using flopyInterface directly rather than running from the ModelManager ...
-    modflow_model = flopyInterface.ModflowModel(this_model, data_folder=p_j(data_folder, "model_{}".format(name)))
-
+    modflow_model = flopyInterface.ModflowModel(this_model,
+                                                data_folder=p_j(
+                                                    data_folder, "model_{}".format(name)),
+                                                executable=mf_exe_folder,
+                                                nstp=1,
+                                                nper=1,
+                                                perlen=1,
+                                                steady=is_steady)
+    
     # Override temporal aspects of model build:
-    modflow_model.steady = is_steady  # This is to tell FloPy that is a transient model
-    modflow_model.executable = mf_exe_folder
-    modflow_model.nstp = 1
-    modflow_model.nper = 1
-    modflow_model.perlen = 1
+    # modflow_model.steady = is_steady  # This is to tell FloPy that is a transient model
+    # modflow_model.executable = mf_exe_folder
+
+    # modflow_model.nstp = 1
+    # modflow_model.nper = 1
+    # modflow_model.perlen = 1
 
     modflow_model.buildMODFLOW()
     modflow_model.runMODFLOW()

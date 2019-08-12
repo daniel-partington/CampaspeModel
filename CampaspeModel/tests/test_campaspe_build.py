@@ -5,9 +5,12 @@ import sys
 import argparse
 import datetime
 
-import cPickle as pickle
+try:
+    import pickle as pickle
+except ImportError:
+    import pickle
 
-print(sys.version)
+print((sys.version))
 
 from CampaspeModel.build_common import campaspe_data, campaspe_mesh
 from HydroModelBuilder.GISInterface.GDALInterface.GDALInterface import \

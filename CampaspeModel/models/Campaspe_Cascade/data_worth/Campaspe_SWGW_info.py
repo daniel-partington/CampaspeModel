@@ -65,9 +65,9 @@ if __name__ == '__main__':
 
     # Some useful bits from the simulation outputs
 
-    field_sampling = [datetime.datetime(2016,03,31),
+    field_sampling = [datetime.datetime(2016,0o3,31),
                   datetime.datetime(2016,12,31),
-                  datetime.datetime(2017,04,30)]
+                  datetime.datetime(2017,0o4,30)]
 
     m, data_folder = get_model(config_path=r"C:/Workspace/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/config")
     date_index = m.model_time.t['dateindex']

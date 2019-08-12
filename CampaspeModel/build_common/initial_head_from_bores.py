@@ -30,7 +30,7 @@ def generate_initial_head_from_bores(model_builder_object, df_ts, df_info,
     df_ts_filter.loc[:, 'HydroCode'] = df_ts_filter['name']
     df_ts_filter_loc_merge = df_ts_filter.merge(df_info, on='HydroCode')
 
-    points = zip(df_ts_filter_loc_merge['Easting'].tolist(), df_ts_filter_loc_merge['Northing'].tolist())
+    points = list(zip(df_ts_filter_loc_merge['Easting'].tolist(), df_ts_filter_loc_merge['Northing'].tolist()))
     values = df_ts_filter_loc_merge['value'].tolist()
     xi = mbo.model_mesh_centroids
 

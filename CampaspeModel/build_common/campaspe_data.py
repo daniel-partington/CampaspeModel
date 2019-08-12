@@ -27,16 +27,16 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     # Set the model boundary using a polygon shapefile:
 
     if verbose:
-        print "************************************************************************"
-        print " Setting model boundary "
+        print("************************************************************************")
+        print(" Setting model boundary ")
 
     mbo.set_model_boundary_from_polygon_shapefile(model_boundary_file,
                                                   shapefile_path=mbo.data_folder)
 
     # Set data boundary for model data
     if verbose:
-        print "************************************************************************"
-        print " Setting spatial data boundary "
+        print("************************************************************************")
+        print(" Setting spatial data boundary ")
 
     mbo.set_data_boundary_from_polygon_shapefile(mbo.boundary_poly_file,
                                                  shapefile_path=mbo.out_data_folder,
@@ -47,8 +47,8 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     weather_stations = ['Kyneton', 'Eppalock', 'Elmore', 'Rochester', 'Echuca']
 
     if verbose:
-        print "************************************************************************"
-        print " Executing custom script: processWeatherStations "
+        print("************************************************************************")
+        print(" Executing custom script: processWeatherStations ")
 
     custom_data['rain_gauges'] = mbo.read_points_data(
         os.path.join(campaspe_data_folder, "Climate", "Rain_gauges.shp"))
@@ -80,8 +80,8 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
 
     # Read in bore data:
     if verbose:
-        print "************************************************************************"
-        print " Executing custom script: getBoreData "
+        print("************************************************************************")
+        print(" Executing custom script: getBoreData ")
 
     bore_levels_file = "bore_levels"
     bore_salinity_file = "bore_salinity"
@@ -116,8 +116,8 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     custom_data['bore_data_info']["HydroCode"] = custom_data['bore_data_info'].index
 
     if verbose:
-        print "************************************************************************"
-        print " Read in and filtering bore spatial data "
+        print("************************************************************************")
+        print(" Read in and filtering bore spatial data ")
 
     bores_shpfile = mbo.read_points_data(os.path.join(
         campaspe_data_folder, "ngis_shp_VIC", "ngis_shp_VIC", "NGIS_Bores.shp"))
@@ -132,7 +132,7 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     final_bores = final_bores[final_bores['mean level'] > final_bores['BottomElev']]
 
     custom_data['final_bores'] = final_bores
-    print 'Final number of bores within the data boundary that have level data and screen info: ', final_bores.shape[0]
+    print('Final number of bores within the data boundary that have level data and screen info: ', final_bores.shape[0])
 
     # final_bores.plot(kind='scatter', x="Easting", y="Northing", c="mean level", cmap="Spectral") # , edgecolor='None'
 
@@ -144,8 +144,8 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     out_file = "pumping wells.shp"
 
     if verbose:
-        print "************************************************************************"
-        print " Executing custom script: get_gw_licence_info "
+        print("************************************************************************")
+        print(" Executing custom script: get_gw_licence_info ")
 
     custom_data['pumping_data'] = get_gw_licence_info.get_gw_licence_info(
         filename, path=path, out_file=out_file, out_path=out_path)
@@ -153,8 +153,8 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         campaspe_data_folder, "GW", "Bore data", "pumping wells.shp"))
 
     if verbose:
-        print "************************************************************************"
-        print "Get the C14 data"
+        print("************************************************************************")
+        print("Get the C14 data")
 
     c14_points = mbo.read_points_data(os.path.join(campaspe_data_folder, "Chemistry", "C14.shp"))
     c14data = os.path.join(campaspe_data_folder, "Chemistry", "C14_locs.xlsx")
@@ -174,15 +174,15 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     custom_data['C14_points'] = c14_points
 
     if verbose:
-        print "************************************************************************"
-        print " Executing custom script: readHydrogeologicalProperties "
+        print("************************************************************************")
+        print(" Executing custom script: readHydrogeologicalProperties ")
 
     hgu_file_location = os.path.join(campaspe_data_folder, "GW", "Aquifer properties", "Hydrogeologic_variables.xlsx")
     custom_data['HGU_props'] = read_hydrogeological_properties.get_hgu_properties(hgu_file_location)
 
     if verbose:
-        print "************************************************************************"
-        print " Executing custom script: processRiverStations "
+        print("************************************************************************")
+        print(" Executing custom script: processRiverStations ")
 
     river_flow_file = "river_flow_processed"
     river_stage_file = "river_stage_processed"
@@ -269,17 +269,17 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         mbo.save_obj(custom_data['river_diversions_data'], river_diversions_file)
 
     if verbose:
-        print "************************************************************************"
-        print "Load in the Campaspe river field sampling data"
+        print("************************************************************************")
+        print("Load in the Campaspe river field sampling data")
 
     field_data_folder = os.path.join(campaspe_data_folder, "Chemistry", "Radon_interpreter")
     field_data_file = "data_Campaspe.csv"
     custom_data['FieldData'] = pd.read_csv(os.path.join(field_data_folder, field_data_file), skiprows=[
-                                           1], index_col='Date', parse_dates=True, dayfirst=True, usecols=range(0, 15))
+                                           1], index_col='Date', parse_dates=True, dayfirst=True, usecols=list(range(0, 15)))
 
     if verbose:
-        print "************************************************************************"
-        print "Load in the river shapefiles"
+        print("************************************************************************")
+        print("Load in the river shapefiles")
 
     waterway_dir = os.path.join(mbo.data_folder, "Waterways")
     custom_data['Campaspe_river_poly_file'] = os.path.join(
@@ -307,8 +307,8 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
     custom_data['surface_raster_high_res'] = os.path.join(campaspe_data_folder, "ESRI_GRID_raw", "ESRI_GRID", "sur_1t")
 
     if verbose:
-        print "************************************************************************"
-        print "Load in the recharge zones as determined by Yueqing Xie"
+        print("************************************************************************")
+        print("Load in the recharge zones as determined by Yueqing Xie")
 
     custom_data['recharge_zones'] = os.path.join(campaspe_data_folder, "Linking_recharge", "Zones_24.tif")
     custom_data['recharge_zone_info'] = pd.read_csv(
@@ -319,15 +319,15 @@ def process_custom_scripts_and_spatial_data(model_builder_object,
         r"zone_percentage_recharge_statistics_method3.xlsx"), sheet='Sheet1')
 
     if verbose:
-        print "************************************************************************"
-        print "Load in the shapefiles defining groundwater boundaries"
+        print("************************************************************************")
+        print("Load in the shapefiles defining groundwater boundaries")
 
     custom_data['WGWbound_poly'] = mbo.read_poly("western_head.shp", path=mbo.data_folder)
     custom_data['EGWbound_poly'] = mbo.read_poly("eastern_head.shp", path=mbo.data_folder)
 
     if verbose:
-        print "************************************************************************"
-        print "Load in the farms shapefile"
+        print("************************************************************************")
+        print("Load in the farms shapefile")
 
     farms_path = os.path.join(campaspe_data_folder, "SW", "Farm")
     custom_data['farms_poly'] = mbo.read_poly("farm_v1_prj.shp", path=farms_path, poly_type='polygon')

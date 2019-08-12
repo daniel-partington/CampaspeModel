@@ -4,7 +4,11 @@ then return SW/GW exchanges, avg depth to GW, depth to GW at ecology sites and
 head at trigger bores.
 """
 
-import cPickle as pickle
+try:
+    import pickle as pickle
+except ImportError:
+    import pickle
+
 import os
 import sys
 import time
@@ -13,7 +17,7 @@ import warnings
 import flopy.utils.binaryfile as bf
 import numpy as np
 
-from common_run_funcs import *
+from .common_run_funcs import *
 from HydroModelBuilder.GWModelManager import GWModelManager
 from HydroModelBuilder.ModelInterface.flopyInterface import flopyInterface
 
@@ -95,7 +99,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
         Stream_gauges = cache['Stream_gauges']
     # End if
 
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     this_model = MM.GW_build[name]
     mesh = this_model.model_mesh3D
     mesh_0, mesh_1 = mesh[0], mesh[1]
@@ -176,23 +180,23 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     #+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
 
     if verbose:
-        print "************************************************************************"
-        print " Updating HGU parameters "
+        print("************************************************************************")
+        print(" Updating HGU parameters ")
 
     kh = this_model.properties.properties['Kh']
 
     if verbose:
-        print "************************************************************************"
-        print " Updating Campaspe River boundary"
+        print("************************************************************************")
+        print(" Updating Campaspe River boundary")
 
     river_seg = this_model.river_mapping['Campaspe']
     num_reaches = this_model.pilot_points['Campaspe'].num_points
     known_points = this_model.pilot_points['Campaspe'].points
 
-    for x in xrange(num_reaches):
+    for x in range(num_reaches):
         model_params['kv_riv{}'.format(x)]['PARVAL1'] = model_params['kv_riv{}'.format(x)]['PARVAL1'] * riv_factor
 
-    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in xrange(num_reaches)]
+    strcond_val = [model_params['kv_riv{}'.format(x)]['PARVAL1'] for x in range(num_reaches)]
     river_seg['strhc1'] = np.interp(river_seg['Cumulative Length'].values.tolist(), known_points, strcond_val)
     river_seg['multi'] = river_seg['strhc1'] * river_seg['rchlen'] * river_seg['width1']
     river_bc = this_model.boundaries.bc['Campaspe River']['bc_array']
@@ -222,8 +226,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Campaspe River', river_bc)
 
     if verbose:
-        print "************************************************************************"
-        print " Updating Murray River boundary"
+        print("************************************************************************")
+        print(" Updating Murray River boundary")
 
     # Updating Murray River
     mriver_seg = this_model.river_mapping['Murray']
@@ -240,13 +244,13 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.update_boundary_array('Murray River', mriver_bc)
 
     if verbose:
-        print "************************************************************************"
-        print " Updating recharge boundary "
+        print("************************************************************************")
+        print(" Updating recharge boundary ")
 
     # Adjust rainfall to recharge using zoned rainfall reduction parameters
     # Need to make copies of all rainfall arrays
     interp_rain = model_boundaries_bc['Rainfall']['bc_array']
-    for key in interp_rain.keys():
+    for key in list(interp_rain.keys()):
         interp_rain[key] = np.copy(interp_rain[key])
 
     if is_steady:
@@ -255,16 +259,16 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     recharge_zone_array = model_boundaries_bc['Rain_reduced']['zonal_array']
     rch_zone_dict = model_boundaries_bc['Rain_reduced']['zonal_dict']
 
-    rch_zones = len(rch_zone_dict.keys())
+    rch_zones = len(list(rch_zone_dict.keys()))
 
     par_rech_vals = [model_params['rchred{}'.format(i)]['PARVAL1']
-                     for i in xrange(rch_zones - 1)]
+                     for i in range(rch_zones - 1)]
     par_rech_vals = [model_params['rchred{}'.format(i)]['PARLBND']
-                     for i in xrange(rch_zones - 1)]
+                     for i in range(rch_zones - 1)]
 
     def update_recharge(vals):
-        for key in interp_rain.keys():
-            for i in xrange(rch_zones - 1):
+        for key in list(interp_rain.keys()):
+            for i in range(rch_zones - 1):
                 #                interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] = \
                 #                    interp_rain[key][recharge_zone_array == rch_zone_dict[i + 1]] * \
                 #                    vals[i]
@@ -296,19 +300,19 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     #model_boundaries.assign_boundary_array('Rain_reduced', {0: interp_rain})
 
     if verbose:
-        print "************************************************************************"
-        print " Updating pumping boundary "
+        print("************************************************************************")
+        print(" Updating pumping boundary ")
 
     pumpy = model_boundaries_bc['licenced_wells']['bc_array']
-    wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.iteritems()}
+    wel = {key: [[b[0], b[1], b[2], b[3] * pumping] for b in a] for key, a in pumpy.items()}
     if is_steady:
-        wel[0] = wel[wel.keys()[-1]]
+        wel[0] = wel[list(wel.keys())[-1]]
 
     model_boundaries.assign_boundary_array('licenced_wells', wel)
 
     if verbose:
-        print "************************************************************************"
-        print " Updating GHB boundary "
+        print("************************************************************************")
+        print(" Updating GHB boundary ")
 
     MurrayGHB = []
 
@@ -331,8 +335,8 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     model_boundaries.assign_boundary_array('GHB', {0: MurrayGHB})
 
     if verbose:
-        print "************************************************************************"
-        print " Initialise head start values "
+        print("************************************************************************")
+        print(" Initialise head start values ")
 
     if not is_steady:
         fname = 'model_{}'.format(name)
@@ -375,7 +379,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
 
 
 def main():
-    print("Running from: " + os.getcwd())
+    print(("Running from: " + os.getcwd()))
 
     CONFIG = load_model_config()
 
@@ -432,7 +436,7 @@ def main():
     dst_loc = os.path.join(data_folder.replace('hindcast', ''), 'hindcast_initial.hds')
 
     from shutil import copyfile
-    print('Copying {} to {}'.format(heads_file_loc, dst_loc))
+    print(('Copying {} to {}'.format(heads_file_loc, dst_loc)))
     copyfile(heads_file_loc, dst_loc)
 
     # TR second
@@ -457,7 +461,7 @@ def main():
         data_folder.replace('hindcast', 'forecast'), 'tr_parameters.txt'))
 
     dst_loc = os.path.join(data_folder.replace('hindcast', ''), 'forecast_initial.hds')
-    print('Copying {} to {}'.format(heads_file_loc, dst_loc))
+    print(('Copying {} to {}'.format(heads_file_loc, dst_loc)))
     copyfile(heads_file_loc, dst_loc)
 
 #    swgw_exchanges, avg_depth_to_gw, ecol_depth_to_gw, trigger_heads = run(**run_params)

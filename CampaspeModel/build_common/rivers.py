@@ -369,7 +369,7 @@ def create_segment_data_transient(model_builder_object,
     known_points = mbo.pilot_points['Campaspe'].points
     
     # Convert flows from Ml/d to m^3/d
-    for key in river_flow_data.keys():
+    for key in list(river_flow_data.keys()):
         river_flow_data[key]['Mean'] = river_flow_data[key]['Mean'] * 1000.
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -455,14 +455,14 @@ def create_segment_data_transient(model_builder_object,
     
     # Create reaches based on locations of gauging stations:
     div_gauge_locations = np.sort(Campaspe_info[Campaspe_info.index.isin([406207, 406203, 406202])]['seg_loc'].unique())
-    div_reach_no = range(len(div_gauge_locations))
+    div_reach_no = list(range(len(div_gauge_locations)))
     river_seg['div_reach'] = np.nan    
     river_seg.loc[river_seg['iseg'].isin(div_gauge_locations), 'div_reach'] = div_reach_no         
     river_seg['div_reach'].fillna(method='ffill', inplace=True)
     river_seg['div_reach'].fillna(method='bfill', inplace=True)
     river_seg['div_reach'].astype(int, inplace=True)
     # Remove diversions from 406207 and upstream if it didn't map to first segment
-    river_seg.loc[river_seg['iseg'].isin(range(1, div_gauge_locations[0] + 1)), 'div_reach'] = -99
+    river_seg.loc[river_seg['iseg'].isin(list(range(1, div_gauge_locations[0] + 1))), 'div_reach'] = -99
     river_segs_reach = [river_seg['iseg'][river_seg['div_reach'] == x].tolist() for x in div_reach_no]
     river_segs_reach_len = [float(len(river_segs_reach[ind])) for ind, x in enumerate(river_segs_reach)]
                         
@@ -791,7 +791,7 @@ def prepare_river_data_for_murray(model_builder_object,
     
     mriver_seg.loc[:, 'amalg_riv_points_tuple'] = mriver_seg['amalg_riv_points'].apply(lambda x: (x[0], x[1]))    
     mriver_seg = mriver_seg.iloc[::-1]
-    mriver_seg.index = range(mriver_seg.shape[0])
+    mriver_seg.index = list(range(mriver_seg.shape[0]))
     
     if mbo.gridHeight == 1000:
         print(" ** Merging collocated stream reaches")
@@ -911,7 +911,7 @@ def create_riv_data_transient(model_builder_object,
     stage_resampled = {}
     depth_resampled = {}
     for gauge in filtered:
-        print gauge
+        print(gauge)
         stage = river_stage_data[0][gauge]
         #Tidy up stage data:
         stage = stage[stage['Mean'] > 0.]

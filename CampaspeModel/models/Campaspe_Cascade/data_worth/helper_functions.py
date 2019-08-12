@@ -43,7 +43,7 @@ def load_obj(filename):
 
     if filename.endswith('.pkl'):
         with open(filename, 'rb') as f:
-            print "Loading: ", f, filename
+            print("Loading: ", f, filename)
             p = pickle.load(f)
             return p
         # End with
@@ -91,7 +91,7 @@ def adjust_potential_by_existing(pst, pot_existing_map={'shshal':['head1', 'head
     for pot in pot_existing_map:
         pst.observation_data.loc[pst.observation_data['obgnme'] == pot, 'weight'] = \
             np.array([pst.observation_data[pst.observation_data['obgnme'] == exist]['weight'].mean() for exist in pot_existing_map[pot]]).mean()
-    print pst.observation_data
+    print(pst.observation_data)
     return pst
 
 def load_pest_file_and_jacobian(model_folder, res_file=None):
@@ -133,7 +133,7 @@ def perc_red(df, mode):
         df_perc = df[~df.index.isin(['base', 'nrf_m'])].apply(
            lambda x:(x - df.loc["base", :]) / df.loc["base", :] * 100., axis=1)             
     else:
-        print "Mode not recognised, try 'add' or 'subtract'"
+        print("Mode not recognised, try 'add' or 'subtract'")
 
     return df_perc
 
@@ -184,7 +184,7 @@ def bar_chart(df_ob, ticklabels, colors, title=True, ylabel=True, ax=None,
 
     width = 0.5
     ax.plot([5.25, 5.25], [0, 100], color='grey', linestyle='--')
-    ax.bar(np.array(range(len(df_ob.index))) - width, df_ob, width, color=colors[0], edgecolor='none')
+    ax.bar(np.array(list(range(len(df_ob.index)))) - width, df_ob, width, color=colors[0], edgecolor='none')
     
     # Add some text for labels, title and custom x-axis tick labels, etc.
     if ylabel:
@@ -193,7 +193,7 @@ def bar_chart(df_ob, ticklabels, colors, title=True, ylabel=True, ax=None,
     ax.set_ylim(0, 100)        
     ax.set_xlim(0 - 2 * width + 0.25, len(df_ob.index) - width - 0.25)        
     #ax.set_title('Observation types reduction in uncertainty')
-    ax.set_xticks([x - 0.5 * width for x in np.array(range(len(df_ob.index)))])
+    ax.set_xticks([x - 0.5 * width for x in np.array(list(range(len(df_ob.index))))])
     ax.set_xticklabels(ticklabels)
     ax.yaxis.set_ticks_position('left')
     ax.xaxis.set_ticks_position('bottom')
@@ -238,7 +238,7 @@ def create_combos(la, obs_groups_name, obs_groups):
 
 def box_plot_for_the_punters(mean_exchange, df, unit_convert=1.0):
     obs_groups = df.index.tolist()
-    print obs_groups
+    print(obs_groups)
     mu = mean_exchange
     sigma = {}
 
@@ -493,8 +493,8 @@ def all_combos(la, obs_groups_types, obs_groups_types_map, obs_groups_types_abbr
         #combo_all_sub_dict = {}
         combo_expansion = list_to_list_with_dict_expansion(combo, obs_groups_types_map)
         
-        print('combo #{}: {}'.format(i, combo))
-        print('combo #{}: {}'.format(i, combo_expansion))
+        print(('combo #{}: {}'.format(i, combo)))
+        print(('combo #{}: {}'.format(i, combo_expansion)))
     
         OBS_GROUPS_NAME = ["base"]
         temp = ""
@@ -609,7 +609,7 @@ def cluster_combos_dbscan(combo_df, eps=300, min_samples=12):
     results = pd.DataFrame(data=labels, columns=['cluster'])
     
     combo_df_pred.loc[:,'cluster'] = results['cluster'].tolist()
-    print combo_df_pred
+    print(combo_df_pred)
     cluster_name = []
     undefined = 0
     for i in range(len(results['cluster'].unique())):
@@ -743,9 +743,9 @@ def mega_plot_river_predunc_red_month(month, df, pst_df, names, ob_interest, v_b
     ax = fig.add_subplot(2,1,2)
     month_num = 32 - 11 + month
     exchange = sfr_df[sfr_df['time'] == month_num].reset_index(
-                range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen'] * sfr_seg['width2']).tolist()
+                list(range(sfr_df.shape[0])))['Qaquifer'] / (sfr_orig['rchlen'] * sfr_seg['width2']).tolist()
     c = np.array(sfr_df[sfr_df['time'] == month_num].reset_index(
-                range(sfr_df.shape[0]))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
+                list(range(sfr_df.shape[0])))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
     max_val = np.max(c)
     min_val = np.min(c)
     if max_val > abs(min_val):
@@ -801,9 +801,9 @@ def mega_plot_river_predunc_red_month_axes(select_months, df, pst_df, names,
     for index, select_month in enumerate(select_months):
         month_num = 32 - 11 + select_month
         exchange = sfr_df[sfr_df['time'] == month_num].reset_index(
-                    range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen']).tolist() # * sfr_seg['width2']).tolist()
+                    list(range(sfr_df.shape[0])))['Qaquifer'] / (sfr_orig['rchlen']).tolist() # * sfr_seg['width2']).tolist()
         c = np.array(sfr_df[sfr_df['time'] == month_num].reset_index(
-                    range(sfr_df.shape[0]))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
+                    list(range(sfr_df.shape[0])))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
         if index == 0:
             max_val = np.max(c)
             min_val = np.min(c)
@@ -889,9 +889,9 @@ def mega_plot_river_predunc_red_month_axes(select_months, df, pst_df, names,
         ax = axes[1]
         month_num = 32 - 11 + select_month
         exchange = sfr_df[sfr_df['time'] == month_num].reset_index(
-                    range(sfr_df.shape[0]))['Qaquifer'] / (sfr_orig['rchlen']).tolist() # * sfr_seg['width2']
+                    list(range(sfr_df.shape[0])))['Qaquifer'] / (sfr_orig['rchlen']).tolist() # * sfr_seg['width2']
         c = np.array(sfr_df[sfr_df['time'] == month_num].reset_index(
-                    range(sfr_df.shape[0]))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
+                    list(range(sfr_df.shape[0])))['Qaquifer'].tolist()) #[0 if i > 0 else 1 for i in exchange]
 #        max_val = np.max(c)
 #        min_val = np.min(c)
 #        if max_val > abs(min_val):
@@ -969,7 +969,7 @@ def plot_SWGW_exchange(sfr_df, save_folder, ax=None, show_gauges=False, fontsize
             if plot_only is not None:
                 if flow_type != plot_only:
                     continue
-                print(date_index[int(t)])
+                print((date_index[int(t)]))
             ax.plot(df_t['Cumulative Length (km)'], df_t['Qaquifer_adj'], color=colour_dict[flow_type], alpha=alpha)    
             
         #ax2.plot(df_t['Cumulative Length (km)'], df_t['stage'], color='blue', alpha=0.5)    
@@ -1091,7 +1091,7 @@ def get_model(config_path=None):
     
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
     return m, data_folder
     
@@ -1406,9 +1406,9 @@ def create_sfr_sim_plots(m, modflow_model):
     # March 2016, Dec 2016, May 2017
     import matplotlib.pyplot as plt
     
-    field_sampling = [datetime.datetime(2016,03,31),
+    field_sampling = [datetime.datetime(2016,0o3,31),
                       datetime.datetime(2016,12,31),
-                      datetime.datetime(2017,04,30)]
+                      datetime.datetime(2017,0o4,30)]
 
     import brewer2mpl
     bmap = brewer2mpl.get_map('Set1', 'Qualitative', 5)

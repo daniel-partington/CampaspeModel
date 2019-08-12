@@ -17,15 +17,15 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
     
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
  
 
     if verbose:
-        print "************************************************************************"
-        print " Build and run MODFLOW model "
+        print("************************************************************************")
+        print(" Build and run MODFLOW model ")
     
     ###########################################################################
     ###########################################################################
@@ -110,9 +110,9 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     ax = fig.add_subplot(111)
     fig2 = plt.figure(figsize=(12, 12))
     plt.subplots_adjust(hspace = 0.1)
-    field_sampling = [datetime.datetime(2016,03,31),
+    field_sampling = [datetime.datetime(2016,0o3,31),
                       datetime.datetime(2016,12,31),
-                      datetime.datetime(2017,04,30)]
+                      datetime.datetime(2017,0o4,30)]
     n_subplots = len(field_sampling)
     counter = 0
 

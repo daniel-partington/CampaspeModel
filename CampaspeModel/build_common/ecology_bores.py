@@ -188,7 +188,7 @@ for gauge in relevant_stream_gauges:
         bore_x.append(row[1]['Easting'])
         bore_y.append(row[1]['Northing'])
     if min_dist == 99999:
-        print 'Default minimum distance used, looks to be problems!'
+        print('Default minimum distance used, looks to be problems!')
         sys.exit()
     bore_linking[gauge] = [min_dist, min_bore]
     stream_linking[min_bore] = gauge
@@ -205,7 +205,7 @@ plt.legend()
 relevant_water_levels = {}
 relevant_water_salinity = {}
 
-for values in bore_linking.values():
+for values in list(bore_linking.values()):
     # get bore ID    
     bore_near = values[1]
     # Filter water levels by bore ID    

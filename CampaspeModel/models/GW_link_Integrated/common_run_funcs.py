@@ -7,8 +7,8 @@ def process_line(line):
 
 
 def update_recharge(vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_dict, mesh_1):
-    for key in interp_rain.keys():
-        for i in xrange(rch_zones - 1):
+    for key in list(interp_rain.keys()):
+        for i in range(rch_zones - 1):
             matching_zone = recharge_zone_array == rch_zone_dict[i + 1]
             interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * vals[i]
         # End for
@@ -98,7 +98,7 @@ def update_pilot_points(zone_map, zone, prop_array, par_name, prop_name, prop_fo
                         prop_array_fname, model_folder, use_alt_vals):
     points_values_dict = create_pp_points_dict(zone_map, zone, prop_array, prop_name, m, use_alt_vals=use_alt_vals)
     p = m.pilot_points[par_name]
-    zones = len(zone_map.keys())
+    zones = len(list(zone_map.keys()))
     p.output_directory = os.path.join(model_folder, prop_folder)
     p.update_pilot_points_files_by_zones(zones, points_values_dict)
     p.run_pyfac2real_by_zones(zones)
@@ -139,7 +139,10 @@ def update_campaspe_pilot_points(model, model_folder, use_alt_vals=False):
 
 
 def load_obj(filename):
-    import cPickle as pickle
+    try:
+        import pickle as pickle
+    except ImportError:
+        import pickle
 
     if filename[-4:] == '.pkl':
         with open(filename, 'r') as f:

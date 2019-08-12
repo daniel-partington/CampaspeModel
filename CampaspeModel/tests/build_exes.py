@@ -125,14 +125,14 @@ def set_compiler(starget):
 def build_target(starget, exe_name, url, dirname, srcname='src',
                  replace_function=None, verify=True, keep=True,
                  dble=dbleprec, include_subdirs=False):
-    print('Determining if {} needs to be built'.format(starget))
+    print(('Determining if {} needs to be built'.format(starget)))
     if platform.system().lower() == 'windows':
         exe_name += '.exe'
 
     exe_exists = flopy.which(exe_name)
     if exe_exists is not None and keep:
-        print('No need to build {}'.format(starget) +
-              ' since it exists in the current path')
+        print(('No need to build {}'.format(starget) +
+              ' since it exists in the current path'))
         return
 
     fct, cct = set_compiler(starget)
@@ -145,7 +145,7 @@ def build_target(starget, exe_name, url, dirname, srcname='src',
 
     # create temporary path
     dstpth = os.path.join('tempbin')
-    print('create...{}'.format(dstpth))
+    print(('create...{}'.format(dstpth)))
     if not os.path.exists(dstpth):
         os.makedirs(dstpth)
     os.chdir(dstpth)
@@ -160,7 +160,7 @@ def build_target(starget, exe_name, url, dirname, srcname='src',
         replace_function(srcdir)
 
     # compile code
-    print('compiling...{}'.format(os.path.relpath(target)))
+    print(('compiling...{}'.format(os.path.relpath(target))))
     pymake.main(srcdir, target, fct, cct, makeclean=True,
                 expedite=False, dryrun=False, double=dble, debug=False,
                 include_subdirs=include_subdirs)
@@ -169,7 +169,7 @@ def build_target(starget, exe_name, url, dirname, srcname='src',
     os.chdir(cpth)
 
     # Clean up downloaded directory
-    print('delete...{}'.format(dstpth))
+    print(('delete...{}'.format(dstpth)))
     if os.path.isdir(dstpth):
         shutil.rmtree(dstpth)
 

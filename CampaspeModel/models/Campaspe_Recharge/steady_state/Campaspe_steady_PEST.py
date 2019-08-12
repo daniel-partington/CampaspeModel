@@ -12,7 +12,7 @@ def run(model_folder, pest_folder):
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder,"02_transient_flow_packaged.pkl"))
     
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
 
     MM.setupPEST(name, 
                  directory=pest_folder, 

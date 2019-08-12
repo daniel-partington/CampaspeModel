@@ -81,18 +81,18 @@ bore_data_levels = custom_data['bore_data_levels']
 #******************************************************************************
 #******************************************************************************
 
-print '########################################################################'
-print '########################################################################'
-print '## Model specific building '
-print '########################################################################'
-print '########################################################################'
+print('########################################################################')
+print('########################################################################')
+print('## Model specific building ')
+print('########################################################################')
+print('########################################################################')
 
 
-print "************************************************************************"
-print " Defining temporal aspects of the model"
+print("************************************************************************")
+print(" Defining temporal aspects of the model")
 
-start = datetime.date(1900, 01, 01)
-end = datetime.date(2012, 05, 31)
+start = datetime.date(1900, 0o1, 0o1)
+end = datetime.date(2012, 0o5, 31)
 
 start_pumping = start
 start_irrigation = start
@@ -126,8 +126,8 @@ HGU, hu_raster_files_reproj = Campaspe_mesh.build_mesh_and_set_properties(tr_mod
 tr_model.map_rasters_to_grid(os.path.basename(surface_raster_high_res), os.path.dirname(surface_raster_high_res))
 surface_raster_high_res = os.path.join(tr_model.out_data_folder, os.path.basename(surface_raster_high_res) + '_clipped.tif')
 
-print "************************************************************************"
-print " Interpolating rainfall data to grid "
+print("************************************************************************")
+print(" Interpolating rainfall data to grid ")
 
 interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
     prepare_transient_rainfall_data_for_model(tr_model,
@@ -142,15 +142,15 @@ interp_rain, interp_et, recharge_zone_array, rch_zone_dict = \
                                               rain_gauges,
                                               pilot_points_YX=True)  
 
-print "************************************************************************"
-print " Creating recharge boundary "
+print("************************************************************************")
+print(" Creating recharge boundary ")
 
 tr_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=False)
 tr_model.boundaries.associate_zonal_array_and_dict('Rain_reduced', recharge_zone_array, rch_zone_dict)
 tr_model.boundaries.assign_boundary_array('Rain_reduced', interp_rain)
 
-print "************************************************************************"
-print " Mapping bores to grid "
+print("************************************************************************")
+print(" Mapping bores to grid ")
 
 tr_model.map_points_to_grid(bores_shpfile, feature_id='HydroCode')
 
@@ -175,9 +175,9 @@ for bores in tr_model.points_mapped["NGIS_Bores_clipped.shp"]:
             continue
         bores_more_filter += [bore]        
 
-print('Bores above the surface: {}'.format(len(bores_above_surface)))
-print('Bores below top of bedrock: {}'.format(len(bores_below_top_of_bedrock)))
-print('Final bores within aquifers: {}'.format(len(bores_more_filter)))
+print(('Bores above the surface: {}'.format(len(bores_above_surface))))
+print(('Bores below top of bedrock: {}'.format(len(bores_below_top_of_bedrock))))
+print(('Final bores within aquifers: {}'.format(len(bores_more_filter))))
 
 final_bores = final_bores[final_bores["HydroCode"].isin(bores_more_filter)]
 
@@ -256,8 +256,8 @@ for i in range(len(hu_raster_files_reproj)/2):
 
 tr_model.initial_conditions.set_as_initial_condition("Head", initial_heads_tr) #interp_heads[hu_raster_files[0]])
 
-print "************************************************************************"
-print "Create observation wells for C14"
+print("************************************************************************")
+print("Create observation wells for C14")
 
 tr_model.map_points_to_grid(C14_points, feature_id='Bore_id')
 
@@ -279,7 +279,7 @@ for C14wells in tr_model.points_mapped['C14_clipped.shp']:
             well_depth = df_C14.loc[df_C14[df_C14['Bore_id'] == int(well)].index.tolist()[0], 'avg_screen(m)']
             #well_depth = df_C14.loc[df_C14['Bore_id'] == int(well), 'avg_screen(m)']
         except:
-            print 'Well was excluded due to lack of information: ', int(well)            
+            print('Well was excluded due to lack of information: ', int(well))            
             continue
         
         well_depth = tr_model.model_mesh3D[0][0][row][col] - well_depth
@@ -326,9 +326,9 @@ tr_model.observations.set_as_observations('C14',
                                           units='pMC', \
                                           weights=1.0/5.0)
 
-print "************************************************************************"
-print "************************************************************************"
-print " Mapping pumping wells to grid "
+print("************************************************************************")
+print("************************************************************************")
+print(" Mapping pumping wells to grid ")
 
 wel = prepare_pumping_data_for_model(tr_model,
                                    pumps_points,
@@ -340,14 +340,14 @@ wel = prepare_pumping_data_for_model(tr_model,
                                    frequencies,
                                    date_group)
                 
-print "************************************************************************"
-print " Creating pumping boundary "
+print("************************************************************************")
+print(" Creating pumping boundary ")
 
 tr_model.boundaries.create_model_boundary_condition('licenced_wells', 'wells', bc_static=True)
 tr_model.boundaries.assign_boundary_array('licenced_wells', wel)
 
-print "************************************************************************"
-print " Mapping Campaspe river to grid"
+print("************************************************************************")
+print(" Mapping Campaspe river to grid")
 
 num_reaches = 20    
 river_seg, reach_df, reach_data, known_points = \
@@ -381,9 +381,9 @@ FieldData_info.loc[:, 'seg_loc'] = river_field_seg
 
 Camp_riv_cells = [x for x in zip(river_seg['i'], river_seg['j'])]
                       
-print "************************************************************************"
-print "************************************************************************"
-print " Creating Campaspe river boundary"
+print("************************************************************************")
+print("************************************************************************")
+print(" Creating Campaspe river boundary")
 
 tr_model.boundaries.create_model_boundary_condition('Campaspe River', 
                                                     'river_flow', 
@@ -406,8 +406,8 @@ tr_model.boundaries.assign_boundary_array('Eppalock_EC',
                                           Eppalock_EC_ts_resampled)
 
 
-print "************************************************************************"
-print " Mapping Murray River to grid"
+print("************************************************************************")
+print(" Mapping Murray River to grid")
 
 riv, mriver_seg_ghb = \
     rivers.prepare_river_data_for_Murray(tr_model, surface_raster_high_res_GSA,
@@ -417,26 +417,26 @@ riv, mriver_seg_ghb = \
                                          river_seg,
                                          plot=True) 
    
-print "************************************************************************"
-print " Creating Murray River boundary"
+print("************************************************************************")
+print(" Creating Murray River boundary")
 
 tr_model.boundaries.create_model_boundary_condition('Murray River', 'river', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Murray River', riv)
 
-print "************************************************************************"
-print " Setting up Murray River GHB boundary"
+print("************************************************************************")
+print(" Setting up Murray River GHB boundary")
 
 ghb = prepare_ghb_boundary_from_Murray_data(tr_model,
                                             mriver_seg_ghb)
 
-print "************************************************************************"
-print " Creating GHB boundary"
+print("************************************************************************")
+print(" Creating GHB boundary")
 
 tr_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
 tr_model.boundaries.assign_boundary_array('GHB', ghb)
 
-print "************************************************************************"
-print " Mapping Drains to grid"
+print("************************************************************************")
+print(" Mapping Drains to grid")
 
 drain = prepare_drain_data_for_model(tr_model,
                                  Camp_riv_cells,
@@ -444,28 +444,28 @@ drain = prepare_drain_data_for_model(tr_model,
                                  date_index,
                                  pilot_points_YX=True)
 
-print "************************************************************************"
-print " Creating Drains boundary"
+print("************************************************************************")
+print(" Creating Drains boundary")
 
 tr_model.boundaries.create_model_boundary_condition('Drain', 'drain', bc_static=True)
 tr_model.boundaries.assign_boundary_array('Drain', drain)
 
-print "************************************************************************"
-print " Mapping Channels to grid"
+print("************************************************************************")
+print(" Mapping Channels to grid")
 
 #channel = prepare_channel_data_for_model(tr_model,
 #                                   start_irrigation,
 #                                   date_index,
 #                                   Camp_riv_cells)
 
-print "************************************************************************"
-print " Creating Channel boundary"
+print("************************************************************************")
+print(" Creating Channel boundary")
 
 #tr_model.boundaries.create_model_boundary_condition('Channel', 'channel', bc_static=True)
 #tr_model.boundaries.assign_boundary_array('Channel', channel)
 
-print "************************************************************************"
-print " Creating parameters for transport "
+print("************************************************************************")
+print(" Creating parameters for transport ")
 
 # General parameters for transport
 for unit in HGU:
@@ -570,14 +570,14 @@ tr_model.parameters.parameter_options_set('hz_dpth',
                                           OFFSET=0)
 
 
-print "************************************************************************"
-print " Collate observations"
+print("************************************************************************")
+print(" Collate observations")
 #
 tr_model.map_obs_loc2mesh3D(method='nearest', ignore=[-1, 7])
 tr_model.map_obs2model_times()
 tr_model.observations.collate_observations()
 
-print "************************************************************************"
-print " Package up groundwater model builder object"
+print("************************************************************************")
+print(" Package up groundwater model builder object")
 
 tr_model.package_model()

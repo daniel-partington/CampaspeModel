@@ -21,7 +21,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"01_steady_state_packaged.pkl"))
 
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
@@ -30,8 +30,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=False)
 
     if verbose:
-        print "************************************************************************"
-        print " Instantiate MODFLOW model "
+        print("************************************************************************")
+        print(" Instantiate MODFLOW model ")
 
     ###########################################################################
     ###########################################################################
@@ -105,18 +105,18 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
 
     for boundary in bcs:
         if bcs[boundary]['bc_type'] == 'recharge':
-            for key in bcs[boundary]['bc_array'].keys():
+            for key in list(bcs[boundary]['bc_array'].keys()):
                 crch[key] = np.ones_like(bcs[boundary]['bc_array'][key])               
                 crch[key] = crch[key] * 100.0
                 crch[key][ibound[0]==0] = 0.0
             
         if bcs[boundary]['bc_type'] == 'wells':
-            for key in bcs[boundary]['bc_array'].keys():
+            for key in list(bcs[boundary]['bc_array'].keys()):
                 for well in bcs[boundary]['bc_array'][key]:
                     ssm_data[key].append((well[0], well[1], well[2], 100.0, itype['WEL']))
                     
         if bcs[boundary]['bc_type'] == 'general head':
-            for key in bcs[boundary]['bc_array'].keys():
+            for key in list(bcs[boundary]['bc_array'].keys()):
                 for ghb in bcs[boundary]['bc_array'][key]:
                     ssm_data[key].append((ghb[0], ghb[1], ghb[2], 0.0, itype['GHB']))
 
@@ -134,13 +134,13 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True)
         river[0] = []
         for boundary in bcs:
             if bcs[boundary]['bc_type'] == 'river':
-                time_key = bcs[boundary]['bc_array'].keys()[0]
+                time_key = list(bcs[boundary]['bc_array'].keys())[0]
                 river[0] += bcs[boundary]['bc_array'][time_key]
             if bcs[boundary]['bc_type'] == 'channel':
-                time_key = bcs[boundary]['bc_array'].keys()[0]
+                time_key = list(bcs[boundary]['bc_array'].keys())[0]
                 river[0] += bcs[boundary]['bc_array'][time_key]
         
-        for key in river.keys():
+        for key in list(river.keys()):
             for riv in river[key]:
                 ssm_data[key].append((riv[0], riv[1], riv[2], 100.0, itype['RIV'])) 
 

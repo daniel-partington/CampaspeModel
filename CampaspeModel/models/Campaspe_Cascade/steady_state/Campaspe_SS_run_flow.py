@@ -20,7 +20,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, r"01_steady_state_packaged.pkl"))
 
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
@@ -29,8 +29,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
         m.updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
     
     if verbose:
-        print "************************************************************************"
-        print " Updating HGU parameters "
+        print("************************************************************************")
+        print(" Updating HGU parameters ")
 
     # This needs to be automatically generated with the map_raster2mesh routine ...
     zone_map = {1: 'qa', 2: 'utb', 3: 'utqa', 4: 'utam', 5: 'utaf', 6: 'lta', 7: 'bse'}
@@ -55,7 +55,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     def update_pilot_points(zone_map, Zone, prop_array, par_name, prop_name, prop_folder, m, prop_array_fname):
         points_values_dict = create_pp_points_dict(zone_map, Zone, prop_array, prop_name, m)
         p = m.pilot_points[par_name]
-        zones = len(zone_map.keys())
+        zones = len(list(zone_map.keys()))
         p.output_directory = os.path.join(data_folder, prop_folder)
         p.update_pilot_points_files_by_zones(zones, points_values_dict)
         time.sleep(3)
@@ -67,20 +67,20 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
                              m, 'hk_val_array')  
     m.save_array(os.path.join(data_folder, 'Kh'), Kh)
 
-    print("Erroneous K pilot cells: {}".format(len(Kh[Kh > 10000.])))
+    print(("Erroneous K pilot cells: {}".format(len(Kh[Kh > 10000.]))))
     Kh[Kh > 10000.] = 25.
     Kv = Kh * 0.1
     m.save_array(os.path.join(data_folder, 'Kv'), Kv)
 
     Sy = update_pilot_points(zone_map, Zone, Sy, 'sy', 'sy', 'sy_pilot_points',
                              m, 'sy_val_array')
-    print("Erroneous Sy pilot cells: {}".format(len(Sy[Sy > 0.5])))
+    print(("Erroneous Sy pilot cells: {}".format(len(Sy[Sy > 0.5]))))
     Sy[Sy > 0.5] = 0.25
     m.save_array(os.path.join(data_folder, 'Sy'), Sy)
     
     SS = update_pilot_points(zone_map, Zone, SS, 'ss', 'ss', 'ss_pilot_points',
                              m, 'ss_val_array')
-    print("Erroneous Ss pilot cells: {}".format(len(SS[SS > 0.01])))
+    print(("Erroneous Ss pilot cells: {}".format(len(SS[SS > 0.01]))))
     SS[SS > 0.01] = 1E-5
     m.save_array(os.path.join(data_folder, 'SS'), SS)
 
@@ -93,8 +93,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
 
 
     if verbose:
-        print "************************************************************************"
-        print " Updating river parameters "
+        print("************************************************************************")
+        print(" Updating river parameters ")
 
     reach_df = m.mf_sfr_df['Campaspe']['reach_df'] 
     segment_data = m.mf_sfr_df['Campaspe']['seg_df']
@@ -140,14 +140,14 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     seg_dict = {0: segment_data1}
     
     if verbose:
-        print "************************************************************************"
-        print " Updating Campaspe river boundary"
+        print("************************************************************************")
+        print(" Updating Campaspe river boundary")
     
     m.boundaries.update_boundary_array('Campaspe River', [reach_data, seg_dict])
 
     if verbose:
-        print "************************************************************************"
-        print " Updating River Murray"
+        print("************************************************************************")
+        print(" Updating River Murray")
 
     mriver_seg = m.river_mapping['Murray']
     mriver_seg['strhc1'] = m.parameters.param['kv_rm']['PARVAL1']                      
@@ -163,15 +163,15 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     m.boundaries.update_boundary_array('Murray River', riv)
     
     if verbose:
-        print "************************************************************************"
-        print " Updating recharge boundary "
+        print("************************************************************************")
+        print(" Updating recharge boundary ")
 
     # Adjust rainfall to recharge using zoned rainfall reduction parameters
     interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
     recharge_zone_array = m.boundaries.bc['Rain_reduced']['zonal_array']
     rch_zone_dict = m.boundaries.bc['Rain_reduced']['zonal_dict']
 
-    rch_zones = len(rch_zone_dict.keys())
+    rch_zones = len(list(rch_zone_dict.keys()))
 
     par_rech_vals = [m.parameters.param['ssrch{}'.format(i)]['PARVAL1'] \
                      for i in range(rch_zones - 1)]
@@ -193,8 +193,8 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
 
 
     if verbose:
-        print "************************************************************************"
-        print " Updating River Murray GHB boundary"
+        print("************************************************************************")
+        print(" Updating River Murray GHB boundary")
 
     MurrayGHB = []
 
@@ -212,15 +212,15 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     ghb[0] = MurrayGHB
 
     if verbose:
-        print "************************************************************************"
-        print " Updating GHB boundary"
+        print("************************************************************************")
+        print(" Updating GHB boundary")
 
     m.boundaries.update_boundary_array('GHB', ghb)
 
 
     if verbose:
-        print "************************************************************************"
-        print " Check for boundary condition updating"
+        print("************************************************************************")
+        print(" Check for boundary condition updating")
         m.generate_update_report()
 
 
@@ -242,16 +242,16 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
     
     
         if verbose:
-            print "************************************************************************"
-            print " Build and run MODFLOW model "
+            print("************************************************************************")
+            print(" Build and run MODFLOW model ")
     
 
         # Override temporal aspects of model build:
         modflow_model = flopyInterface.ModflowModel(m, data_folder=os.path.join(data_folder, "model_" + m.name))
 
         if verbose:
-            print "************************************************************************"
-            print " Set initial head "
+            print("************************************************************************")
+            print(" Set initial head ")
     
         if os.path.exists(os.path.join(data_folder, '01_steady_state.hds')):
             if verbose:
@@ -293,7 +293,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
             
             rech_steps = [0.01] # [0.1, 0.08, 0.05, 0.02, 0.01]
             if verbose:
-                print(" Trying recharge reduction of: {}".format(rech_steps[i]))
+                print((" Trying recharge reduction of: {}".format(rech_steps[i])))
             interp_rain = np.copy(m.boundaries.bc['Rainfall']['bc_array'])
         
             rch = {}
@@ -317,7 +317,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
         
             converge = modflow_model.runMODFLOW(silent=False)
         
-            print("Convergence?: {}".format(converge))
+            print(("Convergence?: {}".format(converge)))
         
             if not converge:
                 if verbose:
@@ -348,7 +348,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
                 modflow_model.strt = head
 
                 for converge_criterion in [1E-4]:
-                    print("Testing steady state solution with convergence criteria set to {}".format(converge_criterion))
+                    print(("Testing steady state solution with convergence criteria set to {}".format(converge_criterion)))
                     modflow_model.headtol = converge_criterion # Initially relax head convergence criteria to get convergence
                     modflow_model.buildMODFLOW(transport=True)
                     converge = modflow_model.runMODFLOW(silent=True)

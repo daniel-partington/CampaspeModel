@@ -98,12 +98,12 @@ def get_stage(path=None, start_date=None, end_date=None, summary=True, sites=Non
             stage_file_df = stage_file_df.ix[start_date:end_date]
         # end if
         if stage_file_df.empty:
-            print 'No data at provided dates for: ', stage_file
+            print('No data at provided dates for: ', stage_file)
             continue
         # end if
         stage_file_df = stage_file_df.fillna(0)
         if stage_file_df['Mean'].max() == 0:
-            print 'Level reading is 0, so ignoring for: ', stage_file
+            print('Level reading is 0, so ignoring for: ', stage_file)
             continue
 
         qual_codes_to_ignore = [0, 8, 9, 21, 100, 101, 120, 149, 150, 151, 152,
@@ -132,7 +132,7 @@ def get_stage(path=None, start_date=None, end_date=None, summary=True, sites=Non
                     mean_stage += float(relevant_site_details['Min value'])
                     stage_file_df['Mean'] = stage_file_df['Mean'] + float(relevant_site_details['Min value'])
                 else:
-                    print 'Mean value of stage less than 10m and Gauge Zero not known, so ignoring for: ', stage_file
+                    print('Mean value of stage less than 10m and Gauge Zero not known, so ignoring for: ', stage_file)
                     continue
                 # End if
             # End if

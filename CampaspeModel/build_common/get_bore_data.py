@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import xlrd
 
-import dbf2df
+from . import dbf2df
 
 
 """
@@ -157,7 +157,7 @@ def get_bore_data(get='transient', path="", construct_record_number_max=3):
     #del df_BoreholeLog_NSW
 
     # Only use reading in AHD ... would be nice to later convert the other ones
-    print 'Total level records: ', dfVIC_level.shape[0]
+    print('Total level records: ', dfVIC_level.shape[0])
 
     dfVIC_level = dfVIC_level[dfVIC_level['obs_point_datum'] == "RSWL (mAHD)"]
     df_ConstructionLog_VIC = df_ConstructionLog_VIC[df_ConstructionLog_VIC['Constructi'] == "INLT"]
@@ -178,12 +178,12 @@ def get_bore_data(get='transient', path="", construct_record_number_max=3):
     dfVIC_level_summary = dfVIC_level.groupby('bore_id').count()
     dfVIC_level_summary['mean level'] = dfVIC_level.groupby('bore_id').mean()
 
-    print 'Total number of unique bores with level readings: ', dfVIC_level_summary.shape[0]
+    print('Total number of unique bores with level readings: ', dfVIC_level_summary.shape[0])
     # Filter out bores with less than obs_num_min records
     obs_num_min = 1
     dfVIC_level_summary = dfVIC_level_summary[dfVIC_level_summary['result'] > obs_num_min]
 
-    print 'Total number of unique bores with at least %i readings: ' % (obs_num_min + 1), dfVIC_level_summary.shape[0]
+    print('Total number of unique bores with at least %i readings: ' % (obs_num_min + 1), dfVIC_level_summary.shape[0])
     # Get column with index
     dfVIC_level_summary['HydroCode'] = dfVIC_level_summary.index
 
@@ -200,13 +200,13 @@ def get_bore_data(get='transient', path="", construct_record_number_max=3):
     # For bores with multiple entries, they are ambiguous, so remove
     df_bores_clear = df_bore_construction_info.groupby('HydroCode').count()
 
-    print 'Total number of bores with levels and screen info: ', df_bores_clear.shape[0]
+    print('Total number of bores with levels and screen info: ', df_bores_clear.shape[0])
 
     # Filter bores by those with only one construction record as multiscreened wells are ambiguous with respect to observations in NGIS database
     df_bores_clear = df_bores_clear[df_bores_clear['result'] <
                                     construct_record_number_max]
 
-    print 'Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0]
+    print('Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0])
 
     # Assume bottom is the screened part and that well is not multi-screened
     df_bores_clear['mean level'] = df_bore_construction_info.groupby('HydroCode').min()['mean level']
@@ -295,7 +295,7 @@ def get_bore_data_Vic_Gov(get='transient', path="", construct_record_number_max=
     #df_ConstructionLog_VIC["BORE_ID"] = df_ConstructionLog_VIC["BORE_ID"].astype(str)
 
     # Only use reading in AHD ... would be nice to later convert the other ones
-    print 'Total level records: ', dfVIC_level.shape[0]
+    print('Total level records: ', dfVIC_level.shape[0])
 
     # Only use data from the state observation bores:
     dfVIC_level = dfVIC_level[dfVIC_level['QUALITY'].isin([43, 47])]
@@ -308,12 +308,12 @@ def get_bore_data_Vic_Gov(get='transient', path="", construct_record_number_max=
     dfVIC_level_summary = dfVIC_level.groupby('BORE_ID').count()
     dfVIC_level_summary['mean level'] = dfVIC_level.groupby('BORE_ID').mean()
 
-    print 'Total number of unique bores with level readings: ', dfVIC_level_summary.shape[0]
+    print('Total number of unique bores with level readings: ', dfVIC_level_summary.shape[0])
     # Filter out bores with less than obs_num_min records
     obs_num_min = 1
     dfVIC_level_summary = dfVIC_level_summary[dfVIC_level_summary['RWL_mAHD'] > obs_num_min]
 
-    print 'Total number of unique bores with at least %i readings: ' % (obs_num_min + 1), dfVIC_level_summary.shape[0]
+    print('Total number of unique bores with at least %i readings: ' % (obs_num_min + 1), dfVIC_level_summary.shape[0])
     # Get column with index
     dfVIC_level_summary['HydroCode'] = dfVIC_level_summary.index
     dfVIC_level_summary.rename(columns={'RWL_mAHD': 'result'}, inplace=True)
@@ -335,13 +335,13 @@ def get_bore_data_Vic_Gov(get='transient', path="", construct_record_number_max=
     # For bores with multiple entries, they are ambiguous, so remove
     df_bores_clear = df_bore_construction_info.groupby('HydroCode').count()
 
-    print 'Total number of bores with levels and screen info: ', df_bores_clear.shape[0]
+    print('Total number of bores with levels and screen info: ', df_bores_clear.shape[0])
 
     # Filter bores by those with only one construction record as multiscreened wells are ambiguous with respect to observations in NGIS database
     df_bores_clear = df_bores_clear[df_bores_clear['mean level'] <
                                     construct_record_number_max]
 
-    print 'Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0]
+    print('Total number of bores with levels and screen info non-ambiguous: ', df_bores_clear.shape[0])
 
     # Assume bottom is the screened part and that well is not multi-screened
     df_bores_clear['mean level'] = df_bore_construction_info.groupby('HydroCode').min()['mean level']

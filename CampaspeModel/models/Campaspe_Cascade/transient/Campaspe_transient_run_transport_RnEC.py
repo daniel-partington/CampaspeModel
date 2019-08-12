@@ -23,7 +23,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
 
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
 
     # Load in the new parameters based on parameters.txt or dictionary of new parameters
@@ -32,8 +32,8 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
         MM.GW_build[name].updateModelParameters(os.path.join(data_folder, 'parameters.txt'), verbose=verbose)
 
     if verbose:
-        print "************************************************************************"
-        print " Instantiate MODFLOW model "
+        print("************************************************************************")
+        print(" Instantiate MODFLOW model ")
 
     ###########################################################################
     ###########################################################################

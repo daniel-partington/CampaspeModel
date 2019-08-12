@@ -58,7 +58,7 @@ def load_obj(filename):
 
     if filename.endswith('.pkl'):
         with open(filename, 'rb') as f:
-            print "Loading: ", f, filename
+            print("Loading: ", f, filename)
             p = pickle.load(f)
             return p
         # End with
@@ -106,7 +106,7 @@ def adjust_potential_by_existing(pst, pot_existing_map={'shshal':['head1', 'head
     for pot in pot_existing_map:
         pst.observation_data.loc[pst.observation_data['obgnme'] == pot, 'weight'] = \
             np.array([pst.observation_data[pst.observation_data['obgnme'] == exist]['weight'].mean() for exist in pot_existing_map[pot]]).mean()
-    print pst.observation_data
+    print(pst.observation_data)
     return pst
 
 def load_pest_file_and_jacobian(model_folder, res_file=None):
@@ -182,7 +182,7 @@ def get_model(config_path=None):
     
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder, "02_transient_flow_packaged.pkl"))
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
     m = MM.GW_build[name]
     return m, data_folder
     
@@ -244,9 +244,9 @@ if __name__ == '__main__':
 
     # Some useful bits from the simulation outputs
 
-    field_sampling = [datetime.datetime(2016,03,31),
+    field_sampling = [datetime.datetime(2016,0o3,31),
                   datetime.datetime(2016,12,31),
-                  datetime.datetime(2017,04,30)]
+                  datetime.datetime(2017,0o4,30)]
 
     m, data_folder = get_model(config_path=r"C:/Workspace/part0075/GIT_REPOS/CampaspeModel/CampaspeModel/config")
     date_index = m.model_time.t['dateindex']
@@ -329,7 +329,7 @@ if __name__ == '__main__':
     months = rows_name2[1:]
     reaches = 11
 
-    pred_exchange = pd.DataFrame(index= ["rrf_m{}_{}".format(x, y) for x, y in zip(range(reaches), range(12))] +\
+    pred_exchange = pd.DataFrame(index= ["rrf_m{}_{}".format(x, y) for x, y in zip(list(range(reaches)), list(range(12)))] +\
                                           ["rrf_a{}".format(x) for x in range(reaches)] +\
                                           ['nrf_m_{}'.format(x) for x in range(12)] +\
                                           ['nrf_a'] , columns=['Exchange'])

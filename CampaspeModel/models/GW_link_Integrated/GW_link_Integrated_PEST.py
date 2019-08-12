@@ -12,7 +12,7 @@ def run(model_folder, pest_folder):
     MM = GWModelManager()
     MM.load_GW_model(os.path.join(model_folder,"GW_link_Integrated_packaged.pkl"))
     
-    name = MM.GW_build.keys()[0]
+    name = list(MM.GW_build.keys())[0]
 
     MM.setupPEST(name, 
                  directory=pest_folder, 
@@ -38,7 +38,7 @@ if __name__ ==  "__main__":
         model_config = CONFIG.model_config
         model_folder = os.path.join((model_config['model_folder'] + model_config['grid_resolution']).replace("structured_model_grid_5000m","hindcast/structured_model_grid_5000m"))
         data_folder = os.path.join(model_config['data_folder'], "hindcast")
-    print model_folder, data_folder
+    print(model_folder, data_folder)
     pest_folder = data_folder     
     
     run(model_folder, pest_folder)

@@ -92,7 +92,7 @@ def plot_stream_reaches_basic(m, ax, zone2D_info, bounds=None, zones=[1, 2, 3, 4
     cmap_grey_white = mpl_colors.ListedColormap(['white', 'lightgrey'])
     
     if not zones:
-        ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][zone2D_info[0].keys()[-1]]), cmap=cmap_grey_white)
+        ax.pcolormesh(X, Y, np.flipud(zone2D_info[0][list(zone2D_info[0].keys())[-1]]), cmap=cmap_grey_white)
     else:
         for i, zone in enumerate(zones):
             if i == 0:

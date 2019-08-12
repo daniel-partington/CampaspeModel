@@ -60,11 +60,11 @@ Campaspe_field_elevations = custom_data['Campaspe_field_elevations']
 #******************************************************************************
 #******************************************************************************
 
-print '########################################################################'
-print '########################################################################'
-print '## Mesh specific model building '
-print '########################################################################'
-print '########################################################################'
+print('########################################################################')
+print('########################################################################')
+print('## Mesh specific model building ')
+print('########################################################################')
+print('########################################################################')
 
 HGU, hu_raster_files_reproj = campaspe_mesh.build_mesh_and_set_properties(SS_model,
                                                   hu_raster_path,
@@ -75,8 +75,8 @@ HGU, hu_raster_files_reproj = campaspe_mesh.build_mesh_and_set_properties(SS_mod
 SS_model.map_rasters_to_grid(os.path.basename(surface_raster_high_res), os.path.dirname(surface_raster_high_res))
 surface_raster_high_res = os.path.join(SS_model.out_data_folder, os.path.basename(surface_raster_high_res) + '_clipped.tif')
 
-print "************************************************************************"
-print " Interpolating rainfall data to grid "
+print("************************************************************************")
+print(" Interpolating rainfall data to grid ")
 
 interp_rain = SS_model.interpolate_points2mesh(rain_gauges, long_term_historic_rainfall, feature_id='Name', method='linear')
 # Adjust rainfall to m from mm and from year to day
@@ -91,7 +91,7 @@ interp_rain = np.copy(interp_rain)
 recharge_zone_array = SS_model.map_raster_to_regular_grid_return_array(recharge_zones)
 
 rch_zone_dict = {i:x for i, x in enumerate(np.unique(recharge_zone_array))}
-rch_zones = len(rch_zone_dict.keys())
+rch_zones = len(list(rch_zone_dict.keys()))
 
 SS_model.parameters.create_model_parameter_set('ssrch', 
                                                value=0.01,
@@ -118,8 +118,8 @@ interp_rain[SS_model.model_mesh3D[1][0] == -1] = 0.
 rch = {}
 rch[0] = interp_rain
 
-print "************************************************************************"
-print " Creating recharge boundary "
+print("************************************************************************")
+print(" Creating recharge boundary ")
 
 SS_model.boundaries.create_model_boundary_condition('Rain_reduced', 'recharge', bc_static=True)
 SS_model.boundaries.associate_zonal_array_and_dict('Rain_reduced', recharge_zone_array, rch_zone_dict)
@@ -142,8 +142,8 @@ initial_heads_SS = np.full(SS_model.model_mesh3D[1].shape, 500.)
 
 SS_model.initial_conditions.set_as_initial_condition("Head", initial_heads_SS)
 
-print "************************************************************************"
-print " Mapping Campaspe river to grid"
+print("************************************************************************")
+print(" Mapping Campaspe river to grid")
 
 num_reaches = 80    
 river_seg, reach_df, reach_data, known_points = \
@@ -161,15 +161,15 @@ segment_data, seg_dict = \
 SS_model.save_MODFLOW_SFR_dataframes('Campaspe', reach_df, segment_data)
 SS_model.river_mapping['Campaspe'] = river_seg
 
-print "************************************************************************"
-print " Creating Campaspe river boundary"
+print("************************************************************************")
+print(" Creating Campaspe river boundary")
 
 SS_model.boundaries.create_model_boundary_condition('Campaspe River', 'river_flow', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Campaspe River', [reach_data, seg_dict])
 
 
-print "************************************************************************"
-print " Mapping Murray River to grid"
+print("************************************************************************")
+print(" Mapping Murray River to grid")
 
 riv, mriver_seg_ghb = \
     rivers.prepare_river_data_for_Murray(SS_model, surface_raster_high_res_GSA,
@@ -179,26 +179,26 @@ riv, mriver_seg_ghb = \
                                          river_seg,
                                          plot=True) 
 
-print "************************************************************************"
-print " Creating Murray River boundary"
+print("************************************************************************")
+print(" Creating Murray River boundary")
 
 SS_model.boundaries.create_model_boundary_condition('Murray River', 'river', bc_static=True)
 SS_model.boundaries.assign_boundary_array('Murray River', riv)
 
-print "************************************************************************"
-print " Setting up Murray River GHB boundary"
+print("************************************************************************")
+print(" Setting up Murray River GHB boundary")
   
 ghb = groundwater_boundary.prepare_ghb_boundary_from_Murray_data(SS_model,
                                                                  mriver_seg_ghb)   
 
-print "************************************************************************"
-print " Creating GHB boundary"
+print("************************************************************************")
+print(" Creating GHB boundary")
 
 SS_model.boundaries.create_model_boundary_condition('GHB', 'general head', bc_static=True)
 SS_model.boundaries.assign_boundary_array('GHB', ghb)
 
-print "************************************************************************"
-print " Creating parameters for transport "
+print("************************************************************************")
+print(" Creating parameters for transport ")
 
 # General parameters for transport
 for unit in HGU:
@@ -222,13 +222,13 @@ SS_model.parameters.parameter_options('disp',
                                       SCALE=1, 
                                       OFFSET=0)
 
-print "************************************************************************"
-print " Package up groundwater model builder object"
+print("************************************************************************")
+print(" Package up groundwater model builder object")
 
 SS_model.package_model()
 
-print "************************************************************************"
-print " Create a plot for the river"
+print("************************************************************************")
+print(" Create a plot for the river")
 
 import matplotlib.pyplot as plt
 
@@ -246,7 +246,7 @@ lower_col = river_seg[river_seg['i'] == lower_row]['j'].tolist()[0]
 for row in range(lower_row, upper_row):
     if row not in river_seg['i'].unique():
         missing_row = row
-        print row
+        print(row)
         missing_col = river_seg[river_seg['i'] == missing_row + 1]['j'].tolist()[0]
 
 for lay in range(mesh_split_riv.shape[0]):

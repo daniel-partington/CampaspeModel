@@ -14,8 +14,8 @@ def build_mesh_and_set_properties(model_builder_object,
 
     mbo = model_builder_object
     # Define the grid width and grid height for the model mesh which is stored as a multipolygon shapefile GDAL object
-    print "************************************************************************"
-    print " Defining structured mesh"
+    print("************************************************************************")
+    print(" Defining structured mesh")
     resolution = resolution
     mbo.define_structured_mesh(resolution, resolution)
 
@@ -43,24 +43,24 @@ def build_mesh_and_set_properties(model_builder_object,
     hu_raster_files_reproj = [x + "_reproj.tif" for x in hu_raster_files]
 
     # Map HGU's to grid
-    print "************************************************************************"
-    print " Mapping hydrogeological unit (HGU) rasters to grid "
+    print("************************************************************************")
+    print(" Mapping hydrogeological unit (HGU) rasters to grid ")
 
     # Build 3D grid
     model_grid_raster_files = [x + "_model_grid.tif" for x in hu_raster_files]
     mbo.map_rasters_to_grid(hu_raster_files, hu_raster_path)
 
     # First two arguments of next function are arbitrary and not used ... need to rework module
-    print "************************************************************************"
-    print " Building 3D mesh based on HGU rasters"
+    print("************************************************************************")
+    print(" Building 3D mesh based on HGU rasters")
     mbo.build_3D_mesh_from_rasters(model_grid_raster_files,
                                    mbo.out_data_folder_grid, minimum_thickness=1.0, maximum_thickness=1000.0)
 
     # Cleanup any isolated cells:
     mbo.reclassIsolatedCells(assimilate=True)
 
-    print "************************************************************************"
-    print " Assign properties to mesh based on pilot points and zonal information"
+    print("************************************************************************")
+    print(" Assign properties to mesh based on pilot points and zonal information")
 
     # create list of HGU's from hu_raster_files
     HGU = list(set([x.split('_')[0] for x in hu_raster_files]))
@@ -83,7 +83,7 @@ def build_mesh_and_set_properties(model_builder_object,
                 'lta': 5,
                 'bse': 6}
 
-    zone_HGU = {HGU_zone[x]: x for x in HGU_zone.keys()}
+    zone_HGU = {HGU_zone[x]: x for x in list(HGU_zone.keys())}
 
     pilot_points = True
 

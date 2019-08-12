@@ -39,8 +39,8 @@ def prepare_pumping_data_for_model(model_builder_object,
     #                                      OFFSET=0)
 
     # Existing data is only for 10 years from 2005 to 2015
-    pump_date_index = pd.date_range(start=datetime.datetime(2005, 07, 01),
-                                    end=datetime.datetime(2015, 06, 30), freq='AS-JUL')
+    pump_date_index = pd.date_range(start=datetime.datetime(2005, 0o7, 0o1),
+                                    end=datetime.datetime(2015, 0o6, 30), freq='AS-JUL')
 
     wel = {}
 
@@ -82,12 +82,12 @@ def prepare_pumping_data_for_model(model_builder_object,
             for j in range(6):
                 if mbo.model_mesh3D[1][active_layer][row][col] == 7:
                     active_layer = active_layer - 1
-                    print("Shifting pump up a layer: {}, {}".format(pump, (active_layer, row, col)))
+                    print(("Shifting pump up a layer: {}, {}".format(pump, (active_layer, row, col))))
                 # End if
 
                 if active_layer < 0:
                     active = False
-                    print("Unable to map pump to aquifer above bedrock: {}, {}".format(pump, (active_layer, row, col)))
+                    print(("Unable to map pump to aquifer above bedrock: {}, {}".format(pump, (active_layer, row, col))))
                     break
                 # End if
             # End for
@@ -118,8 +118,8 @@ def prepare_pumping_data_for_model(model_builder_object,
             pump_install = pumping_data.loc[pump, 'Construction date']
 
             if isinstance(pump_install, datetime.time):
-                pump_install = datetime.date(1950, 01, 01)
-            pump_date_index2 = pd.date_range(start=pump_install, end=datetime.datetime(2005, 06, 30), freq='AS-JUL')
+                pump_install = datetime.date(1950, 0o1, 0o1)
+            pump_date_index2 = pd.date_range(start=pump_install, end=datetime.datetime(2005, 0o6, 30), freq='AS-JUL')
 
             # pump_allocation = pumping_data.loc[pump, 'Annual Volume'] / 365. * 1000.
 
@@ -166,7 +166,7 @@ def prepare_pumping_data_for_model(model_builder_object,
             # Now fill in the well dictionary with the values of pumping at relevant stress periods
             for index, time in enumerate(resampled_pumping_data_ts.iterrows()):
                 if index >= mbo.model_time.t['steps']:
-                    print('Reached model time steps at index', index)
+                    print(('Reached model time steps at index', index))
                     continue
                 # End if
 
