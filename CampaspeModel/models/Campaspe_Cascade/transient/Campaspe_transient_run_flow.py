@@ -312,7 +312,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
             print('model converged')
             #break
     
-        modflow_model.writeObservations()
+        modflow_model.write_observations()
 
         #modflow_model.waterBalanceTS()
     
@@ -335,7 +335,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
     
         all_swgw_obs_groups = swgw_obs_groups + reach_swgw_obs_groups
         all_freqs = freqs + reach_freqs
-        sfr_df = modflow_model.importSfrOut()
+        sfr_df = modflow_model.import_sfr_out()
       
         for index, obs_group in enumerate(all_swgw_obs_groups):
             swgw_obs = m.observations.obs_group[obs_group]
@@ -396,7 +396,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                     try:
                         sfr_df = modflow_model.sfr_df
                     except:
-                        sfr_df = modflow_model.importSfrOut()
+                        sfr_df = modflow_model.import_sfr_out()
                     # End except
                 else:
                     continue
@@ -456,7 +456,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
                 
                 
             # End for
-        # End writeObservations()
+        # End write_observations()
         
         writePotentialObservations() 
 

@@ -51,7 +51,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
     num_reaches = m.pilot_points['Campaspe'].num_points #4
     known_points = m.pilot_points['Campaspe'].points
 
-    sfr_df = modflow_model.importSfrOut()
+    sfr_df = modflow_model.import_sfr_out()
     sfr_info = m.river_mapping['Campaspe']
     cum_len = sfr_info['Cumulative Length'].tolist()
     sfr_df.loc[:, 'Cumulative Length'] = cum_len * (sfr_df['time'].max() + 1)

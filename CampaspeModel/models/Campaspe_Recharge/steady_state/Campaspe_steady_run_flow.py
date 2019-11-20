@@ -301,7 +301,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
             print('model converged')
             #break
     
-        modflow_model.writeObservations()
+        modflow_model.write_observations()
 
     wat_bal_df = modflow_model.waterBalance(1, plot=False)
     rech_all = wat_bal_df.loc['RECHARGE_pos']['Flux m^3/d']

@@ -320,7 +320,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
         post = flopyInterface.MT3DPostProcess(modflow_model, 
                                               mt_name=mt.name)
         
-        post.writeObservations(specimen)
+        post.write_observations(specimen)
         
         if plots:
             post.compareAllObs2(specimen)
@@ -395,15 +395,15 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                     # End if
                 # End with
             # End for
-        # End writeObservations() 
+        # End write_observations() 
         writePotentialObservations(modflow_model, post, specimen)
-        #post.viewConcsByZone(nper='final')
+        #post.view_concs_by_zone(nper='final')
 
     # end for
 
 
     if plots:
-        post.viewConcsByZone(nper='final')
+        post.view_concs_by_zone(nper='final')
 
 if __name__ == "__main__":
 

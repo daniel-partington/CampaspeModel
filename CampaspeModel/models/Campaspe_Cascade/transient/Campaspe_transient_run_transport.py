@@ -320,7 +320,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
         post = flopyInterface.MT3DPostProcess(modflow_model, 
                                               mt_name=mt.name)
         
-        post.writeObservations(specimen)
+        post.write_observations(specimen)
         
         if plots:
             post.compareAllObs2(specimen)
@@ -395,9 +395,9 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
                     # End if
                 # End with
             # End for
-        # End writeObservations() 
+        # End write_observations() 
         writePotentialObservations(modflow_model, post, specimen)
-        #post.viewConcsByZone(nper='final')
+        #post.view_concs_by_zone(nper='final')
 
     # end for
 
@@ -408,7 +408,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
     num_reaches = m.pilot_points['Campaspe'].num_points #4
     known_points = m.pilot_points['Campaspe'].points
 
-    sfr_df = modflow_model.importSfrOut()
+    sfr_df = modflow_model.import_sfr_out()
     sfr_info = m.river_mapping['Campaspe']
     cum_len = sfr_info['Cumulative Length'].tolist()
     sfr_df.loc[:, 'Cumulative Length'] = cum_len * (sfr_df['time'].max() + 1)
@@ -508,7 +508,7 @@ def run(model_folder, data_folder, mt_exe_folder, param_file=None, verbose=True,
               
     #post.compareAllObs()
     if plots:
-        post.viewConcsByZone(nper='final')
+        post.view_concs_by_zone(nper='final')
     
 #    for specimen in species:
 #        sfr_transport = pd.read_csv(os.path.join(data_folder, "model_" + m.name,"02_transient_flow_transport_{}".format(specimen)), delim_whitespace=True, skiprows=1)
