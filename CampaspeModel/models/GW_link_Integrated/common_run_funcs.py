@@ -14,7 +14,7 @@ def update_recharge(vals, interp_rain, rch_zones, recharge_zone_array, rch_zone_
         # End for
 
         matching_zone = recharge_zone_array == rch_zone_dict[0]
-        interp_rain[key][matching_zone] = interp_rain[key][matching_zone] * 0.0
+        interp_rain[key][matching_zone] = 0.0
         interp_rain[key][mesh_1[0] == -1] = 0.0
     # End for
 
