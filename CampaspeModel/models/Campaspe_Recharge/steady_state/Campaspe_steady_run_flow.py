@@ -303,7 +303,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
     
         modflow_model.write_observations()
 
-    wat_bal_df = modflow_model.waterBalance(1, plot=False)
+    wat_bal_df = modflow_model.water_balance(1, plot=False)
     rech_all = wat_bal_df.loc['RECHARGE_pos']['Flux m^3/d']
     rech_cells = len(rch[0][(rch[0] > 0) & (m.model_mesh3D[1][0] != -1)]) 
     rech_area = rech_cells * 1000 * 1000

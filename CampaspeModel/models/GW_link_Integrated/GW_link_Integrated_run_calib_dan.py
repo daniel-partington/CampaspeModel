@@ -436,7 +436,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     if not is_steady:
         #modflow_model.viewHeadsByZone2(1, head_name='policy_bores')
         modflow_model.compareAllObs('policy_bores')
-        modflow_model.waterBalanceTS()
+        modflow_model.water_balance_TS()
         modflow_model.viewHeads2()
 
         # TODO: Check that all of the wells listed were mapped to the model mesh and

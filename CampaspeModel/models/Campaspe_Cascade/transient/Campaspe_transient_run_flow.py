@@ -314,7 +314,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=False):
     
         modflow_model.write_observations()
 
-        #modflow_model.waterBalanceTS()
+        #modflow_model.water_balance_TS()
     
         #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         #^^^ MODEL PREDICTIONS ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

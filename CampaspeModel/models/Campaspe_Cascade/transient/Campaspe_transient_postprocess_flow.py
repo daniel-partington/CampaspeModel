@@ -44,7 +44,7 @@ def run(model_folder, data_folder, mf_exe, param_file="", verbose=True):
    
     #plots = {}
     
-    #plots['wb'] = modflow_model.waterBalanceTS(plot=True)
+    #plots['wb'] = modflow_model.water_balance_TS(plot=True)
        
     #modflow_model.viewHeads()
     #modflow_model.viewHeads2()

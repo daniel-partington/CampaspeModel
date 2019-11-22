@@ -468,7 +468,7 @@ def run(model_folder, data_folder, mf_exe_folder, farm_zones=None, param_file=No
     ###############
 
     for gauge in stream_gauges:
-        swgw_exchanges[gauge] = modflow_model.getRivFluxNodes(
+        swgw_exchanges[gauge] = modflow_model.get_riv_flux_nodes(
             river_reach_cells[gauge])
     # End for
 

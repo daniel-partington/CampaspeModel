@@ -369,7 +369,7 @@ def run(model_folder, data_folder, mf_exe_folder, param_file="", verbose=False,
                 
     if converge:
         if plots:
-            modflow_model.waterBalance(1)
+            modflow_model.water_balance(1)
             modflow_model.viewGHB()
             modflow_model.viewHeads()
             modflow_model.viewHeads2()
